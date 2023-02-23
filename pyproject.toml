@@ -76,12 +76,7 @@ tests = [
     "pytest-mock",
 ]
 dev = [
-    "black",
-    "flake8",
-    "flake8-docstrings",
-    "pytest",
-    "pytest-mock",
-#    "market_analy[tests]", # lose above and include this line when register with PyPI
+    "market_analy[tests]",
     "pandas-stubs",
     "types-pytz",
     "mypy",

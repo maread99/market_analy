@@ -5,7 +5,7 @@
 
 A python package to analyse financial instruments.
 
-There's a load of great financial libraries out there for Technical Analysis, Charting, Backtesting, Portfolio Analysis etc. This library isn't reinventing the wheel (not intentionally anyway), rather it provides functions and interactive charting that I personally find useful and couldn't find elsewhere (at least not in a way that I wanted). It's not comprehensive, but rather fills some of the gaps.
+There's a load of great financial libraries out there for Technical Analysis, Charting, Backtesting, Portfolio Analysis etc. This library isn't reinventing the wheel (not intentionally anyway), rather it provides functions and interactive charting that I think are useful and couldn't find elsewhere. It's not comprehensive, but rather fills some of the gaps.
 
 Some functionality is general, some is focused on defining and identifying trends. Interactive charting is offered via guis created from widgets of the bqplot, ipywidgets and ipyvuetify libraries. Users can use the underlying parts to develop their own interactive charts and analyses. Contributions very much welcome! This is a WIP and it's anticipated that further analyses will be added.
 
