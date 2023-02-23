@@ -2253,7 +2253,7 @@ class TestCompare:
         gui._interval_selector.value = mp.intervals.TDInterval.H4
         assert gui._dialog.value
         assert gui._dialog.text.startswith(
-            "Data is unavailable at a sufficiently low base interval to evaluate prices at interval 4:00:00 anchored"
+            "Data is unavailable at a sufficiently low base interval to evaluate prices at interval"
         )
         gui._dialog.close_dialog()
         assert not gui._dialog.value
