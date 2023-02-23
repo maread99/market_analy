@@ -1,4 +1,10 @@
 <!-- NB any links not defined as aboslute will not resolve on PyPI page -->
+<div align="center">
+  <img src="docs/splash.png"><br>
+</div>
+
+-----------------
+
 # market_analy
 
 [![PyPI](https://img.shields.io/pypi/v/market-analy)](https://pypi.org/project/market-analy/) ![Python Support](https://img.shields.io/pypi/pyversions/market-analy) [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
