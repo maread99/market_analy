@@ -1,0 +1,30 @@
+# TODO REVISE ALL FOR market-analy
+
+name-template: 'v$NEXT_PATCH_VERSION 📈'
+tag-template: '$NEXT_PATCH_VERSION'
+categories:
+  - title: 'New Features'
+    label: 'enhancement'
+  - title: 'Deprecation'
+    label: 'deprecation'
+  - title: 'Bug Fixes'
+    labels:
+      - 'bug'
+      - 'Fix'
+  - title: 'Documentation'
+    label: 'documentation'
+  - title: 'Maintenance'
+    labels:
+      - 'maintenance'
+      - 'dependencies'
+      - 'github_actions'
+  - title: 'Testing'
+    label: 'tests'
+  - title: 'Under the Bonnet'
+    label: 'code improvement'
+  - title: 'Continuous Integration'
+    label: 'CI'
+template: |
+  # What's Changed
+
+  $CHANGES

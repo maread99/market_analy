@@ -1,0 +1,104 @@
+[build-system]
+requires = ["setuptools>=43.0.0", "wheel", "setuptools_scm[toml]>=6.2"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "market_analy"
+description = "Analysis of exchange-listed financial instruments"
+authors = [
+  {email = "marcusaread@gmail.com"},
+  {name = "Marcus Read"},
+]
+readme = "README.md"
+license = {text = "MIT License"}
+keywords = [
+    "finance",
+    "analysis",
+    "prices",
+    "historical-data",
+    "investing",
+    "stocks",
+    "currencies",
+    "forex",
+    "crypto",
+    "etf",
+    "funds",
+    "bonds",
+    "commodities",
+    "indices",
+]
+requires-python = "~=3.9"
+
+classifiers = [
+	"Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Education",
+    "Intended Audience :: Financial and Insurance Industry",
+    "Intended Audience :: Science/Research",
+	"Natural Language :: English",
+	"License :: OSI Approved :: MIT License",
+	"Operating System :: OS Independent",
+	"Programming Language :: Python",
+	"Programming Language :: Python :: 3",
+	"Programming Language :: Python :: 3 :: Only",
+	"Programming Language :: Python :: 3.9",
+	"Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+	"Programming Language :: Python :: Implementation :: CPython",
+    "Topic :: Office/Business :: Financial :: Accounting",
+]
+
+dependencies = [
+    "market-prices",
+    "exchange-calendars",
+    "pandas",
+    "Jinja2",
+    "matplotlib",
+    "numpy",
+    "bqplot",
+    "traitlets",
+    "ipywidgets>=8.0",
+    "ipyvuetify",
+]
+
+dynamic = ["version"]
+
+[project.optional-dependencies]
+jupyter = [
+    "jupyter",
+    "jupyterlab>=3.0",
+]
+tests = [
+    "black",
+    "flake8",
+    "flake8-docstrings",
+    "pytest",
+    "pytest-mock",
+]
+dev = [
+    "black",
+    "flake8",
+    "flake8-docstrings",
+    "pytest",
+    "pytest-mock",
+#    "market_analy[tests]", # lose above and include this line when register with PyPI
+    "pandas-stubs",
+    "types-pytz",
+    "mypy",
+    "pip-tools",
+    "pre-commit",
+    "pylint",
+]
+
+[project.urls]
+homepage = "https://github.com/maread99/market_analy"
+documentation = "https://github.com/maread99/market_analy"
+"Issue Tracker" = "https://github.com/maread99/market_analy/issues"
+"Source Code" = "https://github.com/maread99/market_analy"
+
+[tool.setuptools_scm]
+write_to = "src/market_analy/_version.py"
+
+[tool.black]
+line-length = 88
+target-version = ['py39', 'py310', 'py311']

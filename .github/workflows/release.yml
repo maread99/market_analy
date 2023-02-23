@@ -1,0 +1,63 @@
+# Workflow to upload a Python Package using Twine when a release is created
+name: Release to PyPI
+
+on:
+  release:
+    types: [released]
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.x'
+
+    - name: Install build dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install build
+
+    - name: Build package
+      run: python -m build
+
+    - name: Publish to Test PyPI
+      uses: pypa/gh-action-pypi-publish@release/v1
+      with:
+        user: __token__
+        password: ${{ secrets.PYPI_TEST_API_TOKEN }}
+        repository_url: https://test.pypi.org/legacy/
+
+    - name: Install from testpypi and import
+      run: |
+        i=0
+        while (($i<12)) && [ "${{ github.ref_name }}" != $(pip index versions -i https://test.pypi.org/simple --pre market_analy | cut -d'(' -f2 | cut -d')' -f1 | sed 1q) ];\
+          do echo waiting for package to appear in test index, sleeping 5s; sleep 5s; let i++; done
+        pip install --index-url https://test.pypi.org/simple market_analy==${{ github.ref_name }} --no-deps
+        pip install -r etc/requirements.txt
+        python -c 'import market_analy;print(market_analy.__version__)'
+
+    - name: Clean pip
+      run: |
+        pip uninstall -y market_analy
+        pip cache purge
+
+    - name: Publish to PyPI
+      uses: pypa/gh-action-pypi-publish@release/v1
+      with:
+        user: __token__
+        password: ${{ secrets.PYPI_API_TOKEN }}
+
+    - name: Install and import
+      run: |
+        i=0
+        while (($i<12)) && [ "${{ github.ref_name }}" != $(pip index versions -i https://pypi.org/simple --pre market_analy | cut -d'(' -f2 | cut -d')' -f1 | sed 1q) ];\
+          do echo waiting for package to appear in index, sleeping 5s; sleep 5s; let i++; done
+        pip install --index-url https://pypi.org/simple market_analy==${{ github.ref_name }}
+        python -c 'import market_analy;print(market_analy.__version__)'
