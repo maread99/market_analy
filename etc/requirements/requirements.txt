@@ -188,7 +188,7 @@ widgetsnbextension==4.0.5
     # via ipywidgets
 yahooquery==2.3.0
     # via market-prices
-zipp==3.14.0
+zipp==3.15.0
     # via
     #   importlib-metadata
     #   importlib-resources
