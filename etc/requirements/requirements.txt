@@ -115,7 +115,7 @@ pillow==9.4.0
     # via matplotlib
 platformdirs==3.0.0
     # via jupyter-core
-prompt-toolkit==3.0.37
+prompt-toolkit==3.0.38
     # via ipython
 psutil==5.9.4
     # via ipykernel
