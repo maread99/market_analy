@@ -125,7 +125,7 @@ pydantic==1.10.5
     # via market-prices
 pygments==2.14.0
     # via ipython
-pyluach==2.1.0
+pyluach==2.2.0
     # via exchange-calendars
 pyparsing==3.0.9
     # via matplotlib
