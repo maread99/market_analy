@@ -31,7 +31,6 @@ from __future__ import annotations
 
 from abc import ABCMeta, abstractmethod
 from collections.abc import Callable
-from copy import copy
 from contextlib import contextmanager
 from typing import Literal
 
@@ -192,7 +191,7 @@ class Base(metaclass=ABCMeta):
 
     def _create_chart(
         self, data: pd.DataFrame | pd.Series, title: str | None, **kwargs
-    ):
+    ) -> charts.Base:
         """Create chart.
 
         Notes
@@ -331,8 +330,8 @@ class Base(metaclass=ABCMeta):
         """Delete all gui widgets."""
         self.close()
         self.chart.delete()
-        for widget in copy(self._widgets):
-            del widget
+        for _ in range(len(self._widgets)):
+            del self._widgets[0]
 
     def display(self):
         """Display gui."""
@@ -548,6 +547,7 @@ class BasePrice(BaseVariableDates):
     GUI comprises:
 
     IconRow: Icons to undertake chart operations.
+    w.ToggleButtons: Toggle buttons to select interval (optional)
     Figure: plot
     wu.DateRangeSlider: slider to interactively set chart dates
     HtmlOutput: Housing for html output.
@@ -579,6 +579,11 @@ class BasePrice(BaseVariableDates):
     In addition, subclasses can optionally extend:
 
         Inherited methods as described by Base documentation.
+
+        The following class attributes introduced by this class:
+            _HAS_INTERVAL_SELECTOR : bool, default: True
+                Set to False on subclass to not include the
+                `w.ToggleButtons` that provides for changing tick interval.
 
         The following properties introduced by this class:
 
@@ -612,14 +617,16 @@ class BasePrice(BaseVariableDates):
         "1T",
     ]
     TICK_INTERVALS_PT = [to_ptinterval(ti) for ti in TICK_INTERVALS]
+    _HAS_INTERVAL_SELECTOR = True
 
     def __init__(
         self,
         analysis: analysis.Analysis,
         interval: mp.intervals.RowInterval | None = None,
         max_ticks: int | None = None,
-        log_scale=True,
-        display=True,
+        log_scale: bool = True,
+        display: bool = True,
+        chart_kwargs: dict | None = None,
         **kwargs,
     ):
         """Create GUI.
@@ -643,6 +650,9 @@ class BasePrice(BaseVariableDates):
         display
             True to display created GUI.
 
+        chart_kwargs
+            Any kwargs to pass on to the chart class.
+
         **kwargs
             Period for which to plot prices. Passed as period parameters as
             described by market-prices documentation for `PricesCls.get`
@@ -651,6 +661,7 @@ class BasePrice(BaseVariableDates):
             `analysis`.
         """
         assert issubclass(self.ChartCls, charts.BasePrice)
+        chart_kwargs = {} if chart_kwargs is None else chart_kwargs
         ptinterval = None if interval is None else to_ptinterval(interval)
         self._analysis = analysis
         self._initial_price_params: dict  # set by _get_initial_prices
@@ -661,6 +672,7 @@ class BasePrice(BaseVariableDates):
             max_ticks=max_ticks,
             display=display,
             log_scale=log_scale,
+            **chart_kwargs,
         )
 
     @property
@@ -807,7 +819,10 @@ class BasePrice(BaseVariableDates):
         self._set_mark_handlers()
         self._icon_row_top: gui_parts.IconRowTop = self._create_icon_row_top()
 
-        if self.chart.tick_interval not in self.TICK_INTERVALS_PT:
+        if (
+            not self._HAS_INTERVAL_SELECTOR
+            or self.chart.tick_interval not in self.TICK_INTERVALS_PT
+        ):
             self._interval_selector: w.ToggleButtons | None = None
         else:
             self._interval_selector = self._create_intrvl_slctr()
@@ -928,7 +943,7 @@ class BasePrice(BaseVariableDates):
         interval = self._operation_interval
         method = getattr(self._analysis, direction)
         return method(
-            interval=self._interval_selector.value,
+            interval=self._tick_interval,
             start=interval.left,
             end=interval.right,
             style=style,
@@ -1476,12 +1491,6 @@ class ChartMultLine(BasePrice):
 class ChartOHLC(BasePrice):
     """GUI to display and interact with a OHLC Chart."""
 
-    from_breaks = pd.IntervalIndex.from_breaks
-    STYLE = pd.DataFrame(
-        {"stroke_width": [1.0, 0.8, 0.5, 0.3, 0.1]},
-        index=from_breaks([0, 50, 70, 180, 548, 365 * 100], closed="right"),
-    )
-
     @property
     def ChartCls(self) -> type[charts.Base]:
         return charts.OHLC
@@ -1593,7 +1602,7 @@ class PctChg(BaseVariableDates):
     def SelectorCls(self) -> type[Selector] | None:
         return None
 
-    def _create_date_slider(self, **kwargs):
+    def _create_date_slider(self, **_):
         return super()._create_date_slider(layout={"margin": "30px 0 15px 0"})
 
     def _create_gui_parts(self):
