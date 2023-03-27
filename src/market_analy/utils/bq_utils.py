@@ -59,12 +59,12 @@ def discontinuous_date_to_timestamp(value: np.int64) -> pd.Timestamp:
     Parameters
     ----------
     value
-        Value of an OrdinalScale represtenting a date which require as
+        Value of an OrdinalScale representing a date which require as
         pd.Timestamp.
     """
     # utc version of fromtimestamp ensures that operation is the inverse
     # of dates_to_posix
-    return pd.Timestamp.fromtimestamp(value / 1000)
+    return pd.Timestamp.fromtimestamp(value / 1000, tz="UTC").tz_convert(None)
 
 
 class _LevelLine(Lines):

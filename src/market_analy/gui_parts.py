@@ -489,7 +489,7 @@ class BarTypeToggle(_BiToggle):
         super().__init__(**d)
 
 
-def _but(
+def create_icon_but(
     icon_name: str,
     tooltip: str,
     color: str,
@@ -517,13 +517,15 @@ def _but(
             but.on_event('click', handler)
 
     **kwargs
-        Passed on to `IconBut`. Will not pass on parameters defined by method
-        to maintain legend button style.
+        Passed on to `IconBut`. Will not pass on parameters defined by
+        method to maintain legend button style.
     """
     kwargs["icon_name"] = icon_name
     kwargs["tooltip"] = tooltip
     kwargs["color"] = color
-    tt_kwargs = {"color": color}
+
+    dark = kwargs.get("dark", False) and (dark_color := kwargs.get("dark_color", False))
+    tt_kwargs = {"color": dark_color if dark else color}
     tt_kwargs = set_kwargs_from_dflt(tt_kwargs, TT_KWARGS_DFLT)
     tt_kwargs = set_kwargs_from_dflt(kwargs.pop("tt_kwargs", {}), tt_kwargs, deep=True)
     but = vu.IconBut(tt_kwargs=tt_kwargs, **kwargs)
@@ -546,7 +548,7 @@ def legend_but(handler: Callable | None = None, **kwargs) -> vu.IconBut:
         Passed on to `IconBut`. Will not pass on parameters defined by
         method to maintain legend button style.
     """
-    return _but(
+    return create_icon_but(
         icon_name="fa-list-alt",
         tooltip="Cycle legend location",
         color="white",
@@ -569,7 +571,7 @@ def rebase_but(handler: Callable | None = None, **kwargs) -> vu.IconBut:
         Passed on to `IconBut`. Will not pass on parameters defined by
         method to maintain legend button style.
     """
-    return _but(
+    return create_icon_but(
         icon_name="fa-dot-circle-o",
         tooltip="Rebase prices",
         color="orange",

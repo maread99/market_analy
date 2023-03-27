@@ -77,10 +77,18 @@ The color scheme assumes the package is being used with the JupyterLab dark them
 
 Most of the arguments available to the market-prices `get` function can be passed directly to the `market_analy` functions. See the [market-prices][market-prices] documentation for further info.
 
-## Disclaimers
-`market-analy` should not be assumed sufficiently reliable to undertake analysis intended to inform investment decisions. Users should inspect the source code and the test suite of the library and its dependencies in order to make their own assessment of the packages' suitability for their purposes. **The `market-analy` package is used entirely at the user's own risk.**
+## Release schedule, bugs, development and feedback
+
+The first beta version of `market_analy` was released Feb 2023. It's anticipated that functionality to define and visually interrogate trends will be added later in 2023.
+
+The project is immature. Whilst it's not anticipated that major changes will be made to the exisiting public side, they could be. All that's under-the-bonnet is subject to change as the project evolves. The `guis` module in particular won't permit much further development without overhauling the current inheritance-based approach to a compositional one.
 
 The test suite is limited. It's pretty much guaranteed that there are bugs. Please raise an [issue](https://github.com/maread99/market_analy/issues) if you find one or come across unexpected behaviour.
+
+Please use [discussions](https://github.com/maread99/market_analy/discussions) to make any suggestions and offer general feedback.
+
+## Disclaimers
+`market-analy` should not be assumed sufficiently reliable to undertake analysis intended to inform investment decisions. Users should inspect the source code and the test suite of the library and its dependencies in order to make their own assessment of the packages' suitability for their purposes. **The `market-analy` package is used entirely at the user's own risk.**
 
 The default `market_prices.PricesYahoo` class gets data from publically available Yahoo APIs. **See the [Disclaimers section of the market-prices README](https://github.com/maread99/market_prices#disclaimers) for conditions of use**, including restrictions.
 

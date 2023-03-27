@@ -254,6 +254,7 @@ class Base(metaclass=ABCMeta):
 
     @data.setter
     def data(self, data: pd.DataFrame | pd.Series):
+        data = data.copy()
         if isinstance(data.index, pd.IntervalIndex):
             data.index = upd.interval_index_new_tz(data.index, None)
         elif data.index.tz is not None:
@@ -550,8 +551,8 @@ class Base(metaclass=ABCMeta):
         Extend on subclass to pass through any additional kwargs. Can
         also pass through +title_style+ to override default value.
         """
-        kwargs["marks"] = [self.mark]
-        kwargs["axes"] = self.axes
+        kwargs.setdefault("marks", [self.mark])
+        kwargs.setdefault("axes", self.axes)
         kwargs.setdefault("background_style", {"fill": "#222222"})
         kwargs.setdefault("title_style", CHART_TITLE_STYLE)
         return bq.Figure(**kwargs)
@@ -635,8 +636,8 @@ class Base(metaclass=ABCMeta):
     def delete(self):
         """Delete all chart widgets."""
         self.close()
-        for widget in copy(self._widgets):
-            del widget
+        for _ in range(len(self._widgets)):
+            del self._widgets[0]
 
     def display(self):
         """Display chart."""
@@ -1689,7 +1690,6 @@ class OHLC(BasePrice):
             together with +visible_x_ticks+ and `visible_x_ticks` is longer
             than max_ticks then `visible_x_ticks` will be curtailed.
 
-
         log_scale
             True to plot prices against a log scale.
 
@@ -1725,17 +1725,15 @@ class OHLC(BasePrice):
         s += "</p>"
         return s
 
-    def _create_mark(self, **_) -> bq.OHLC:
-        return super()._create_mark(
-            format="ohlc",
-            marker="candle",
-            stroke="white",
-            stroke_width=0.5,
-            colors=["SkyBlue", "DarkOrange"],
-        )
+    def _create_mark(self, **kwargs) -> bq.OHLC:
+        kwargs.setdefault("stroke", "white")
+        kwargs.setdefault("stroke_width", 0.5)
+        kwargs.setdefault("colors", ["SkyBlue", "DarkOrange"])
+        return super()._create_mark(format="ohlc", marker="candle", **kwargs)
 
-    def _create_figure(self, **_) -> bq.Figure:
-        return super()._create_figure(padding_x=0.005)
+    def _create_figure(self, **kwargs) -> bq.Figure:
+        kwargs.setdefault("padding_x", 0.005)
+        return super()._create_figure(**kwargs)
 
     def _update_stroke_width(self):
         mask = self.STYLE.index.contains(len(self.plotted_x_ticks))

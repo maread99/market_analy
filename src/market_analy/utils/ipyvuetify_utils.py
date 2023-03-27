@@ -217,8 +217,8 @@ class IconBut(vue.Btn):
         **kwargs,
     ):
         self.tt: vue.Tooltip
-        self._dark_icon_color = dark_color
-        self._light_icon_color = color
+        self.color_dark = dark_color
+        self.color_light = color
 
         assert "children" not in kwargs
         kwargs.setdefault("height", self.icon_dim)
@@ -228,7 +228,7 @@ class IconBut(vue.Btn):
         kwargs.setdefault("class_", self.def_class_)
         kwargs.setdefault("icon", True)
 
-        color = self._dark_icon_color if dark else self._light_icon_color
+        color = self.color_dark if dark else self.color_light
 
         super().__init__(
             children=[vue.Icon(children=[icon_name], small=True, color=color)], **kwargs
@@ -241,14 +241,15 @@ class IconBut(vue.Btn):
     @icon_color.setter
     def icon_color(self, color: str):
         self.children[0].color = color
+        self.tt.color = color
 
     def darken(self):
         """Darken icon color."""
-        self.icon_color = self._dark_icon_color
+        self.icon_color = self.color_dark
 
     def lighten(self):
         """Lighten icon color."""
-        self.icon_color = self._light_icon_color
+        self.icon_color = self.color_light
 
 
 class ToggleIcon(IconBut):
