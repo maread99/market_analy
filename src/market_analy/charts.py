@@ -1712,8 +1712,8 @@ class OHLC(BasePrice):
     def MarkCls(self) -> type[bq.Mark]:
         return bq.OHLC
 
-    def _tooltip_value(self, mark, data):
-        i = data["data"]["index"]
+    def _tooltip_value(self, mark: bq.OHLC, event: dict) -> str:
+        i = event["data"]["index"]
         row = self.data.iloc[i]
         color = mark.colors[0] if row.close >= row.open else mark.colors[1]
         style = self._tooltip_style(color=color, line_height=1.3)

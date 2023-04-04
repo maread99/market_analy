@@ -81,7 +81,7 @@ Most of the arguments available to the market-prices `get` function can be passe
 
 The first beta version of `market_analy` was released Feb 2023. It's anticipated that functionality to define and visually interrogate trends will be added later in 2023.
 
-The project is immature. Whilst it's not anticipated that major changes will be made to the exisiting public side, they could be. All that's under-the-bonnet is subject to change as the project evolves. The `guis` module in particular won't permit much further development without overhauling the current inheritance-based approach to a compositional one.
+The project is immature. Whilst it's not anticipated that major changes will be made to the existing public side, they could be. All that's under-the-bonnet is subject to change as the project evolves. The `guis` module in particular won't permit much further development without overhauling the current inheritance-based approach to a compositional one.
 
 The test suite is limited. It's pretty much guaranteed that there are bugs. Please raise an [issue](https://github.com/maread99/market_analy/issues) if you find one or come across unexpected behaviour.
 
