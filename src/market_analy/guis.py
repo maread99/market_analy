@@ -34,6 +34,7 @@ from collections.abc import Callable
 from contextlib import contextmanager
 from typing import Literal
 
+import bqplot as bq
 from bqplot.interacts import Selector
 import exchange_calendars as xcals
 import IPython
@@ -1489,7 +1490,13 @@ class ChartMultLine(BasePrice):
 
 
 class ChartOHLC(BasePrice):
-    """GUI to display and interact with a OHLC Chart."""
+    """GUI to display and interact with a OHLC Chart.
+
+    Properties (in addition to inhertied)
+    ----------
+    last_selected -> pd.Series:
+        Price data row corresponding with most recently clicked bar.
+    """
 
     @property
     def ChartCls(self) -> type[charts.Base]:
@@ -1524,7 +1531,7 @@ class ChartOHLC(BasePrice):
         }
         return self.SelectorCls(**kw_args)
 
-    def _add_crosshair_handler(self, mark, event):
+    def _add_crosshair_handler(self, mark: bq.OHLC, event: dict):
         if self.tabs_control.cursor_toggle.selected != "plus":
             return
         index = event["data"]["index"]
@@ -1544,8 +1551,28 @@ class ChartOHLC(BasePrice):
 
         self.add_crosshair(x=x, y=y)
 
+    def _display_mark_data(self, mark: bq.OHLC, event: dict):
+        s = self.chart._tooltip_value(mark, event)
+        self.html_output.display(s)
+
+    @property
+    def last_selected(self) -> pd.Series:
+        """Price data row corresponding with most recently clicked mark."""
+        return self._last_selected
+
+    def _selected_mark_handler(self, mark: bq.OHLC, event: dict):
+        self._display_mark_data(mark, event)
+        i = event["data"]["index"]
+        self._last_selected = self.chart.data.iloc[i]
+
+    def _mark_handler(self, mark: bq.OHLC, event: dict):
+        if self.tabs_control.cursor_toggle.selected == "plus":
+            self._add_crosshair_handler(mark, event)
+        else:
+            self._selected_mark_handler(mark, event)
+
     def _set_mark_handlers(self):
-        self.chart.mark.on_element_click(self._add_crosshair_handler)
+        self.chart.mark.on_element_click(self._mark_handler)
 
 
 class PctChg(BaseVariableDates):
