@@ -4,25 +4,25 @@
 #
 #    pip-compile --extra=dev --output-file=./etc/requirements_dev.txt pyproject.toml
 #
-astroid==2.14.2
+astroid==2.15.2
     # via pylint
 asttokens==2.2.1
     # via stack-data
-attrs==22.2.0
-    # via pytest
 backcall==0.2.0
     # via ipython
-black==23.1.0
-    # via market-analy (pyproject.toml)
-bqplot==0.12.36
-    # via market-analy (pyproject.toml)
+black==23.3.0
+    # via market-analy
+bqplot==0.12.38
+    # via
+    #   market-analy
+    #   market-analy (pyproject.toml)
 build==0.10.0
     # via pip-tools
 certifi==2022.12.7
     # via requests
 cfgv==3.3.1
     # via pre-commit
-charset-normalizer==3.0.1
+charset-normalizer==3.1.0
     # via requests
 click==8.1.3
     # via
@@ -36,13 +36,13 @@ colorama==0.4.6
     #   pylint
     #   pytest
     #   tqdm
-comm==0.1.2
+comm==0.1.3
     # via ipykernel
 contourpy==1.0.7
     # via matplotlib
 cycler==0.11.0
     # via matplotlib
-debugpy==1.6.6
+debugpy==1.6.7
     # via ipykernel
 decorator==5.1.1
     # via ipython
@@ -50,62 +50,68 @@ dill==0.3.6
     # via pylint
 distlib==0.3.6
     # via virtualenv
-exceptiongroup==1.1.0
+exceptiongroup==1.1.1
     # via pytest
-exchange-calendars==4.2.5
+exchange-calendars==4.2.6
     # via
+    #   market-analy
     #   market-analy (pyproject.toml)
     #   market-prices
 executing==1.2.0
     # via stack-data
-filelock==3.9.0
+filelock==3.11.0
     # via virtualenv
 flake8==6.0.0
     # via
     #   flake8-docstrings
-    #   market-analy (pyproject.toml)
+    #   market-analy
 flake8-docstrings==1.7.0
-    # via market-analy (pyproject.toml)
-fonttools==4.38.0
+    # via market-analy
+fonttools==4.39.3
     # via matplotlib
-identify==2.5.18
+identify==2.5.22
     # via pre-commit
 idna==3.4
     # via requests
-importlib-metadata==6.0.0
+importlib-metadata==6.3.0
     # via jupyter-client
 importlib-resources==5.12.0
     # via matplotlib
 iniconfig==2.0.0
     # via pytest
-ipykernel==6.21.2
+ipykernel==6.22.0
     # via ipywidgets
-ipython==8.10.0
+ipython==8.12.0
     # via
     #   ipykernel
     #   ipywidgets
-ipyvue==1.8.0
+ipyvue==1.9.0
     # via ipyvuetify
-ipyvuetify==1.8.4
-    # via market-analy (pyproject.toml)
-ipywidgets==8.0.4
+ipyvuetify==1.8.5
+    # via
+    #   market-analy
+    #   market-analy (pyproject.toml)
+ipywidgets==8.0.6
     # via
     #   bqplot
     #   ipyvue
+    #   market-analy
     #   market-analy (pyproject.toml)
 isort==5.12.0
     # via pylint
 jedi==0.18.2
     # via ipython
 jinja2==3.1.2
-    # via market-analy (pyproject.toml)
-jupyter-client==8.0.3
+    # via
+    #   market-analy
+    #   market-analy (pyproject.toml)
+jupyter-client==8.1.0
     # via ipykernel
-jupyter-core==5.2.0
+jupyter-core==5.3.0
     # via
     #   ipykernel
     #   jupyter-client
-jupyterlab-widgets==3.0.5
+jupyterlab-widgets==3.0.7
     # via ipywidgets
 kiwisolver==1.4.4
     # via matplotlib
@@ -115,12 +121,18 @@ lazy-object-proxy==1.9.0
     # via astroid
 lxml==4.9.2
     # via yahooquery
-market-prices==0.10.1
+market-analy[tests]==0.2
     # via market-analy (pyproject.toml)
+market-prices==0.10.2
+    # via
+    #   market-analy
+    #   market-analy (pyproject.toml)
 markupsafe==2.1.2
     # via jinja2
-matplotlib==3.7.0
-    # via market-analy (pyproject.toml)
+matplotlib==3.7.1
+    # via
+    #   market-analy
+    #   market-analy (pyproject.toml)
 matplotlib-inline==0.1.6
     # via
     #   ipykernel
@@ -129,7 +141,7 @@ mccabe==0.7.0
     # via
     #   flake8
     #   pylint
-mypy==1.0.1
+mypy==1.2.0
     # via market-analy (pyproject.toml)
 mypy-extensions==1.0.0
     # via
@@ -144,6 +156,7 @@ numpy==1.24.2
     #   bqplot
     #   contourpy
     #   exchange-calendars
+    #   market-analy
     #   market-analy (pyproject.toml)
     #   market-prices
     #   matplotlib
@@ -155,26 +168,27 @@ packaging==23.0
     #   ipykernel
     #   matplotlib
     #   pytest
-pandas==1.5.3
+pandas==2.0.0
     # via
     #   bqplot
     #   exchange-calendars
+    #   market-analy
     #   market-analy (pyproject.toml)
     #   market-prices
     #   yahooquery
-pandas-stubs==1.5.3.230214
+pandas-stubs==1.5.3.230321
     # via market-analy (pyproject.toml)
 parso==0.8.3
     # via jedi
-pathspec==0.11.0
+pathspec==0.11.1
     # via black
 pickleshare==0.7.5
     # via ipython
-pillow==9.4.0
+pillow==9.5.0
     # via matplotlib
-pip-tools==6.12.2
+pip-tools==6.13.0
     # via market-analy (pyproject.toml)
-platformdirs==3.0.0
+platformdirs==3.2.0
     # via
     #   black
     #   jupyter-core
@@ -182,9 +196,9 @@ platformdirs==3.0.0
     #   virtualenv
 pluggy==1.0.0
     # via pytest
-pre-commit==3.1.0
+pre-commit==3.2.2
     # via market-analy (pyproject.toml)
-prompt-toolkit==3.0.37
+prompt-toolkit==3.0.38
     # via ipython
 psutil==5.9.4
     # via ipykernel
@@ -192,7 +206,7 @@ pure-eval==0.2.2
     # via stack-data
 pycodestyle==2.10.0
     # via flake8
-pydantic==1.10.5
+pydantic==1.10.7
     # via market-prices
 pydocstyle==6.3.0
     # via flake8-docstrings
@@ -200,36 +214,36 @@ pyflakes==3.0.1
     # via flake8
 pygments==2.14.0
     # via ipython
-pylint==2.16.2
+pylint==2.17.2
     # via market-analy (pyproject.toml)
-pyluach==2.1.0
+pyluach==2.2.0
     # via exchange-calendars
 pyparsing==3.0.9
     # via matplotlib
 pyproject-hooks==1.0.0
     # via build
-pytest==7.2.1
+pytest==7.3.0
     # via
-    #   market-analy (pyproject.toml)
+    #   market-analy
     #   pytest-mock
 pytest-mock==3.10.0
-    # via market-analy (pyproject.toml)
+    # via market-analy
 python-dateutil==2.8.2
     # via
     #   exchange-calendars
     #   jupyter-client
     #   matplotlib
     #   pandas
-pytz==2022.7.1
+pytz==2023.3
     # via
     #   exchange-calendars
     #   market-prices
     #   pandas
-pywin32==305
+pywin32==306
     # via jupyter-core
 pyyaml==6.0
     # via pre-commit
-pyzmq==25.0.0
+pyzmq==25.0.2
     # via
     #   ipykernel
     #   jupyter-client
@@ -253,7 +267,7 @@ tomli==2.0.1
     #   pylint
     #   pyproject-hooks
     #   pytest
-tomlkit==0.11.6
+tomlkit==0.11.7
     # via pylint
 toolz==0.12.0
     # via exchange-calendars
@@ -261,7 +275,7 @@ tornado==6.2
     # via
     #   ipykernel
     #   jupyter-client
-tqdm==4.64.1
+tqdm==4.65.0
     # via yahooquery
 traitlets==5.9.0
     # via
@@ -272,12 +286,13 @@ traitlets==5.9.0
     #   ipywidgets
     #   jupyter-client
     #   jupyter-core
+    #   market-analy
     #   market-analy (pyproject.toml)
     #   matplotlib-inline
     #   traittypes
 traittypes==0.2.1
     # via bqplot
-types-pytz==2022.7.1.2
+types-pytz==2023.3.0.0
     # via
     #   market-analy (pyproject.toml)
     #   pandas-stubs
@@ -285,24 +300,27 @@ typing-extensions==4.5.0
     # via
     #   astroid
     #   black
+    #   ipython
     #   mypy
     #   pydantic
     #   pylint
-urllib3==1.26.14
+tzdata==2023.3
+    # via pandas
+urllib3==1.26.15
     # via requests
-virtualenv==20.19.0
+virtualenv==20.21.0
     # via pre-commit
 wcwidth==0.2.6
     # via prompt-toolkit
-wheel==0.38.4
+wheel==0.40.0
     # via pip-tools
-widgetsnbextension==4.0.5
+widgetsnbextension==4.0.7
     # via ipywidgets
-wrapt==1.14.1
+wrapt==1.15.0
     # via astroid
-yahooquery==2.3.0
+yahooquery==2.3.1
     # via market-prices
-zipp==3.14.0
+zipp==3.15.0
     # via
     #   importlib-metadata
     #   importlib-resources
