@@ -140,7 +140,7 @@ pytz==2023.3
     #   exchange-calendars
     #   market-prices
     #   pandas
-pywin32==306
+# pywin32==306
     # via jupyter-core
 pyzmq==25.0.2
     # via
