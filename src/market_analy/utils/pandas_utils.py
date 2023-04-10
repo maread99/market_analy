@@ -244,7 +244,9 @@ def interval_index_new_tz(
     >>> index = pd.IntervalIndex.from_arrays(left, right)
     >>> index.right.tz
     <DstTzInfo 'US/Central' LMT-1 day, 18:09:00 STD>
-    >>> new_index = interval_index_new_tz(index, tz="UTC")
+    >>> new_index = interval_index_new_tz(index, tz=pytz.UTC)
+    >>> new_index.left.tz == new_index.right.tz == pytz.UTC
+    True
     >>> new_index.left.tz.zone == new_index.right.tz.zone == "UTC"
     True
     >>> tz_naive = interval_index_new_tz(index, tz=None)

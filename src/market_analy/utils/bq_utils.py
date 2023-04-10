@@ -23,7 +23,7 @@ COLORS_DARK_8 = [
     "hotpink",
     "darkorange",
     "lightskyblue",
-    "beige",
+    "burlywood",
     "red",
     "mediumorchid",
 ]
