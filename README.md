@@ -59,7 +59,7 @@ Then call:
 
 Alternatively, it's possible to use an existing Jupyter installation in a separate environment to that in which `market_analy` is installed. In this case:
 * The following dependencies should additionally be installed **in the environment to which Jupyter is installed**:
-  - `jupyterlab>=3.0`
+  - `jupyterlab>=3.6.1`
   - `ipyvuetify`
   - `bqplot`
 * Jupyter should be called with the following arguments:
