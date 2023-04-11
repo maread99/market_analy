@@ -10,7 +10,7 @@ backcall==0.2.0
     # via ipython
 black==23.3.0
     # via market-analy (pyproject.toml)
-bqplot==0.12.38
+bqplot==0.12.39
     # via market-analy (pyproject.toml)
 certifi==2022.12.7
     # via requests
@@ -157,7 +157,7 @@ pydocstyle==6.3.0
     # via flake8-docstrings
 pyflakes==3.0.1
     # via flake8
-pygments==2.14.0
+pygments==2.15.0
     # via ipython
 pyluach==2.2.0
     # via exchange-calendars

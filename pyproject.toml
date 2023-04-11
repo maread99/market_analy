@@ -66,7 +66,7 @@ dynamic = ["version"]
 [project.optional-dependencies]
 jupyter = [
     "jupyter",
-    "jupyterlab>=3.0",
+    "jupyterlab>=3.6.1",
 ]
 tests = [
     "black",
@@ -77,6 +77,7 @@ tests = [
 ]
 dev = [
     "market_analy[tests]",
+    "jupyterlab>=3.6.1",
     "pandas-stubs",
     "types-pytz",
     "mypy",
