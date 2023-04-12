@@ -49,7 +49,7 @@ The package can be installed to the activated environment via pip:
 
 `$ pip install market-analy`
 
-Plots are intended to be created in a Jupyter Notebook or JupyterLab. The 'jupyter' optional dependencies can be specified to additionally install `jupyter` and `jupyterlab` to the target environment.
+Plots are intended to be created in JupyterLab. The 'jupyter' optional dependencies can be specified to additionally install `jupyter` and `jupyterlab` to the target environment.
 
 `$ pip install market-analy[jupyter]`
 
@@ -64,6 +64,8 @@ Alternatively, it's possible to use an existing Jupyter installation in a separa
   - `bqplot`
 * Jupyter should be called with the following arguments:
   - `jupyter nbextension enable --py --sys-prefix ipyvuetify`
+* A kernel should be created for the virtual environment to which `market_analy` was installed. By executing the following, with the virutal environment activated, the created kernel should be made available to all installed versions of `jupyterlab`.
+  - `python -m ipykernel install --user --name mkt_analy --display-name "Market Analy VE"`
 
 > :information_source: Unfortunately plots do not render in a VSCode notebook.
 
