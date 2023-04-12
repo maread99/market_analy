@@ -49,7 +49,7 @@ The package can be installed to the activated environment via pip:
 
 `$ pip install market-analy`
 
-Plots are intended to be created in JupyterLab. The 'jupyter' optional dependencies can be specified to additionally install `jupyter` and `jupyterlab` to the target environment.
+Plots are intended to be created in JupyterLab (they will not load in a notebook opened in VSCode). The 'jupyter' optional dependencies can be specified to additionally install `jupyter` and `jupyterlab` to the target environment.
 
 `$ pip install market-analy[jupyter]`
 
@@ -57,17 +57,16 @@ Then call:
 
 `jupyter nbextension enable --py --sys-prefix ipyvuetify`
 
-Alternatively, it's possible to use an existing Jupyter installation in a separate environment to that in which `market_analy` is installed. In this case:
-* The following dependencies should additionally be installed **in the environment to which Jupyter is installed**:
-  - `jupyterlab>=3.6.1`
+Alternatively, it's possible to use an existing JupyterLab installation (>=3.0) in a separate environment to that in which `market_analy` is installed. In this case:
+* The following dependencies should additionally be installed **in the environment to which JupyterLab is installed**:
   - `ipyvuetify`
   - `bqplot`
 * Jupyter should be called with the following arguments:
   - `jupyter nbextension enable --py --sys-prefix ipyvuetify`
-* A kernel should be created for the virtual environment to which `market_analy` was installed. By executing the following, with the virutal environment activated, the created kernel should be made available to all installed versions of `jupyterlab`.
-  - `python -m ipykernel install --user --name mkt_analy --display-name "Market Analy VE"`
+* A kernel should be created for **the environment to which `market_analy` was installed**. Executing the following, with any virutal environment activated, will create a kernel and make it available to all installed versions of `jupyterlab`.
+  - `python -m ipykernel install --user --name mkt_analy --display-name "market analy env"`
 
-> :information_source: Unfortunately plots do not render in a VSCode notebook.
+> :warning: If starting JupyterLab from a different environment to the environment in which `market_analy` is installed then **the same versions of `ipyvuetify` and `bqplot` must be installed to both environments**. If either of these packages is subsequently upgraded in one environment then it must also be upgraded in the other. (This is due to the potential for conflicts between the versions in the JupyterLab environment, which are responsible for the frontend, and those in the `market_analy` environment where the backend is defined.)
 
 ### Color scheme
 The color scheme assumes the package is being used with the JupyterLab dark theme. There are no plans to provide a 'light theme' option (although a contribution would certainly be welcome from anyone seeking one).
