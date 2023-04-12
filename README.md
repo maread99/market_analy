@@ -53,16 +53,10 @@ Plots are intended to be created in JupyterLab (they will not load in a notebook
 
 `$ pip install market-analy[jupyter]`
 
-Then call:
-
-`jupyter nbextension enable --py --sys-prefix ipyvuetify`
-
 Alternatively, it's possible to use an existing JupyterLab installation (>=3.0) in a separate environment to that in which `market_analy` is installed. In this case:
 * The following dependencies should additionally be installed **in the environment to which JupyterLab is installed**:
   - `ipyvuetify`
   - `bqplot`
-* Jupyter should be called with the following arguments:
-  - `jupyter nbextension enable --py --sys-prefix ipyvuetify`
 * A kernel should be created for **the environment to which `market_analy` was installed**. Executing the following, with any virutal environment activated, will create a kernel and make it available to all installed versions of `jupyterlab`.
   - `python -m ipykernel install --user --name mkt_analy --display-name "market analy env"`
 
