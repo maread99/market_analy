@@ -61,7 +61,7 @@ jedi==0.18.2
     # via ipython
 jinja2==3.1.2
     # via market-analy (pyproject.toml)
-jupyter-client==8.1.0
+jupyter-client==8.2.0
     # via ipykernel
 jupyter-core==5.3.0
     # via
