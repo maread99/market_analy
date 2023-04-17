@@ -117,7 +117,7 @@ platformdirs==3.2.0
     # via jupyter-core
 prompt-toolkit==3.0.38
     # via ipython
-psutil==5.9.4
+psutil==5.9.5
     # via ipykernel
 pure-eval==0.2.2
     # via stack-data
