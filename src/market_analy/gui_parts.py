@@ -4,7 +4,7 @@ Widgets define the GUI, they do NOT define any event handling.
 
 Functions
 ---------
-loading_overlay() -> vue.Overlay:
+loading_overlay() -> v.Overlay:
     Overlay application with transparent sheet with loading symbol.
 
 close_but() -> wu.ButtonIcon:
@@ -50,7 +50,7 @@ from contextlib import contextmanager
 import re
 
 import ipywidgets as w
-import ipyvuetify as vue
+import ipyvuetify as v
 from market_prices import intervals
 
 import market_analy.utils.ipywidgets_utils as wu
@@ -153,10 +153,10 @@ class IntervalSelector(w.ToggleButtons):
             self.value = value
 
 
-def loading_overlay() -> vue.Overlay:
+def loading_overlay() -> v.Overlay:
     """Overlay application with opaque sheet with loading symbol."""
-    prog = vue.ProgressCircular(indeterminate=True, color="white", size=30)
-    return vue.Overlay(color="grey", value=False, absolute=True, children=[prog])
+    prog = v.ProgressCircular(indeterminate=True, color="white", size=30)
+    return v.Overlay(color="grey", value=False, absolute=True, children=[prog])
 
 
 class Dialog(vu.Dialog):
@@ -207,7 +207,7 @@ class IconRowTop(wu.IconRow):
             child.tooltip = tooltips[i]
 
 
-class TabsControl(vue.Tabs):
+class TabsControl(v.Tabs):
     """Tabs widget.
 
     Includes:
@@ -235,13 +235,13 @@ class TabsControl(vue.Tabs):
     _tab_container_class_ = "d-flex justify-center align-center"
 
     def __init__(self):
-        self.cursor_objs: vue.Layout
+        self.cursor_objs: v.Layout
         self.cursor_toggle: vu.ToggleIcons
         self.but_lightbulb: vu.IconBut
         self.but_trash: vu.IconBut
         self._create_cursor_tab_content()
 
-        self.slctr_objs: vue.Layout
+        self.slctr_objs: v.Layout
         self.but_zoom: vu.IconBut
         self.but_arrow_up: vu.IconBut
         self.but_arrow_down: vu.IconBut
@@ -262,7 +262,7 @@ class TabsControl(vue.Tabs):
             tab_tt_list.append(tab_tt)
 
         tab_items = [
-            vue.TabItem(children=[layout], class_=BG)
+            v.TabItem(children=[layout], class_=BG)
             for layout in [self.cursor_objs, self.slctr_objs]
         ]
 
@@ -319,7 +319,7 @@ class TabsControl(vue.Tabs):
 
         cursor_buts = [self.but_lightbulb.tt, self.but_trash.tt]
         children = self.cursor_toggle.contain_me + [divider] + cursor_buts
-        self.cursor_objs = vue.Layout(
+        self.cursor_objs = v.Layout(
             children=children, class_=self._tab_container_class_
         )
 
@@ -347,7 +347,7 @@ class TabsControl(vue.Tabs):
         self.but_arrow_down = get_but("fa-arrow-circle-down", "red lighten-1", tt)
 
         buts = [self.but_zoom.tt, self.but_arrow_up.tt, self.but_arrow_down.tt]
-        self.slctr_objs = vue.Layout(children=buts, class_=self._tab_container_class_)
+        self.slctr_objs = v.Layout(children=buts, class_=self._tab_container_class_)
 
     def reset(self):
         self.v_model = 0
@@ -369,13 +369,16 @@ class HtmlOutput(w.HBox):
         super().__init__(
             children=[self._html, self._close_but],
             layout=w.Layout(
-                justify_content="center", align_self="center", grid_gap="10px"
+                justify_content="center",
+                align_self="center",
+                grid_gap="10px",
+                margin="20px 0 0 0",
             ),
         )
 
     def _show_close_button(self):
         self._close_but.layout.visibility = "visible"
-        self._close_but.layout.margin = "25px 0 0 0"
+        self._close_but.layout.margin = "0 0 0 0"  # "25px 0 0 0"
 
     def _hide_close_button(self):
         self._close_but.layout.visibility = "hidden"
@@ -580,7 +583,7 @@ def rebase_but(handler: Callable | None = None, **kwargs) -> vu.IconBut:
     )
 
 
-class PctChgIconRowMult(vue.Layout):
+class PctChgIconRowMult(v.Layout):
     """Percent change bar chart options for multiple instruments."""
 
     def __init__(self):
@@ -588,7 +591,7 @@ class PctChgIconRowMult(vue.Layout):
         self.legend_cycle_but = legend_but()
 
         children = [
-            vue.Layout(children=self.bar_type_tog.contain_me, class_="flex-grow-0"),
+            v.Layout(children=self.bar_type_tog.contain_me, class_="flex-grow-0"),
             self.legend_cycle_but.tt,
         ]
 

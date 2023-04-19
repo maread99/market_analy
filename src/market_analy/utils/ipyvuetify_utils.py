@@ -251,6 +251,16 @@ class IconBut(vue.Btn):
         """Lighten icon color."""
         self.icon_color = self.color_light
 
+    @property
+    def is_dark(self) -> bool:
+        """Query if icon is dark."""
+        return self.icon_color == self.color_dark
+
+    @property
+    def is_light(self) -> bool:
+        """Query if icon is light."""
+        return self.icon_color == self.color_light
+
 
 class ToggleIcon(IconBut):
     """Selectable `IconBut`.
