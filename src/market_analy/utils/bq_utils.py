@@ -7,9 +7,9 @@ from copy import copy
 from itertools import cycle
 from typing import Literal
 
+import bqplot as bq
 import pandas as pd
 import numpy as np
-from bqplot import Lines, Figure, Mark, OHLC, Scatter, Label
 from bqplot.interacts import FastIntervalSelector
 from traitlets import HasTraits, Any, dlink
 
@@ -67,7 +67,31 @@ def discontinuous_date_to_timestamp(value: np.int64) -> pd.Timestamp:
     return pd.Timestamp.fromtimestamp(value / 1000, tz="UTC").tz_convert(None)
 
 
-class _LevelLine(Lines):
+def format_label(value: Any, label_format: str) -> str:
+    """Format `value` for use as a label.
+
+    Parameters
+    ----------
+    value
+        Value as a value of a mark's 'x' or 'y' attribute.
+
+    Returns
+    -------
+        `value` formatted in accordance with `label_format`.
+    """
+    if isinstance(value, (np.datetime64, pd.Timestamp)):
+        return pd.to_datetime(value).strftime(label_format)
+    if isinstance(value, (np.integer, np.floating)):
+        try:
+            f_str = "{:" + label_format + "}"
+            return f_str.format(value)
+        except ValueError:
+            return f_str.format(int(value))
+    msg = "format_label does not support value type " + str(type(value))
+    raise TypeError(msg)
+
+
+class _LevelLine(bq.Lines):
     """Create line at specific level along a scale.
 
     Creates line on `figure` in `direction` at `level` based on either
@@ -87,8 +111,11 @@ class _LevelLine(Lines):
         self,
         level,
         scales: dict,
-        figure: Figure,
+        figure: bq.Figure,
         direction: Literal["vertical", "horizontal"] = "vertical",
+        basis: Literal["figure", "axis"] = "figure",
+        start: Any = 0,
+        end: Any = 1,
         draw_to_figure=True,
         **kwargs,
     ):
@@ -96,14 +123,15 @@ class _LevelLine(Lines):
         kwargs.setdefault("stroke_width", 1)
         kwargs.setdefault("preserve_domain", {"y": True, "x": True})
 
+        by_fig = basis == "figure"
         if vertical := (direction == "vertical"):
-            scales = {"x": scales["x"], "y": figure.scale_y}
+            scales = {"x": scales["x"], "y": figure.scale_y if by_fig else scales["y"]}
         else:
-            scales = {"y": scales["y"], "x": figure.scale_y}
+            scales = {"y": scales["y"], "x": figure.scale_x if by_fig else scales["x"]}
 
         super().__init__(
-            x=[level, level] if vertical else [0, 1],
-            y=[0, 1] if vertical else [level, level],
+            x=[level, level] if vertical else [start, end],
+            y=[start, end] if vertical else [level, level],
             scales=scales,
             **kwargs,
         )
@@ -122,37 +150,80 @@ class _LevelLine(Lines):
         #         x = np.column_stack([level, level])
         #         y = [[0, 1]] * len(level)
 
-    def _draw_to_figure(self, figure: Figure):
+    def _draw_to_figure(self, figure: bq.Figure):
         figure.marks = list(figure.marks) + [self]
 
 
 class HLevelLine(_LevelLine):
     """Horizontal Line at specific level along a scale."""
 
-    def __init__(self, level, scales: dict, figure: Figure, **kwargs):
+    def __init__(
+        self,
+        level: Any,
+        scales: dict,
+        figure: bq.Figure,
+        basis: Literal["figure", "axis"] = "figure",
+        start: Any = 0,
+        end: Any = 1,
+        **kwargs,
+    ):
         """Constructor.
 
         Parameters
         ----------
-        level:
+        level
             level of y-scale at which to draw line.
 
         scales: dictionary of Scale objects
-            Must include key 'y' with value as Scale which +level+
+            Must include key 'y' with value as Scale which `level`
                 references.
 
-        figure:
+        figure
             Figure to which line to be drawn.
+
+        basis : Literal["figure", "axis"], default: "figure"
+            Basis for defining `start` and `end`.
+
+        start : Any, default: 0
+            Value from which line should start.
+
+            If `basis` is "figure" then as a value between 0 and 1
+            describing a proportion of figure from left side. For example,
+            0.25 would start line at one quarter of the way across the
+            figure.
+
+            If `basis` is "axis" then a value described by the x-axis.
+
+        end : Any, default: 1
+            Value from which line should end.
+
+            If `basis` is "figure" then as a value between 0 and 1
+            describing a proportion of figure from left side. For example,
+            0.75 would end line at three quarters of the way across the
+            figure.
+
+            If `basis` is "axis" then a value described by the x-axis.
 
         **kwargs: passed on to bqplot.Line.
         """
-        super().__init__(level, scales, figure, direction="horizontal", **kwargs)
+        super().__init__(
+            level, scales, figure, "horizontal", basis, start, end, **kwargs
+        )
 
 
 class VLevelLine(_LevelLine):
     """Vertical Line at specific level along a scale."""
 
-    def __init__(self, level, scales: dict, figure: Figure, **kwargs):
+    def __init__(
+        self,
+        level,
+        scales: dict,
+        figure: bq.Figure,
+        basis: Literal["figure", "axis"] = "figure",
+        start: Any = 0,
+        end: Any = 1,
+        **kwargs,
+    ):
         """Constructor.
 
         Parameters
@@ -161,15 +232,38 @@ class VLevelLine(_LevelLine):
             level of x-scale at which to draw line.
 
         scales: dictionary of Scale objects
-            Must include key 'x' with value as Scale which +level+
+            Must include key 'x' with value as Scale which `level`
                 references.
 
         figure:
             Figure to which line to be drawn.
 
+        basis : Literal["figure", "axis"], default: "figure"
+            Basis for defining `start` and `end`.
+
+        start : Any, default: 0
+            Value from which line should start.
+
+            If `basis` is "figure" then as a value between 0 and 1
+            describing a proportion of figure from bottom side. For
+            example, 0.25 would start line at one quarter of the way up
+            the figure.
+
+            If `basis` is "axis" then a value described by the y-axis.
+
+        end : Any, default: 1
+            Value from which line should end.
+
+            If `basis` is "figure" then as a value between 0 and 1
+            describing a proportion of figure from bottom side. For
+            example, 0.75 would end line at three quarters of the way up
+            the figure.
+
+            If `basis` is "axis" then a value described by the y-axis.
+
         **kwargs: passed on to bqplot.Line.
         """
-        super().__init__(level, scales, figure, direction="vertical", **kwargs)
+        super().__init__(level, scales, figure, "vertical", basis, start, end, **kwargs)
 
 
 class _LabeledLevelLine(_LevelLine):
@@ -182,7 +276,7 @@ class _LabeledLevelLine(_LevelLine):
         self,
         level,
         scales: dict,
-        figure: Figure,
+        figure: bq.Figure,
         label_format: str | None = None,
         label_kwargs: dict | None = None,
         direction: Literal["vertical", "horizontal"] = "vertical",
@@ -222,7 +316,7 @@ class _LabeledLevelLine(_LevelLine):
         label_kwargs.setdefault("preserve_domain", {"y": True, "x": True})
         label_kwargs.setdefault("y_offset", -10)
         label_kwargs.setdefault("x_offset", 3)
-        self.label = Label(
+        self.label = bq.Label(
             x=self.x[:1],
             y=self.y[:1],
             scales=self.scales,
@@ -274,7 +368,7 @@ class _LabeledLevelLine(_LevelLine):
         self.side = "greater" if self.side == "lesser" else "lesser"
 
     def _format_label(self, value: list) -> list:
-        """Format `value` for use a a label.
+        """Format `value` for use as a label.
 
         Converter for dlink between self.x or self.y and label's text.
 
@@ -285,25 +379,13 @@ class _LabeledLevelLine(_LevelLine):
 
         Returns
         -------
-            `value` formatted in accordance with `self.label_format`. Can
-            be displayed as label text.
+            `value` formatted in accordance with `self.label_format`.
         """
         if self._label_format is None:
             return value[:1]
-        value_ = value[0]
-        if isinstance(value_, (np.datetime64, pd.Timestamp)):
-            return [pd.to_datetime(value).strftime(self._label_format)]
-        elif isinstance(value_, (np.integer, np.floating)):
-            try:
-                f_str = "{:" + self._label_format + "}"
-                return [f_str.format(value_)]
-            except ValueError:
-                return [f_str.format(int(value_))]
-        else:
-            msg = "_format_label does not support value type " + str(type(value_))
-            raise TypeError(msg)
+        return [format_label(value[0], self._label_format)]
 
-    def _draw_to_figure(self, figure: Figure):
+    def _draw_to_figure(self, figure: bq.Figure):
         figure.marks = list(figure.marks) + [self, self.label]
 
 
@@ -317,7 +399,7 @@ class HLabeledLevelLine(_LabeledLevelLine):
         self,
         level,
         scales: dict,
-        figure: Figure,
+        figure: bq.Figure,
         label_format: str | None = None,
         label_kwargs: dict | None = None,
         **kwargs,
@@ -358,7 +440,7 @@ class VLabeledLevelLine(_LabeledLevelLine):
         self,
         level,
         scales: dict,
-        figure: Figure,
+        figure: bq.Figure,
         label_format: str | None = None,
         label_kwargs: dict | None = None,
         **kwargs,
@@ -402,10 +484,10 @@ class Crosshair(HasTraits):
     Attributes
     ----------
     vhair:
-        VLabelledLevelLine that forms vertical hair.
+        VlabeledLevelLine that forms vertical hair.
 
     hhair:
-        HLabelledLevelLine that forms horizontal hair.
+        HlabeledLevelLine that forms horizontal hair.
 
     cross:
         Scatter mark that represents cross.
@@ -416,8 +498,8 @@ class Crosshair(HasTraits):
 
     def __init__(
         self,
-        figure: Figure,
-        existing_mark: Mark | None = None,
+        figure: bq.Figure,
+        existing_mark: bq.Mark | None = None,
         x=None,
         y=None,
         color="Yellow",
@@ -452,10 +534,10 @@ class Crosshair(HasTraits):
             at assumed vertical center.
 
         line_kwargs: dict
-            Passed to `bqplot.Lines` to create hairs.
+            Passed to `bq.Lines` to create hairs.
 
         label_kwargs: dict
-            Passed to `bqplot.Label` to create hair labels alongside axis.
+            Passed to `bq.Label` to create hair labels alongside axis.
 
         kwargs:
             Passed on to `bqplot.Scatter` to create cross.
@@ -505,7 +587,7 @@ class Crosshair(HasTraits):
         start_y = y if y is not None else self._y_center
 
         kwargs.setdefault("marker", "cross")
-        self.cross = Scatter(
+        self.cross = bq.Scatter(
             x=[start_x],
             y=[start_y],
             scales=self.scales,
@@ -529,12 +611,11 @@ class Crosshair(HasTraits):
         )
         if y is not None and "side" not in line_kwargs:
             line_kwargs["side"] = "lesser" if y > self._y_center else "greater"
-        label_format = self._y_tick_format_python_format
         self.hhair = HLabeledLevelLine(
             level=start_y,
             scales=self.scales,
             figure=figure,
-            label_format=label_format,
+            label_format=self._y_tick_format_python_format,
             label_kwargs=label_kwargs,
             **line_kwargs,
         )
@@ -593,7 +674,7 @@ class Crosshair(HasTraits):
             Center assumed as coinciding with 'y' attribute of middle mark
             of list of existing marks.
         """
-        if isinstance(self._existing_mark, OHLC):
+        if isinstance(self._existing_mark, bq.OHLC):
             y = y[:, -1:].flatten()  # close prices
         y_min = y.min()
         return y_min + (y.max() - y_min) / 2
@@ -688,7 +769,7 @@ class Crosshairs(list):
             self.crosshairs.remove(self)
             super().close()
 
-    def __init__(self, figure: Figure, colors: Iterable[str] | None = None):
+    def __init__(self, figure: bq.Figure, colors: Iterable[str] | None = None):
         """Constructor.
 
         Parameters
@@ -763,6 +844,264 @@ class Crosshairs(list):
         self.figure.marks = non_crosshair + crosshairs_components
 
 
+class HFixedRule:
+    """Add a draggable fixed-length horizontal rule to a figure.
+
+    Features:
+        Rule can be dragged via a marker (optional).
+        Labeled at extremes to describe x-axis range covered by rule.
+
+    Parameters
+    ----------
+    level
+        level of y-scale at which to draw line.
+
+    scales: dictionary of Scale objects
+        Must include key 'y' with value as Scale which `level`
+        references and key 'x' with value as Scale within which `start`
+        is represented.
+
+    figure
+        Figure to which line to be drawn.
+
+    start
+        Value from which line should start.
+
+    length
+        Length of the rule.
+
+        If `scales["x"]` is a `bq.OrdinalScale` then pass as an int
+        representing the number of x-ticks that the rule is to cover.
+
+        If `scales["x"]` is a `bq.LinearScale` then pass as an int or
+        float defining the x-axis distance that the rule is to cover.
+
+        NB Not other type of scale is supported.
+
+    color: str
+        Color of all rule elements. Color of any particular component
+            can be overriden by including `colors` to the corresponding
+            kwargs argument, for example `label_kwargs`.
+
+    opacity: float
+        Opacity of all elements of Crosshair. Will override any opacity
+        defined via kwargs for any specific component.
+
+    draggable: bool
+        True to enable dragging of rule via the scatter mark.
+
+    oridinal_values: list[Any] | None
+        If `scales["x"]` is `bq.OrdinalScale` then pass axis values as
+        a list in same terms `start`. For example, if scale represents
+        discontinuous dates then pass a list of the plottable dates.
+
+        If not passed then will attempt to find values in
+        `scales["x"].domain`.
+
+    label_kwargs: dict | None
+        Passed to Label constructor for each label. The following
+        kwargs will be ignored if passed:
+            'x', 'y', 'scales', 'text', 'y_offset', 'x_offset', 'align'
+
+    scat_kwargs: dict | None
+        Passed to Scatter constructor to create mark via which rule
+        can be dragged. Ignored if not `draggable`.
+
+    **kwargs:
+        Passed on to bq.Lines to create horizontal line.
+    """
+
+    def __init__(
+        self,
+        level,
+        scales: dict,
+        figure: bq.Figure,
+        start: Any,
+        length: int | float,
+        color: str = "yellow",
+        opacity: float = 1.0,
+        draggable: bool = True,
+        ordinal_values: list[Any] | None = None,
+        label_kwargs: dict | None = None,
+        scat_kwargs: dict | None = None,
+        **kwargs,
+    ):
+        self.figure = figure
+        self._scale = scales["x"]
+        if not isinstance(self._scale, (bq.OrdinalScale, bq.LinearScale)):
+            raise TypeError(f"'x' scale type {type(self._scale)} is not supported.")
+
+        if not isinstance(self._scale, bq.OrdinalScale):
+            self._ordinal_values = None
+        elif ordinal_values is not None:
+            self._ordinal_values = ordinal_values
+        else:
+            self._ordinal_values = self._scale.domain
+
+        self._length = length
+        self._color = [color]
+        self._opacity = [opacity]
+
+        label_kwargs = label_kwargs if label_kwargs is not None else {}
+        scat_kwargs = scat_kwargs if scat_kwargs is not None else {}
+        for kws in [kwargs, scat_kwargs, label_kwargs]:
+            kws["colors"] = self._color
+            kws["opacities"] = self._opacity
+            kws.setdefault("preserve_domain", {"y": True, "x": True})
+
+        kwargs.setdefault("stroke_width", 1)
+
+        end = self._get_end_from_start(start)
+        # Create line
+        self.line = HLevelLine(
+            level, scales, figure, "axis", start, end, draw_to_figure=False, **kwargs
+        )
+
+        # Create labels
+        self._label_format = None
+        for axis in figure.axes:
+            if axis.orientation == "horizontal":
+                self._label_format = axis.tick_format
+
+        label_offset = kwargs["stroke_width"] + 12
+
+        label_kwargs["x_offset"] = 0
+        label_kwargs.setdefault("opacity", self._opacity)
+        label_kwargs.setdefault("font_weight", "normal")
+        label_kwargs.setdefault("preserve_domain", {"y": True, "x": True})
+
+        self.label_l = bq.Label(
+            x=self.line.x[:1],
+            y=self.line.y[:1],
+            scales=scales,
+            text=["placeholder"],
+            y_offset=label_offset,
+            align="start",
+            **label_kwargs,
+        )
+        dlink((self.line, "y"), (self.label_l, "y"), lambda v: v[:1])
+        dlink((self.line, "x"), (self.label_l, "x"), lambda v: v[:1])
+        dlink((self.line, "x"), (self.label_l, "text"), self._format_label_l)
+
+        self.label_r = bq.Label(
+            x=self.line.x[-1:],
+            y=self.line.y[:1],
+            scales=scales,
+            text=["placeholder"],
+            y_offset=-label_offset,
+            align="end",
+            **label_kwargs,
+        )
+        dlink((self.line, "y"), (self.label_r, "y"), lambda v: v[:1])
+        dlink((self.line, "x"), (self.label_r, "x"), lambda v: v[-1:])
+        dlink((self.line, "x"), (self.label_r, "text"), self._format_label_r)
+
+        self._components = [
+            self.line,
+            self.label_l,
+            self.label_r,
+        ]
+
+        if not draggable:
+            self.grip = None
+            self._draw_to_figure(figure)
+            return
+
+        scat_kwargs.setdefault("marker", "ellipse")
+        self.grip = bq.Scatter(
+            x=self.line.x[-1:],
+            y=self.line.y[:1],
+            scales=scales,
+            enable_move=True,
+            update_on_move=True,
+            **scat_kwargs,
+        )
+        self._components.append(self.grip)
+
+        dlink((self.grip, "y"), (self.line, "y"), lambda y: np.concatenate((y, y)))
+        dlink((self.grip, "x"), (self.line, "x"), self._get_line_x)
+
+        self._draw_to_figure(figure)
+
+    def _format_label_l(self, value: list) -> list:
+        """Format `value` for use as the left label.
+
+        Converter for dlink between self.x and label's text.
+        """
+        if self._label_format is None:
+            return value[:1]
+        return [format_label(value[0], self._label_format)]
+
+    def _format_label_r(self, value: list) -> list:
+        """Format `value` for use as the right label.
+
+        Converter for dlink between self.x and label's text.
+        """
+        if self._label_format is None:
+            return value[-1:]
+        return [format_label(value[-1], self._label_format)]
+
+    def _draw_to_figure(self, figure: bq.Figure):
+        figure.marks = list(figure.marks) + self.components
+
+    def _get_end_from_start(self, start: Any) -> Any:
+        """Get x value for end of line given start value."""
+        if isinstance(self._scale, bq.LinearScale):
+            return start + self._length
+        i_start = self._ordinal_values.index(start)
+        i_end = min(i_start + self._length - 1, len(self._ordinal_values) - 1)
+        return self._ordinal_values[i_end]
+
+    def _get_start_from_end(self, end: Any) -> Any:
+        """Get x value for start of line given end value."""
+        if isinstance(self._scale, bq.LinearScale):
+            return end - self._length
+        i_end = self._ordinal_values.index(end)
+        i_start = max(0, i_end - self._length + 1)
+        return self._ordinal_values[i_start]
+
+    def _get_line_x(self, x_grip: Any) -> np.ndarray:
+        """Return value to set `line.x` to for a given `grip.x`."""
+        end = x_grip[0]
+        start = self._get_start_from_end(end)
+        return np.array((start, end))
+
+    @property
+    def components(self) -> list:
+        """List of all Mark objects that comprise rule."""
+        return self._components
+
+    @property
+    def color(self) -> str:
+        """Rule color, for example 'yellow'."""
+        return self._color
+
+    @color.setter
+    def color(self, color: str):
+        self._color = [color]
+        for mark in self.components:
+            mark.colors = self._color
+
+    @property
+    def opacity(self) -> list[float]:
+        """Rule opacity, for example 0.5."""
+        return self._opacity
+
+    @opacity.setter
+    def opacity(self, opacity: float):
+        self._opacity = [opacity]
+        for mark in self.components:
+            mark.opacities = self._opacity
+            if isinstance(mark, bq.Label):
+                mark.opacity = self._opacity
+
+    def close(self):
+        """Remove rule from frontend."""
+        self.figure.marks = [m for m in self.figure.marks if m not in self._components]
+        for comp in self._components:
+            comp.close()
+
+
 class FastIntervalSelectorExt(FastIntervalSelector):
     """`FastIntervalSelector` with additional functionality.
 
@@ -778,7 +1117,7 @@ class FastIntervalSelectorExt(FastIntervalSelector):
         As `FastIntervalSelector`.
     """
 
-    def __init__(self, figure: Figure, enable=True, **kwargs):
+    def __init__(self, figure: bq.Figure, enable=True, **kwargs):
         super().__init__(**kwargs)
         self.figure = figure
         if enable:
