@@ -11,7 +11,7 @@ import bqplot as bq
 import pandas as pd
 import numpy as np
 from bqplot.interacts import FastIntervalSelector
-from traitlets import HasTraits, Any, dlink
+from traitlets import HasTraits, Any, dlink, link
 
 # possible keys for dictionary taken by +scales+ parameter of Axes class.
 ScaleKeys = Literal["x", "y", "color", "opacity", "size", "rotation", "skew"]
@@ -963,9 +963,9 @@ class HFixedRule:
             if axis.orientation == "horizontal":
                 self._label_format = axis.tick_format
 
-        label_offset = kwargs["stroke_width"] + 12
+        label_y_offset = kwargs["stroke_width"] + 10
+        label_x_offset = 5
 
-        label_kwargs["x_offset"] = 0
         label_kwargs.setdefault("opacity", self._opacity)
         label_kwargs.setdefault("font_weight", "normal")
         label_kwargs.setdefault("preserve_domain", {"y": True, "x": True})
@@ -975,7 +975,8 @@ class HFixedRule:
             y=self.line.y[:1],
             scales=scales,
             text=["placeholder"],
-            y_offset=label_offset,
+            y_offset=label_y_offset,
+            x_offset=label_x_offset,
             align="start",
             **label_kwargs,
         )
@@ -988,7 +989,8 @@ class HFixedRule:
             y=self.line.y[:1],
             scales=scales,
             text=["placeholder"],
-            y_offset=-label_offset,
+            y_offset=-label_y_offset,
+            x_offset=-label_x_offset,
             align="end",
             **label_kwargs,
         )
@@ -1003,12 +1005,12 @@ class HFixedRule:
         ]
 
         if not draggable:
-            self.grip = None
+            self.grip_l, self.grip_r = None, None
             self._draw_to_figure(figure)
             return
 
         scat_kwargs.setdefault("marker", "ellipse")
-        self.grip = bq.Scatter(
+        self.grip_r = bq.Scatter(
             x=self.line.x[-1:],
             y=self.line.y[:1],
             scales=scales,
@@ -1016,10 +1018,40 @@ class HFixedRule:
             update_on_move=True,
             **scat_kwargs,
         )
-        self._components.append(self.grip)
+        dlink((self.grip_r, "y"), (self.line, "y"), lambda y: np.concatenate((y, y)))
+        dlink((self.grip_r, "x"), (self.line, "x"), self._get_line_x_if_move_grip_r)
 
-        dlink((self.grip, "y"), (self.line, "y"), lambda y: np.concatenate((y, y)))
-        dlink((self.grip, "x"), (self.line, "x"), self._get_line_x)
+        self.grip_l = bq.Scatter(
+            x=self.line.x[:1],
+            y=self.line.y[:1],
+            scales=scales,
+            enable_move=True,
+            update_on_move=True,
+            **scat_kwargs,
+        )
+        dlink((self.grip_l, "x"), (self.line, "x"), self._get_line_x_if_move_grip_l)
+
+        link((self.grip_r, "y"), (self.grip_l, "y"))  # bi-directional link
+        r_to_l_lnk = dlink(
+            (self.grip_r, "x"), (self.grip_l, "x"), self._get_grip_l_from_grip_r
+        )
+        l_to_r_lnk = dlink(
+            (self.grip_l, "x"), (self.grip_r, "x"), self._get_grip_r_from_grip_l
+        )
+
+        def grip_r_on_drag_start_handler(*_):
+            l_to_r_lnk.unlink()
+            r_to_l_lnk.link()
+
+        def grip_l_on_drag_start_handler(*_):
+            r_to_l_lnk.unlink()
+            l_to_r_lnk.link()
+
+        self.grip_r.on_drag_start(grip_r_on_drag_start_handler)
+        self.grip_l.on_drag_start(grip_l_on_drag_start_handler)
+
+        self._components.append(self.grip_r)
+        self._components.append(self.grip_l)
 
         self._draw_to_figure(figure)
 
@@ -1060,11 +1092,25 @@ class HFixedRule:
         i_start = max(0, i_end - self._length + 1)
         return self._ordinal_values[i_start]
 
-    def _get_line_x(self, x_grip: Any) -> np.ndarray:
-        """Return value to set `line.x` to for a given `grip.x`."""
-        end = x_grip[0]
+    def _get_line_x_if_move_grip_r(self, grip_r_x: Any) -> np.ndarray:
+        """Return value to set `line.x` to for a given grip_r`."""
+        end = grip_r_x[0]
         start = self._get_start_from_end(end)
         return np.array((start, end))
+
+    def _get_line_x_if_move_grip_l(self, grip_l_x: Any) -> np.ndarray:
+        """Return value to set `line.x` to for a given grip_l`."""
+        start = grip_l_x[0]
+        end = self._get_end_from_start(start)
+        return np.array((start, end))
+
+    def _get_grip_l_from_grip_r(self, grip_r_x: Any) -> np.ndarray:
+        """Return value to set `grip_l.x` to for a given grip_r`."""
+        return np.array([self._get_line_x_if_move_grip_r(grip_r_x)[0]])
+
+    def _get_grip_r_from_grip_l(self, grip_l_x: Any) -> np.ndarray:
+        """Return value to set `grip_r.x` to for a given grip_l`."""
+        return np.array([self._get_line_x_if_move_grip_l(grip_l_x)[-1]])
 
     @property
     def components(self) -> list:
