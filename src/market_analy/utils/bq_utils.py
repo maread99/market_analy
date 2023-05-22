@@ -1040,11 +1040,17 @@ class HFixedRule:
         )
 
         def grip_r_on_drag_start_handler(*_):
-            l_to_r_lnk.unlink()
+            try:
+                l_to_r_lnk.unlink()
+            except ValueError:  # not linked
+                pass
             r_to_l_lnk.link()
 
         def grip_l_on_drag_start_handler(*_):
-            r_to_l_lnk.unlink()
+            try:
+                r_to_l_lnk.unlink()
+            except ValueError:  # not linked
+                pass
             l_to_r_lnk.link()
 
         self.grip_r.on_drag_start(grip_r_on_drag_start_handler)

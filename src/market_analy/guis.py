@@ -1549,7 +1549,7 @@ class ChartOHLC(BasePrice):
                 raise StopIteration("breaking infinite loop.")
         y = data[index][1] if higher else data[index][2]
 
-        self.add_crosshair(x=x, y=y)
+        self.add_crosshair(x=x, y=y, existing_mark=mark)
 
     def _display_mark_data(self, mark: bq.OHLC, event: dict):
         s = self.chart._tooltip_value(mark, event)
