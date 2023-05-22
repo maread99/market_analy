@@ -61,6 +61,28 @@ TOOLTIP_STYLE = {
 AxesKwargs = dict[ubq.ScaleKeys, dict[str, Any]]
 
 
+def tooltip_html_style(**kwargs) -> str | None:
+    """HTML to define inline style for a tooltip.
+
+    Parameters
+    ----------
+    **kwargs : dict
+        Dictionary of style attributes, for example:
+            color='blue'
+        NB where style attribute has a hyphen, replace with underscore,
+        for example pass line-height as:
+            line_height = 3
+    """
+    if not kwargs:
+        return None
+    s = 'style="'
+    for k, v in kwargs.items():
+        k = k.replace("_", "-")
+        s += f"{k}: {str(v)}; "
+    s = s + '"'
+    return s
+
+
 def hold_mark_update(func) -> Callable:
     """Hold off syncing mark in frontend until `func` executed.
 
@@ -486,27 +508,6 @@ class Base(metaclass=ABCMeta):
             parameters.
         """
         raise NotImplementedError("_tooltip_value is not implemented.")
-
-    def _tooltip_html_style(self, **kwargs) -> str | None:
-        """HTML to define inline style for a tooltip.
-
-        Parameters
-        ----------
-        **kwargs : dict
-            Dictionary of style attributes, for example:
-                color='blue'
-            NB where style attribute has a hyphen, replace with underscore,
-            for example pass line-height as:
-                line_height = 3
-        """
-        if not kwargs:
-            return None
-        s = 'style="'
-        for k, v in kwargs.items():
-            k = k.replace("_", "-")
-            s += f"{k}: {str(v)}; "
-        s = s + '"'
-        return s
 
     def _hover_handler(self, mark, data):
         self.mark.tooltip.value = self._tooltip_value(mark, data)
@@ -1716,7 +1717,7 @@ class OHLC(BasePrice):
         i = event["data"]["index"]
         row = self.data.iloc[i]
         color = mark.colors[0] if row.close >= row.open else mark.colors[1]
-        style = self._tooltip_html_style(color=color, line_height=1.3)
+        style = tooltip_html_style(color=color, line_height=1.3)
         s = f"<p {style}>From: " + formatter_datetime(row.name.left)
         s += f"<br>To: {formatter_datetime(row.name.right)}"
         for line in ["open", "high", "low", "close"]:
@@ -1929,7 +1930,7 @@ class PctChgBar(_PctChgBarBase):
         y = data["data"]["y"]
         color_i = 0 if y < 0 else -1
         color = mark.scales["color"].colors[color_i]
-        style = self._tooltip_html_style(color=color, line_height=1.3)
+        style = tooltip_html_style(color=color, line_height=1.3)
         s = f"<p {style}>Date: " + formatter_datetime(self.plotted_x_ticks[i])
         s += "<br>Chg: " + FORMATTERS["pct_chg"](y) + "</p>"
         return s
@@ -2034,17 +2035,17 @@ class PctChgBarMult(_PctChgBarBase):
         row = self.data.iloc[i]
         s = (
             "<p"
-            + self._tooltip_html_style(color="white")
+            + tooltip_html_style(color="white")
             + ">Date: "
             + formatter_datetime(row.name.left)
         )
         for i, tup in enumerate(row.items()):
             symbol, y = tup
-            symbol_style = self._tooltip_html_style(color=mark.colors[i])
+            symbol_style = tooltip_html_style(color=mark.colors[i])
             symbol_span = f"<span {symbol_style}>{symbol}: </span>"
             chg = FORMATTERS["pct_chg"](y)
             chg_color = "crimson" if y < 0 else "darkgreen"
-            chg_style = self._tooltip_html_style(color=chg_color)
+            chg_style = tooltip_html_style(color=chg_color)
             chg_span = f"<span {chg_style}>{chg}</span>"
             ss = f"{symbol_span}{chg_span}"
             weight = "bold" if i == ci else "normal"
