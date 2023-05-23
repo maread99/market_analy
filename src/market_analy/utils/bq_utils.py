@@ -1154,6 +1154,318 @@ class HFixedRule:
             comp.close()
 
 
+class TrendRule:
+    """Add a draggable fixed-length rule representing a trend boundary.
+
+    Features:
+        Rule can be dragged via a marker (optional).
+        Labeled at extremes to describe x-axis range covered by rule.
+
+    Parameters
+    ----------
+    x
+        x value from which line should start.
+
+    y
+        y value from which line should start.
+
+    length
+        Initial length of the rule, as int representing the number of
+        x-ticks that the rule is to cover.
+
+    factors
+        Array of length `length` that will be multiplied by `y` to give
+        line's y values.
+
+    scales: dictionary of Scale objects
+        Must include keys 'y' and 'x'.
+
+        `scales['x']` must be a `bq.OrdinalScale` in which x is
+        represented.
+
+        `scales['y']` must be a `bq.LogScale` or `bq.LinearScale`.
+
+    ordinal_values: list[Any]
+        x-xis values as list in same terms `x`. For example, if scale
+        represents discontinuous dates then pass a list of the plottable
+        dates.
+
+    figure
+        Figure to which line to be drawn.
+
+    color: str
+        Color of all rule elements. Color of any particular component
+            can be overriden by including `colors` to the corresponding
+            kwargs argument, for example `label_kwargs`.
+
+    opacity: float
+        Opacity of all elements of Crosshair. Will override any opacity
+        defined via kwargs for any specific component.
+
+    draggable: bool
+        True to enable dragging of rule via the scatter mark.
+
+    label_kwargs: dict | None
+        Passed to Label constructor for each label. The following
+        kwargs will be ignored if passed:
+            'x', 'y', 'scales', 'text', 'y_offset', 'x_offset', 'align'
+
+    scat_kwargs: dict | None
+        Passed to Scatter constructor to create mark via which rule
+        can be dragged. Ignored if not `draggable`.
+
+    **kwargs:
+        Passed on to bq.Lines to create line.
+    """
+
+    def __init__(
+        self,
+        x: np.datetime64,
+        y: float | int,
+        length: int,
+        factors: np.ndarray,
+        scales: dict,
+        ordinal_values: list[Any],
+        figure: bq.Figure,
+        color: str = "yellow",
+        opacity: float = 1.0,
+        draggable: bool = True,
+        label_kwargs: dict | None = None,
+        scat_kwargs: dict | None = None,
+        **kwargs,
+    ):
+        self.figure = figure
+        if not isinstance(scales["x"], bq.OrdinalScale):
+            raise TypeError(
+                f"'x' scale type must be bq.OrdinalScale (not {type(scales['x'])})."
+            )
+
+        self._ordinal_values = ordinal_values
+        self._fctrs = factors
+        self._color = [color]
+        self._opacity = [opacity]
+
+        label_kwargs = label_kwargs if label_kwargs is not None else {}
+        scat_kwargs = scat_kwargs if scat_kwargs is not None else {}
+        for kws in [kwargs, scat_kwargs, label_kwargs]:
+            kws["colors"] = self._color
+            kws["opacities"] = self._opacity
+            kws.setdefault("preserve_domain", {"y": True, "x": True})
+
+        kwargs.setdefault("stroke_width", 5)
+
+        xs = self._get_x_from_start(x, length)
+        ys = self._get_y_from_start(y, length)
+        # Create line
+        self.line = bq.Lines(x=xs, y=ys, scales=scales, **kwargs)
+
+        # Create labels
+        self._label_format = None
+        for axis in figure.axes:
+            if axis.orientation == "horizontal":
+                self._label_format = axis.tick_format
+
+        neg = ys[-1] < ys[0]
+        label_y_offset = kwargs["stroke_width"] + 10
+        label_x_offset = 3
+
+        label_kwargs.setdefault("opacity", self._opacity)
+        label_kwargs.setdefault("font_weight", "normal")
+        label_kwargs.setdefault("preserve_domain", {"y": True, "x": True})
+
+        self.label_l = bq.Label(
+            x=self.line.x[:1],
+            y=self.line.y[:1],
+            scales=scales,
+            text=["placeholder"],
+            y_offset=label_y_offset * (-1 if neg else 1),
+            x_offset=label_x_offset,
+            align="start",
+            **label_kwargs,
+        )
+        dlink((self.line, "y"), (self.label_l, "y"), lambda v: v[:1])
+        dlink((self.line, "x"), (self.label_l, "x"), lambda v: v[:1])
+        dlink((self.line, "x"), (self.label_l, "text"), self._format_label_l)
+
+        self.label_r = bq.Label(
+            x=self.line.x[-1:],
+            y=self.line.y[-1:],
+            scales=scales,
+            text=["placeholder"],
+            y_offset=label_y_offset * (1 if neg else -1),
+            x_offset=-label_x_offset,
+            align="end",
+            **label_kwargs,
+        )
+        dlink((self.line, "y"), (self.label_r, "y"), lambda v: v[-1:])
+        dlink((self.line, "x"), (self.label_r, "x"), lambda v: v[-1:])
+        dlink((self.line, "x"), (self.label_r, "text"), self._format_label_r)
+
+        self._components = [
+            self.line,
+            self.label_l,
+            self.label_r,
+        ]
+
+        if not draggable:
+            self.grip_l, self.grip_r = None, None
+            self._draw_to_figure(figure)
+            return
+
+        scat_kwargs.setdefault("marker", "ellipse")
+        self.grip_r = bq.Scatter(
+            x=self.line.x[-1:],
+            y=self.line.y[-1:],
+            scales=scales,
+            enable_move=True,
+            update_on_move=True,
+            **scat_kwargs,
+        )
+        dlink((self.grip_r, "x"), (self.line, "x"), self._get_x_from_end)
+        dlink(
+            (self.grip_r, "x"),
+            (self.grip_r, "y"),
+            lambda _: self._get_y_from_start()[-1:],
+        )
+        dlink((self.grip_r, "y"), (self.line, "y"), lambda _: self._get_y_from_start())
+
+        self.grip_l = bq.Scatter(
+            x=self.line.x[:1],
+            y=self.line.y[:1],
+            scales=scales,
+            enable_move=True,
+            update_on_move=True,
+            **scat_kwargs,
+        )
+        dlink((self.grip_l, "x"), (self.line, "x"), self._get_x_from_start)
+        dlink((self.grip_l, "y"), (self.line, "y"), self._get_y_from_start)
+
+        dlink(
+            (self.grip_l, "x"),
+            (self.grip_r, "x"),
+            lambda x: self._get_x_from_start(x)[-1:],
+        )
+        dlink(
+            (self.grip_l, "y"),
+            (self.grip_r, "y"),
+            lambda y: self._get_y_from_start(y)[-1:],
+        )
+
+        self._components.append(self.grip_r)
+        self._components.append(self.grip_l)
+
+        self._draw_to_figure(figure)
+
+    def _format_label_l(self, value: list) -> list:
+        """Format `value` for use as the left label.
+
+        Converter for dlink between self.x and label's text.
+        """
+        if self._label_format is None:
+            return value[:1]
+        return [format_label(value[0], self._label_format)]
+
+    def _format_label_r(self, value: list) -> list:
+        """Format `value` for use as the right label.
+
+        Converter for dlink between self.x and label's text.
+        """
+        if self._label_format is None:
+            return value[-1:]
+        return [format_label(value[-1], self._label_format)]
+
+    def _draw_to_figure(self, figure: bq.Figure):
+        figure.marks = list(figure.marks) + self.components
+
+    def _get_x_from_start(
+        self,
+        x: np.datetime64,
+        length: int | None = None,
+    ) -> list[np.datetime64]:
+        """Get x values from leftmost x value."""
+        start = self._ordinal_values.index(x)
+        if length is None:
+            length = len(self.line.x)
+        stop = min(start + length, len(self._ordinal_values))
+        return self._ordinal_values[start:stop]
+
+    def _get_x_from_end(self, x: np.datetime64) -> list[np.datetime64]:
+        """Get x values from rightmost x value."""
+        stop = self._ordinal_values.index(x[0]) + 1
+        start = self._ordinal_values.index(self.line.x[0])
+        return self._ordinal_values[start:stop]
+
+    def _extended_fctrs(self, length: int) -> np.ndarray:
+        fctrs = self._fctrs
+        incr = fctrs[-1] - fctrs[-2]
+        n = length - len(fctrs)
+        ext = [fctrs[-1] + (incr * i) for i in range(1, n + 1)]
+        return np.concatenate([fctrs, ext])
+
+    def _get_fctrs(self, length: int):
+        """Get fctrs, from left to right, for a given x length."""
+        fctrs = self._fctrs
+        if length == len(fctrs):
+            return self._fctrs
+        if length < len(fctrs):
+            return fctrs[:length]
+        return self._extended_fctrs(length)
+
+    def _get_fctrs_rvr(self, length: int):
+        """Get fctrs, from right to left, for a given x length."""
+        fctrs = self._fctrs
+        if length < len(fctrs):
+            return (1 / fctrs[::-1])[-length:]
+        if length > len(fctrs):
+            fctrs = self._extended_fctrs(length)
+        return 1 / fctrs[::-1]
+
+    def _get_y_from_start(
+        self, y: int | float | None = None, length: int | None = None
+    ) -> list[int | float]:
+        """Get y values from leftmost y value."""
+        if y is None:
+            y = self.line.y[0]
+        if length is None:
+            length = len(self.line.x)
+        return y * self._get_fctrs(length)
+
+    @property
+    def components(self) -> list:
+        """List of all Mark objects that comprise rule."""
+        return self._components
+
+    @property
+    def color(self) -> str:
+        """Rule color, for example 'yellow'."""
+        return self._color
+
+    @color.setter
+    def color(self, color: str):
+        self._color = [color]
+        for mark in self.components:
+            mark.colors = self._color
+
+    @property
+    def opacity(self) -> list[float]:
+        """Rule opacity, for example 0.5."""
+        return self._opacity
+
+    @opacity.setter
+    def opacity(self, opacity: float):
+        self._opacity = [opacity]
+        for mark in self.components:
+            mark.opacities = self._opacity
+            if isinstance(mark, bq.Label):
+                mark.opacity = self._opacity
+
+    def close(self):
+        """Remove rule from frontend."""
+        self.figure.marks = [m for m in self.figure.marks if m not in self._components]
+        for comp in self._components:
+            comp.close()
+
+
 class FastIntervalSelectorExt(FastIntervalSelector):
     """`FastIntervalSelector` with additional functionality.
 
