@@ -12,7 +12,7 @@ black==23.3.0
     # via market-analy (pyproject.toml)
 bqplot==0.12.39
     # via market-analy (pyproject.toml)
-certifi==2022.12.7
+certifi==2023.5.7
     # via requests
 charset-normalizer==3.1.0
     # via requests
@@ -36,7 +36,7 @@ decorator==5.1.1
     # via ipython
 exceptiongroup==1.1.1
     # via pytest
-exchange-calendars==4.2.6
+exchange-calendars==4.2.8
     # via
     #   market-analy (pyproject.toml)
     #   market-prices
@@ -48,25 +48,25 @@ flake8==6.0.0
     #   market-analy (pyproject.toml)
 flake8-docstrings==1.7.0
     # via market-analy (pyproject.toml)
-fonttools==4.39.3
+fonttools==4.39.4
     # via matplotlib
 idna==3.4
     # via requests
-importlib-metadata==6.3.0
+importlib-metadata==6.6.0
     # via jupyter-client
 importlib-resources==5.12.0
     # via matplotlib
 iniconfig==2.0.0
     # via pytest
-ipykernel==6.22.0
+ipykernel==6.23.1
     # via ipywidgets
-ipython==8.12.0
+ipython==8.13.2
     # via
     #   ipykernel
     #   ipywidgets
-ipyvue==1.9.0
+ipyvue==1.9.1
     # via ipyvuetify
-ipyvuetify==1.8.5
+ipyvuetify==1.8.10
     # via market-analy (pyproject.toml)
 ipywidgets==8.0.6
     # via
@@ -77,7 +77,7 @@ jedi==0.18.2
     # via ipython
 jinja2==3.1.2
     # via market-analy (pyproject.toml)
-jupyter-client==8.1.0
+jupyter-client==8.2.0
     # via ipykernel
 jupyter-core==5.3.0
     # via
@@ -91,7 +91,7 @@ korean-lunar-calendar==0.3.1
     # via exchange-calendars
 lxml==4.9.2
     # via yahooquery
-market-prices==0.10.2
+market-prices==0.10.3
     # via market-analy (pyproject.toml)
 markupsafe==2.1.2
     # via jinja2
@@ -107,7 +107,7 @@ mypy-extensions==1.0.0
     # via black
 nest-asyncio==1.5.6
     # via ipykernel
-numpy==1.24.2
+numpy==1.24.3
     # via
     #   bqplot
     #   contourpy
@@ -116,13 +116,13 @@ numpy==1.24.2
     #   market-prices
     #   matplotlib
     #   pandas
-packaging==23.0
+packaging==23.1
     # via
     #   black
     #   ipykernel
     #   matplotlib
     #   pytest
-pandas==2.0.0
+pandas==2.0.1
     # via
     #   bqplot
     #   exchange-calendars
@@ -137,7 +137,7 @@ pickleshare==0.7.5
     # via ipython
 pillow==9.5.0
     # via matplotlib
-platformdirs==3.2.0
+platformdirs==3.5.1
     # via
     #   black
     #   jupyter-core
@@ -145,25 +145,25 @@ pluggy==1.0.0
     # via pytest
 prompt-toolkit==3.0.38
     # via ipython
-psutil==5.9.4
+psutil==5.9.5
     # via ipykernel
 pure-eval==0.2.2
     # via stack-data
 pycodestyle==2.10.0
     # via flake8
-pydantic==1.10.7
+pydantic==1.10.8
     # via market-prices
 pydocstyle==6.3.0
     # via flake8-docstrings
 pyflakes==3.0.1
     # via flake8
-pygments==2.15.0
+pygments==2.15.1
     # via ipython
 pyluach==2.2.0
     # via exchange-calendars
 pyparsing==3.0.9
     # via matplotlib
-pytest==7.3.0
+pytest==7.3.1
     # via
     #   market-analy (pyproject.toml)
     #   pytest-mock
@@ -186,7 +186,7 @@ pyzmq==25.0.2
     # via
     #   ipykernel
     #   jupyter-client
-requests==2.28.2
+requests==2.31.0
     # via requests-futures
 requests-futures==1.0.0
     # via yahooquery
@@ -204,7 +204,7 @@ tomli==2.0.1
     #   pytest
 toolz==0.12.0
     # via exchange-calendars
-tornado==6.2
+tornado==6.3.2
     # via
     #   ipykernel
     #   jupyter-client
@@ -224,14 +224,14 @@ traitlets==5.9.0
     #   traittypes
 traittypes==0.2.1
     # via bqplot
-typing-extensions==4.5.0
+typing-extensions==4.6.2
     # via
     #   black
     #   ipython
     #   pydantic
 tzdata==2023.3
     # via pandas
-urllib3==1.26.15
+urllib3==2.0.2
     # via requests
 wcwidth==0.2.6
     # via prompt-toolkit
