@@ -30,9 +30,11 @@ PctChgBarMult(_PctChgBarBase):
 from __future__ import annotations
 
 from abc import ABCMeta, abstractmethod
+from collections import defaultdict
 from collections.abc import Callable
 from copy import copy, deepcopy
-from functools import lru_cache
+from functools import lru_cache, cached_property
+import typing
 from typing import Any, Literal
 
 import bqplot as bq
@@ -46,6 +48,10 @@ from market_analy.formatters import FORMATTERS, formatter_datetime
 import market_analy.utils.bq_utils as ubq
 import market_analy.utils.pandas_utils as upd
 from market_analy.utils.dict_utils import set_kwargs_from_dflt
+
+if typing.TYPE_CHECKING:
+    from market_analy.movements_base import MovementProto, MovementsChartProto
+from market_analy.config import COL_ADV, COL_DEC
 
 
 COLOR_CHART_TEXT = "lightyellow"
@@ -2070,3 +2076,446 @@ class PctChgBarMult(_PctChgBarBase):
     def cycle_legend(self):
         """Move legend to next location."""
         self._cycle_legend()
+
+
+class OHLCTrends(OHLC):
+    """OHLC and Trend analysis for single financial instrument.
+
+    OHLC chart with trend overlay. Trend dislayed as coloured line where
+    green indicates a rising trend, red indicates a falling trend and
+    yellow indicates no trend (consolidation).
+
+    For each movement described by `movements` a scatter mark denotes:
+        movement start (triangle)
+        movement end (cross)
+        bar when movement start confirmed (circle)
+        bar when movement end confirmed (square)
+
+    Scatter marks for advancing movements are green, those for declining
+    movements are red.
+
+    Handlers on `movements`, as defined on `MovementsChartProto`, will be
+    enabled.
+
+    Parameters
+    ----------
+    As for OHLC base class and additionally:
+
+    movements
+        Movements representing trends over period to be charted. Must
+        be passed.
+
+    click_trend_handler
+        Any client-defined handler to be additionally called when user
+        clicks on any scatter point representing a trend start. Should have
+        signature:
+            f(mark: bq.Scatter, event: dict)
+
+        NB handler will be called after any handlers defined on
+        `movements`.
+
+    inc_conf_marks
+        Whether to include scatter marks indicating the bar / price at
+        which movements were confirmed to have started and ended.
+    """
+
+    COLOR_MAP = ["yellow", COL_ADV, COL_DEC]  # 0 consol, 1 adv, -1 dec
+
+    def __init__(
+        self,
+        prices: pd.DataFrame,
+        title: str,
+        visible_x_ticks: pd.Interval | None = None,
+        max_ticks: int | None = None,
+        log_scale: bool = True,
+        display: bool = False,
+        movements: MovementsChartProto | None = None,
+        click_trend_handler: Callable | None = None,
+        inc_conf_marks: bool = True,
+    ):
+        if movements is None:
+            raise ValueError("'movements' is a required argument.")
+        self._widgets_temp: list[w.Widget] = []  # used by hold temporary widgets
+        self._client_click_trend_handler = click_trend_handler
+        self._inc_conf_marks = inc_conf_marks
+        self.movements = movements
+
+        self._current_move: MovementProto | None = None
+        self.mark_trend: bq.FlexLine  # set by _create_mark
+        self.mark_scatters: list[bq.Scatter] = []  # set by _create_mark
+
+        # set by add_marks and remove_marks
+        self._added_marks: defaultdict[str, list[bq.Mark]] = defaultdict(list)
+
+        super().__init__(prices, title, visible_x_ticks, max_ticks, log_scale, display)
+
+        if max_ticks is not None or visible_x_ticks is not None:
+            self.update_trend_mark()
+
+    @cached_property
+    def _y_trend(self) -> pd.Series:
+        """y data for all points on trend line."""
+        # set starts of advances as day low, starts of declines as day high, ends
+        # of advances (that do not conincide with a subsequent trend start) as day
+        # high, ends of declines (that do not conincide with a subsequent trend
+        # start) as day low, otherwise as day close.
+        y = self.prices.close.copy()
+        subset = self.movements.starts_adv
+        y[subset] = self.prices.low[subset]
+        subset = self.movements.starts_dec
+        y[subset] = self.prices.high[subset]
+        subset = self.movements.ends_adv_solo
+        y[subset] = self.prices.high[subset]
+        subset = self.movements.ends_dec_solo
+        y[subset] = self.prices.low[subset]
+        return y
+
+    @cached_property
+    def _cols_trend(self) -> list[str]:
+        """color data for all points on trend line."""
+        return [self.COLOR_MAP[t] for t in self.movements.trend.values]
+
+    def _create_scales(self) -> dict[ubq.ScaleKeys, bq.Scale]:
+        scales = super()._create_scales()
+        scales["width"] = bq.LinearScale()
+        return scales
+
+    def create_scatter(
+        self,
+        x: pd.DatetimeIndex,
+        y: pd.Series,
+        color: str,
+        marker: str,
+        hover_handler: Callable | None,
+        click_handler: Callable | None = None,
+    ) -> bq.Scatter:
+        """Convenience method to create a scatter mark.
+
+        Parameters
+        ----------
+        x
+            `pd.DatetimeIndex` representing x values of scatter points.
+
+        y
+            y values of scatter points.
+
+        color
+            Scatter point color, for example "skyblue".
+
+        marker
+            Scatter point marker, for example "circle".
+
+        hover_handler
+            Callback to call if a scatter point is hovered over.
+
+        click_handler
+            Callback to call if a scatter point is LMB clicked.
+        """
+        mark = bq.Scatter(
+            scales=self.scales,
+            colors=[color],
+            x=x,
+            y=y,
+            marker=marker,
+            opacities=[0.65],
+            tooltip=w.HTML(value="<p>placeholder</p>"),
+            tooltip_style=TOOLTIP_STYLE,
+        )
+        if hover_handler is not None:
+            mark.on_hover(hover_handler)
+        if click_handler is not None:
+            mark.on_element_click(click_handler)
+        return mark
+
+    def _add_scatter(
+        self,
+        x: pd.DatetimeIndex,
+        y: pd.Series,
+        color: str,
+        marker: str,
+        hover_handler: Callable | None,
+        click_handler: Callable | None = None,
+    ) -> bq.Scatter:
+        """Add a scatter mark to `self.mark_scatters`."""
+        mark = self.create_scatter(x, y, color, marker, hover_handler, click_handler)
+        self.mark_scatters.append(mark)
+        return mark
+
+    def hide_scatters(self):
+        """Hide scatter marks.
+
+        Hides scatter marks denoting movements' starts, ends and, if
+        applicable, bars when movements' starts and ends were confirmed.
+        """
+        for m in self.mark_scatters:
+            m.visible = False
+
+    def show_scatters(self):
+        """Show scatter marks.
+
+        Shows scatter marks denoting movements' starts, ends and, if
+        applicable, bars when movements' starts and ends were confirmed.
+        """
+        for m in self.mark_scatters:
+            m.visible = True
+
+    @property
+    def current_move(self) -> MovementProto | None:
+        """Last selected movement."""
+        return self._current_move
+
+    def _handler_click_trend(self, mark: bq.Scatter, event: dict):
+        """Handler for clicking a scatter representing start of a trend."""
+        self._current_move = self.movements.mark_to_move(mark, event)
+        self.movements.handler_click_trend(self, mark, event)
+        if self._client_click_trend_handler is not None:
+            self._client_click_trend_handler(mark, event)
+
+    def _create_mark(self, **_) -> bq.OHLC:
+        """Create all marks.
+
+        Retains OHLC as principle mark, creating via subclass.
+
+        Adds FlexLine mark to represent trend.
+
+        Adds Scatter marks to represent, for each trend:
+            Start (triangle-up/triangle-down for adv/dec).
+            End (cross) only if does not coincide with subsequent
+                trend start.
+        If `inc_conf_marks` passed as True (default) to constructor then
+        will also iadd scattern marks to represent, for each trend:
+            Conf Start (circle)
+            Conf End (square).
+        """
+        self.mark_trend = bq.FlexLine(
+            scales=self.scales,
+            colors=self._cols_trend,
+            x=self._x_data,
+            y=self._y_trend,
+            stroke_width=2,
+        )
+
+        movements = self.movements
+
+        # scatter for starts of advancing trends
+        subset = movements.starts_adv
+        self._mark_scatter_starts_adv = self._add_scatter(
+            subset,
+            self._y_trend[subset],
+            COL_ADV,
+            "triangle-up",
+            movements.handler_hover_start,
+            self._handler_click_trend,
+        )
+        # scatter for starts of declining trends
+        subset = movements.starts_dec
+        self._mark_scatter_starts_dec = self._add_scatter(
+            subset,
+            self._y_trend[subset],
+            COL_DEC,
+            "triangle-down",
+            movements.handler_hover_start,
+            self._handler_click_trend,
+        )
+        # scatters for ends of trends, only if do not coincide with subsequent trend start
+        handler = movements.handler_hover_end
+        subset = movements.ends_adv_solo
+        self._add_scatter(subset, self._y_trend[subset], COL_ADV, "cross", handler)
+        subset = movements.ends_dec_solo
+        self._add_scatter(subset, self._y_trend[subset], COL_DEC, "cross", handler)
+
+        if self._inc_conf_marks:
+            # scatters for confirmed starts of trends
+            handler = movements.handler_hover_conf_start
+            self._add_scatter(
+                movements.starts_conf_adv,
+                movements.starts_conf_adv_px,
+                COL_ADV,
+                "circle",
+                handler,
+            )
+            self._add_scatter(
+                movements.starts_conf_dec,
+                movements.starts_conf_dec_px,
+                COL_DEC,
+                "circle",
+                handler,
+            )
+            # scatters for confirmed ends of trends
+            handler = movements.handler_hover_conf_end
+            self._add_scatter(
+                movements.ends_conf_adv,
+                movements.ends_conf_adv_px,
+                COL_ADV,
+                "square",
+                handler,
+            )
+            self._add_scatter(
+                movements.ends_conf_dec,
+                movements.ends_conf_dec_px,
+                COL_DEC,
+                "square",
+                handler,
+            )
+
+        opacities = [0.7] * len(self.prices)
+        return super()._create_mark(opacities=opacities)
+
+    def _create_figure(self, **_) -> bq.Figure:
+        marks = [self.mark, self.mark_trend] + self.mark_scatters
+        return super()._create_figure(marks=marks)
+
+    def update_trend_mark(self, *_):
+        """Update trend mark to reflect plotted x ticks.
+
+        Notes
+        -----
+        Like for the OHLC class, the OHLC mark is not updated to reflect changes
+        to the plotted data (`_update_mark_data_attr_to_reflect_plotted` is False
+        for the class) as the nature of the mark (discrete renders rather than a
+        continuous line) does not result in any side-effects when the visible
+        domain is shorter than that the mark data. The same is true (more or less)
+        for the Scatter marks. However, it is necessary to update the FlexLine
+        to reflect the plotted data to avoid the line doubling back over the render
+        as it tries to plot the 'next point after the visible range' to the start
+        of the x-axis.
+
+        This method serves as a handler which should be called by a client
+        whenever the plotted dates are changed. To handle everything within this
+        class had originally overriden the `self._x_domain_chg_handler` method
+        which is invoked whenever the x scales domain is changed (i.e. whenever
+        the plotted dates are changed), however, and regardless of whether
+        holding off the sync to the frontend of not, the 'wrapped back round'
+        line could continue to be left and other rendering issues were more
+        common than with the implemented solution.
+
+        An alternative approach to resolving the 'wrapped around line' is to set
+        line widths to 0 for the segments prior to the first and subsequent to the
+        last plotted interval. This still leaves a thin trace, for which also set
+        the colour of these segments to the same as the background colour. It's an
+        option, although found it rendered less smoothly that the implemented
+        approach (i.e. updating the marks values to reflect the plotted intervals).
+        """
+        self.mark_trend.x = self.plotted_x_ticks
+        self.mark_trend.y = self._y_trend[self._domain_bv]
+        self.mark_trend.colors = [
+            col for col, b in zip(self._cols_trend, self._domain_bv) if b
+        ]
+
+        index = next(
+            (i for i, m in enumerate(self.figure.marks) if m.name == "Flexible lines")
+        )
+        self.figure.marks = [m for m in self.figure.marks if m.name != "Flexible lines"]
+        self.figure.marks = (
+            self.figure.marks[:index] + [self.mark_trend] + self.figure.marks[index:]
+        )
+
+    def add_marks(self, marks: list[bq.Mark], group: str, under: bool = False):
+        """Add marks to the chart.
+
+        Parameters
+        ----------
+        marks
+            Marks to add.
+
+        group
+            Name of group to which to add marks. This can be subsequently
+            be passed to `remove_added_marks` to remove the added marks.
+
+        under
+            True: place marks under existing marks.
+            False: place marks on top of existing marks.
+        """
+        self._added_marks[group].extend(marks)
+        if under:
+            self.figure.marks = marks + [m for m in self.figure.marks]
+        else:
+            self.figure.marks = [m for m in self.figure.marks] + marks
+
+    @property
+    def added_marks_groups(self) -> list[str]:
+        """Names of groups of added marks."""
+        return list(self._added_marks.keys())
+
+    def remove_added_marks(self, group: str):
+        """Remove all marks in `group`."""
+        marks = self._added_marks[group]
+        for m in marks:
+            m.close()
+        self.figure.marks = [m for m in self.figure.marks if m not in marks]
+        del self._added_marks[group]
+
+    def remove_all_added_marks(self):
+        """Remove all added marks."""
+        for group in self.added_marks_groups:
+            self.remove_added_marks(group)
+
+    def reset_marks(self, reset_current_move: bool = True):
+        """Reset marks.
+
+        Removes all added marks. Makes all other marks visible.
+
+        Parameters
+        ----------
+        reset_current_move
+            If True (default), sets current_move to None.
+        """
+        self.remove_all_added_marks()
+        self.show_scatters()
+        if reset_current_move:
+            self._current_move = None
+
+    def close(self):
+        """Close all chart widgets."""
+        for marks in self._added_marks.values():
+            for m in marks:
+                m.close()
+        super().close()
+
+    def delete(self):
+        """Delete all chart widgets."""
+        self.remove_all_added_marks()
+        super().delete()
+
+    def _click_starts_adv(self, index: int):
+        """Simulate clicking an element of scatter representing advances starts."""
+        event = {"data": {"index": index}}
+        self._handler_click_trend(self._mark_scatter_starts_adv, event)
+
+    def _click_starts_dec(self, index: int):
+        """Simulate clicking an element of scatter representing declines starts."""
+        event = {"data": {"index": index}}
+        self._handler_click_trend(self._mark_scatter_starts_dec, event)
+
+    def show_next_move(self):
+        """Select movement that follows the currently selected movement.
+
+        If no movement is currently selected then selects first movement.
+        """
+        move = self.current_move
+        i = 0 if move is None else self.movements.get_index(move) + 1
+        if i == len(self.movements.moves):
+            return  # current movement is last movement
+
+        next_move = self.movements.moves[i]
+        i_ = 0 if move is None else self.movements.get_index(next_move, direction=True)
+        f = self._click_starts_adv if next_move.is_adv else self._click_starts_dec
+        f(i_)
+
+    def show_previous_move(self):
+        """Select movement prior to the currently selected movement.
+
+        If no movement is currently selected then selects last movement.
+        """
+        move = self.current_move
+        if move is not None:
+            i = self.movements.get_index(move) - 1
+            if i == -1:
+                return  # current movement is first movement
+        else:
+            i = -1
+
+        prev_move = self.movements.moves[i]
+        i_ = 0 if move is None else self.movements.get_index(prev_move, direction=True)
+        f = self._click_starts_adv if prev_move.is_adv else self._click_starts_dec
+        f(i_)
