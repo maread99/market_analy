@@ -710,6 +710,15 @@ class Trends:
     If a notable number of movements are 'starting late', consider
     investigating if there are more suitable parameters to represent the
     instrument.
+
+    NOTE: testing of `Trends` class is LIMITED.
+    Tests are limited to verifying return as expected for certain
+    combinations of parameters. In turn, 'what's expected' is as accepted
+    from detailed visual inspection of the resulting trends. Class lacks,
+    and requires, a test suite that verifies all possible returns of each
+    of it's constituent methods, i.e. with parameters defined either side
+    of boudaries to verify differences in return. Those tests should use
+    dummy price data designed to the the boundaries.
     """
 
     def __init__(
@@ -1660,7 +1669,7 @@ class TrendsGui(TrendsGuiBase):
             wide_view=prd * 3,
             **kwargs,
         )
-        self.moves: Movements
+        self.movements: Movements
         self.trends: Trends
 
     def _gui_click_trend_handler(self, mark: bq.Scatter, event: dict):
@@ -1669,8 +1678,8 @@ class TrendsGui(TrendsGuiBase):
         Lightens 'show all scatters' button to indicate option available.
         Displays tooltip to html output.
         """
-        self._trends_controls_container.lighten_single_trend()
-        self._trends_controls_container.but_show_all.darken()
-        move = self.moves.mark_to_move(mark, event)
-        html = self.moves.get_move_html(move)
+        self.trends_controls_container.lighten_single_trend()
+        self.trends_controls_container.but_show_all.darken()
+        move = self.movements.mark_to_move(mark, event)
+        html = self.movements.get_move_html(move)
         self.html_output.display(html)

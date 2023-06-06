@@ -7,6 +7,7 @@ return from one or two specific calls against hard-coded expected returns.
 from collections import abc
 import contextlib
 import io
+import pickle
 import re
 
 import bqplot as bq
@@ -17,8 +18,8 @@ from pandas import Timestamp as T
 from pandas.testing import assert_series_equal, assert_frame_equal, assert_index_equal
 import pytest
 
-from market_analy import analysis, guis
-
+from market_analy import analysis, guis, trends
+from market_analy.utils import bq_utils as bqu
 
 # pylint: disable=too-many-lines
 # pylint: disable=missing-function-docstring, missing-type-doc
@@ -1066,6 +1067,322 @@ class TestAnalysis:
         assert gui.chart.plotted_interval == expected
         assert gui.chart.plottable_interval == expected
         assert gui.date_slider.slider.value == slider_tup
+
+    @pytest.fixture(scope="class")
+    def trend_kwargs(self) -> abc.Iterator[dict]:
+        """Value for 'trend_kwargs' argument of trend methods."""
+        yield {"prd": 60, "ext_break": 0.04, "ext_limit": 0.02}
+
+    @pytest.fixture(scope="class")
+    def trend_period_kwargs(self) -> abc.Iterator[dict]:
+        """Value for **kwargs of trend methods."""
+        yield {"start": "2018-01-02", "end": "2022-12-30"}
+
+    def test_movements(self, path_res, analy, trend_kwargs, trend_period_kwargs):
+        """Test `Analysis.movements`.
+
+        Verifies return as expected, with expected verified visually.
+        """
+        movements = analy.movements("1D", trend_kwargs, **trend_period_kwargs)
+        path = path_res / "azn_1D_prd60.dat"
+        file = open(path, "rb")
+        for m in movements.moves:
+            try:
+                loaded = pickle.load(file)
+            except EOFError:
+                break
+            assert m == loaded
+        file.close()
+
+    def test_trends_chart(self, analy, trend_kwargs, trend_period_kwargs):
+        """Verifies various aspects of gui beahviour for trends plot."""
+        f = analy.trends_chart
+        interval = "1D"
+        kwargs = trend_period_kwargs
+        verify_app(f, trends.TrendsGui, interval, trend_kwargs, **kwargs)
+
+        gui = f(interval, trend_kwargs, **kwargs, display=False)
+        movements = analy.movements("1D", trend_kwargs, **kwargs)
+        for gm, m in zip(gui.movements.moves, movements.moves):
+            assert gm == m
+
+        prd = trend_kwargs["prd"]
+        ext_break = trend_kwargs["ext_break"]
+        ext_limit = trend_kwargs["ext_limit"]
+
+        # verify scatter marks
+        scats = gui.chart.mark_scatters
+        assert len(scats) == 8
+        for s in scats:
+            assert isinstance(s, bq.Scatter)
+            assert s.visible
+
+        def get_scat(marker: str, cols: list[str]):
+            return next((s for s in scats if (s.marker, s.colors) == (marker, cols)))
+
+        cols_adv, cols_dec = ["lime"], ["red"]
+
+        scat = get_scat("triangle-down", cols_dec)
+        assert (scat.x == movements.starts_dec).all()
+        for y, move in zip(scat.y, movements.declines):
+            assert y == move.start_px
+        scat = get_scat("triangle-up", cols_adv)
+        assert (scat.x == movements.starts_adv).all()
+        for y, move in zip(scat.y, movements.advances):
+            assert y == move.start_px
+
+        scat = get_scat("cross", cols_dec)
+        assert (scat.x == movements.ends_dec_solo).all()
+        for y, end in zip(scat.y, movements.ends_dec_solo):
+            move = (m for m in movements.declines if m.end == end).__next__()
+            assert y == move.end_px
+        scat = get_scat("cross", cols_adv)
+        assert (scat.x == movements.ends_adv_solo).all()
+        for y, end in zip(scat.y, movements.ends_adv_solo):
+            move = (m for m in movements.advances if m.end == end).__next__()
+            assert y == move.end_px
+
+        scat = get_scat("circle", cols_dec)
+        assert (scat.x == movements.starts_conf_dec).all()
+        assert (scat.y == movements.starts_conf_dec_px).all()
+        scat = get_scat("circle", cols_adv)
+        assert (scat.x == movements.starts_conf_adv).all()
+        assert (scat.y == movements.starts_conf_adv_px).all()
+
+        scat = get_scat("square", cols_dec)
+        assert (scat.x == movements.ends_conf_dec).all()
+        assert (scat.y == movements.ends_conf_dec_px).all()
+        scat = get_scat("square", cols_adv)
+        assert (scat.x == movements.ends_conf_adv).all()
+        assert (scat.y == movements.ends_conf_adv_px).all()
+
+        # verify trend line
+        apply_map = {0: "yellow", 1: "lime", -1: "red"}
+        expected = movements.trend.apply(lambda v: apply_map[v]).to_list()
+        assert expected == gui.chart.mark_trend.colors
+
+        # verify initial plot and slider ranges
+        start = pd.Timestamp(kwargs["start"])
+        end = pd.Timestamp(kwargs["end"])
+        assert gui.date_slider.slider.value == (start, end)
+        one_day = pd.Timedelta(1, "D")
+        assert gui.chart.plotted_interval == pd.Interval(start, end + one_day, "left")
+
+        controls = gui.trends_controls_container
+        # verify initial gui config as expected
+        assert controls.is_dark_single_trend
+        assert controls.but_show_all.is_light
+        assert not gui._html_output._html.value
+        assert gui.chart.current_move is None
+        gui.current_move is None
+
+        def verify_controls_reflect_single_trend():
+            assert not controls.is_dark_single_trend
+            assert not controls.but_show_all.is_light
+
+        def assert_trend_reflects_move(move: trends.Movement):
+            # verify gui as requried
+            verify_controls_reflect_single_trend()
+            assert (
+                f"Start: {move.start.strftime('%Y-%m-%d')}"
+                in gui._html_output._html.value
+            )
+            assert not any([s.visible for s in scats])
+            assert gui.chart.current_move == move == gui.current_move
+
+            # verify trend marks
+            group = gui.chart.added_marks_groups[0]
+            trend_marks = gui.chart.added_marks(group)
+            trend_scat_marks = [m for m in trend_marks if isinstance(m, bq.Scatter)]
+            assert len(trend_scat_marks) == 4
+
+            def get_trend_scat(marker: str):
+                return (m for m in trend_scat_marks if m.marker == marker).__next__()
+
+            marker = "triangle-up" if move.is_adv else "triangle-down"
+            scat = get_trend_scat(marker)
+            assert (scat.x == [move.start]).all()
+            assert (scat.y == [move.start_px]).all()
+
+            scat = get_trend_scat("cross")
+            assert (scat.x == [move.end]).all()
+            assert (scat.y == [move.end_px]).all()
+
+            scat = get_trend_scat("circle")
+            assert (scat.x == [move.start_conf]).all()
+            assert (scat.y == [move.start_conf_px]).all()
+
+            scat = get_trend_scat("square")
+            assert (scat.x == [move.end_conf]).all()
+            assert (scat.y == [move.end_conf_px]).all()
+
+            # verify conf change rectangle
+            rec = (m for m in trend_marks if m.fill == "between").__next__()
+            assert isinstance(rec, bq.Lines)
+            if (move.is_adv and move.start_conf_px < move.end_conf_px) or (
+                not move.is_adv and move.start_conf_px > move.end_conf_px
+            ):
+                fill_col = cols_adv
+            else:
+                fill_col = cols_dec
+            assert rec.fill_colors == fill_col
+            expected = [move.start_conf, move.end_conf]
+            assert (rec.x == [expected, expected]).all()
+            expected = [
+                [move.start_conf_px, move.start_conf_px],
+                [move.end_conf_px, move.end_conf_px],
+            ]
+            assert (rec.y == expected).all()
+
+            break_clr = ["white"] if move.by_break else ["slategray"]
+            limit_clr = ["white"] if not move.by_break else ["slategray"]
+
+            line = (m for m in trend_marks if m.colors == break_clr).__next__()
+            assert isinstance(line, bq.Lines)
+            assert line.line_style == "dashed"
+            assert (line.x == move.line_break.index).all()
+            assert (line.y == move.line_break).all()
+
+            line = (m for m in trend_marks if m.colors == limit_clr).__next__()
+            assert isinstance(line, bq.Lines)
+            assert line.line_style == "dashed"
+            assert (line.x == move.line_limit.index).all()
+            assert (line.y == move.line_limit).all()
+
+        # verify marks for various single trend and control buttons to progress through trends
+        gui.chart._click_starts_adv(0)
+        assert_trend_reflects_move(gui.movements.moves[1])
+        controls.but_next.fire_event("click", None)
+        assert_trend_reflects_move(gui.movements.moves[2])
+        controls.but_next.fire_event("click", None)
+        controls.but_next.fire_event("click", None)
+        controls.but_prev.fire_event("click", None)
+        move = gui.movements.moves[3]
+        assert_trend_reflects_move(move)
+
+        # verify wide zoom on trend
+        controls.but_wide.fire_event("click", None)
+        verify_controls_reflect_single_trend()
+        index = gui.trends.data.index
+        i = index.get_loc(move.start)
+        left = index[i - prd * 3]
+        i = index.get_loc(move.end_conf)
+        right = index[i + prd * 3]
+        assert gui.date_slider.slider.value == (left, right)
+        assert gui.chart.plotted_interval == pd.Interval(left, right + one_day, "left")
+
+        # verify narrow zoom on trend
+        controls.but_narrow.fire_event("click", None)
+        verify_controls_reflect_single_trend()
+        i = index.get_loc(move.start)
+        left = index[i - prd]
+        i = index.get_loc(move.end_conf)
+        right = index[i + prd]
+        assert gui.date_slider.slider.value == (left, right)
+        assert gui.chart.plotted_interval == pd.Interval(left, right + one_day, "left")
+
+        assert not gui._rulers
+        but = controls.but_ruler
+        assert but.is_light
+        but.fire_event("click", None)
+
+        assert not but.is_light and not but.is_dark
+        verify_controls_reflect_single_trend()
+        assert len(gui._rulers) == 2
+
+        # verify break_rule
+        def verify_break_rule(rule: bqu.TrendRule, move: trends.Movement):
+            for c in rule.components:
+                assert c.visible
+                assert c in gui.chart.figure.marks
+            assert len(rule.line.x) == prd
+            assert rule.line.x[0] == rule.grip_l.x == move.start
+            assert rule.line.y[0] == rule.grip_l.y == move.start_px
+            assert rule.line.x[-1] == rule.grip_r.x == move.start_conf
+            diff = ext_break if move.is_adv else -ext_break
+            assert rule.line.y[-1] == rule.grip_r.y == move.start_px * (1 + diff)
+            try:
+                assert (rule.label_l.text == [move.start.strftime("%b-%d")]).all()
+            except AssertionError:
+                assert (rule.label_l.text == [move.start.strftime("%y-%b-%d")]).all()
+            try:
+                assert (rule.label_r.text == [move.start_conf.strftime("%b-%d")]).all()
+            except AssertionError:
+                assert (
+                    rule.label_r.text == [move.start_conf.strftime("%y-%b-%d")]
+                ).all()
+
+        break_rule = (r for r in gui._rulers if r.color == ["orange"]).__next__()
+        verify_break_rule(break_rule, move)
+
+        # verify limit_rule
+        def verify_limit_rule(rule: bqu.TrendRule, move: trends.Movement):
+            for c in rule.components:
+                assert c.visible
+                assert c in gui.chart.figure.marks
+            assert len(rule.line.x) == prd
+            assert rule.line.x[0] == rule.grip_l.x == move.end
+            assert rule.line.y[0] == rule.grip_l.y == move.end_px
+            i = index.get_loc(move.end)
+            right = index[i + prd - 1]
+            assert rule.line.x[-1] == rule.grip_r.x == right
+            diff = ext_limit if move.is_adv else -ext_limit
+            assert rule.line.y[-1] == rule.grip_r.y == move.end_px * (1 + diff)
+            try:
+                assert (rule.label_l.text == [move.end.strftime("%b-%d")]).all()
+            except AssertionError:
+                assert (rule.label_l.text == [move.end.strftime("%y-%b-%d")]).all()
+            try:
+                assert (rule.label_r.text == [right.strftime("%b-%d")]).all()
+            except AssertionError:
+                assert (rule.label_r.text == [right.strftime("%y-%b-%d")]).all()
+
+        limit_rule = (r for r in gui._rulers if r.color == ["skyblue"]).__next__()
+        verify_limit_rule(limit_rule, move)
+
+        controls.but_prev.fire_event("click", None)
+
+        # changing trend should not change rulers...
+        assert limit_rule in gui._rulers and break_rule in gui._rulers
+        # although but should go light
+        assert but.is_light
+        verify_controls_reflect_single_trend()
+
+        # verify clicking rulers places new rulers
+        but.fire_event("click", None)
+        controls.but_wide.fire_event("click", None)  # make sure can see all on plot
+
+        move = movements.moves[2]
+        assert limit_rule not in gui._rulers and break_rule not in gui._rulers
+
+        assert not but.is_light and not but.is_dark
+        verify_controls_reflect_single_trend()
+        assert len(gui._rulers) == 2
+
+        # verify break_rule
+        break_rule = (r for r in gui._rulers if r.color == ["orange"]).__next__()
+        verify_break_rule(break_rule, move)
+        # verify limit_rule
+        limit_rule = (r for r in gui._rulers if r.color == ["skyblue"]).__next__()
+        verify_limit_rule(limit_rule, move)
+
+        assert not but.is_light and not but.is_dark
+        but.fire_event("click", None)
+
+        assert not gui._rulers
+        for c in break_rule.components:
+            assert c not in gui.chart.figure.marks
+        for c in limit_rule.components:
+            assert c not in gui.chart.figure.marks
+
+        # verify show_all but shows all scatters again
+        controls.but_show_all.fire_event("click", None)
+        assert controls.is_dark_single_trend
+        assert controls.but_show_all.is_light
+        assert not gui.chart.added_marks_groups
+        assert all([s.visible for s in scats])
+        assert gui.chart.current_move is None
+        assert gui.current_move is None
 
 
 class TestCompare:

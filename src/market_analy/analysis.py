@@ -944,6 +944,111 @@ class Analysis(Base):
             gradient_kwargs={"cmap": "RdBu", "vmin": -1, "vmax": 1},
         )
 
+    def movements(
+        self,
+        interval: mp.intervals.RowInterval,
+        trend_kwargs: dict,
+        trend_cls: type[TrendsProto] = trends.Trends,
+        **kwargs,
+    ) -> MovementsBase:
+        """Evaluate trends over a given period.
+
+        Parameters
+        ----------
+        interval
+            Price data interval to use for analysis, as 'interval`
+            parameter described by `help(self.prices.get)`.
+
+        trend_kwargs
+            Kwargs to pass to the `trend_cls`. Do not include 'data' or
+            'interval'.
+
+            For the default `trend_cls` (`trends.Trends`) the kwargs are
+            'prd', 'ext_break', 'ext_limit' and 'min_bars'. See
+            documentation for trends class with
+            `help(trends.Trends.__doc__)`.
+
+        trend_cls
+            Class to use to evaluate trends. Must fulfil protocol described
+            by `trends_base.TrendsProto`.
+
+            Default is `trends.Trends`.
+
+        **kwargs:
+            Parameters to define period / price data to be analysed. See
+            module doc with `help(analysis.__doc__)`.
+        """
+        data = self.prices.get(interval, lose_single_symbol=True, **kwargs)
+        if isinstance(data.index, pd.IntervalIndex):
+            data = data.pt.indexed_left
+        return trend_cls(data, interval, **trend_kwargs).get_movements()
+
+    def trends_chart(
+        self,
+        interval: mp.intervals.RowInterval,
+        trend_kwargs: dict,
+        gui_cls: type[guis.TrendsGuiBase] = trends.TrendsGui,
+        max_ticks: int | None = None,
+        log_scale: bool = True,
+        display: bool = True,
+        **kwargs,
+    ) -> guis.TrendsGuiBase:
+        """Visualise trends on an OHLC chart.
+
+        Underlying trends data can be accessed via the following attributes
+        of the returned object:
+            movements: Movements (will confrom with
+            `movements_base.MovementsChartProto`).
+
+            trends: Instance of trends class responsible for evaluating
+            movement (will confrom with `trends_base.TrendsProto`).
+
+        Parameters
+        ----------
+        interval
+            Price data interval to use for analysis, as 'interval`
+            parameter described by `help(self.prices.get)`.
+
+        trend_kwargs
+            Kwargs to pass to the `gui_cls`. Do not include 'analysis' or
+            'interval'.
+
+            For the default `gui_cls` (`trends.TrendsGui`) the kwargs are
+            'prd', 'ext_break', 'ext_limit' and 'min_bars'. See
+            documentation for associated trends class with
+            `help(trends.Trends.__doc__)`.
+
+        gui_cls
+            Class to use to create gui to visualise evaluated trends. Must
+            be a subclass of `guis.TrendsGuiBase`.
+
+            Default is `trends.TrendsGui`.
+
+        max_ticks
+            Maximum number of bars (x-axis ticks) that will shown by
+            default (more can be shown via slider). None for no limit.
+
+        log_scale
+            True to plot prices against a log scale. False to plot prices
+            against a linear scale.
+
+        display
+            False to not display the GUI.
+
+        **kwargs:
+            Parameters to define period / price data to be analysed. See
+            module doc with `help(analysis.__doc__)`.
+        """
+        return gui_cls(
+            self,
+            interval,
+            **trend_kwargs,
+            max_ticks=max_ticks,
+            log_scale=log_scale,
+            display=display,
+            **kwargs,
+        )
+
 
 class Compare(Base):
     """Analyse and compare multiple instruments.
@@ -1260,109 +1365,4 @@ class Compare(Base):
             format="{:.2f}",
             gradient_kwargs={"cmap": "RdBu", "vmin": -1},
             caption=caption,
-        )
-
-    def movements(
-        self,
-        interval: mp.intervals.RowInterval,
-        trend_kwargs: dict,
-        trend_cls: type[TrendsProto] = trends.Trends,
-        **kwargs,
-    ) -> MovementsBase:
-        """Evaluate trends over a given period.
-
-        Parameters
-        ----------
-        interval
-            Price data interval to use for analysis, as 'interval`
-            parameter described by `help(self.prices.get)`.
-
-        trend_kwargs
-            Kwargs to pass to the `trend_cls`. Do not include 'data' or
-            'interval'.
-
-            For the default `trend_cls` (`trends.Trends`) the kwargs are
-            'prd', 'ext_break', 'ext_limit' and 'min_bars'. See
-            documentation for trends class with
-            `help(trends.Trends.__doc__)`.
-
-        trend_cls
-            Class to use to evaluate trends. Must fulfil protocol described
-            by `trends_base.TrendsProto`.
-
-            Default is `trends.Trends`.
-
-        **kwargs:
-            Parameters to define period / price data to be analysed. See
-            module doc with `help(analysis.__doc__)`.
-        """
-        data = self.prices.get(interval, lose_single_symbol=True, **kwargs)
-        if isinstance(data.index, pd.IntervalIndex):
-            data = data.pt.indexed_left
-        return trend_cls(data, interval, **trend_kwargs).get_movements()
-
-    def trends_chart(
-        self,
-        interval: mp.intervals.RowInterval,
-        trend_kwargs: dict,
-        gui_cls: type[guis.TrendsGuiBase] = trends.TrendsGui,
-        max_ticks: int | None = None,
-        log_scale: bool = True,
-        display: bool = True,
-        **kwargs,
-    ) -> guis.TrendsGuiBase:
-        """Visualise trends on an OHLC chart.
-
-        Underlying trends data can be accessed via the following attributes
-        of the returned object:
-            movements: Movements (will confrom with
-            `movements_base.MovementsChartProto`).
-
-            trends: Instance of trends class responsible for evaluating
-            movement (will confrom with `trends_base.TrendsProto`).
-
-        Parameters
-        ----------
-        interval
-            Price data interval to use for analysis, as 'interval`
-            parameter described by `help(self.prices.get)`.
-
-        trend_kwargs
-            Kwargs to pass to the `gui_cls`. Do not include 'analysis' or
-            'interval'.
-
-            For the default `gui_cls` (`trends.TrendsGui`) the kwargs are
-            'prd', 'ext_break', 'ext_limit' and 'min_bars'. See
-            documentation for associated trends class with
-            `help(trends.Trends.__doc__)`.
-
-        gui_cls
-            Class to use to create gui to visualise evaluated trends. Must
-            be a subclass of `guis.TrendsGuiBase`.
-
-            Default is `trends.TrendsGui`.
-
-        max_ticks
-            Maximum number of bars (x-axis ticks) that will shown by
-            default (more can be shown via slider). None for no limit.
-
-        log_scale
-            True to plot prices against a log scale. False to plot prices
-            against a linear scale.
-
-        display
-            False to not display the GUI.
-
-        **kwargs:
-            Parameters to define period / price data to be analysed. See
-            module doc with `help(analysis.__doc__)`.
-        """
-        return gui_cls(
-            self,
-            interval,
-            **trend_kwargs,
-            max_ticks=max_ticks,
-            log_scale=log_scale,
-            display=display,
-            **kwargs,
         )

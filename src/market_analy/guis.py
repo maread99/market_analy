@@ -1885,7 +1885,7 @@ class TrendsGuiBase(ChartOHLC):
 
         if self.current_move is not None:
             self.chart.reset_marks()
-            self._trends_controls_container.darken_single_trend()
+            self.trends_controls_container.darken_single_trend()
         else:
             self.chart.show_scatters()
         but.lighten()
@@ -1958,7 +1958,7 @@ class TrendsGuiBase(ChartOHLC):
         f = self._add_rulers if but.is_light else self._close_rulers
         f()
         # chain handlers...
-        self._trends_controls_container.but_ruler_handler(but, event, data)
+        self.trends_controls_container.but_ruler_handler(but, event, data)
 
     def _create_trends_controls_container(self) -> v.Layout:
         controls = gui_parts.TrendControls()
@@ -1974,9 +1974,9 @@ class TrendsGuiBase(ChartOHLC):
         self._tabs_control_container = v.Layout(
             children=[self.tabs_control], class_="d-flex justify-end mr-2"
         )
-        self._trends_controls_container = self._create_trends_controls_container()
+        self.trends_controls_container = self._create_trends_controls_container()
         return v.Layout(
-            children=[self._tabs_control_container, self._trends_controls_container],
+            children=[self._tabs_control_container, self.trends_controls_container],
             class_="d-flex align-center justify-center",
         )
 

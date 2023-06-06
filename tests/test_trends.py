@@ -10,6 +10,10 @@ import pytest
 from market_analy import trends
 
 
+# NOTE: testing of `trends.Trends` is LIMITED. See Notes section of
+# `trends.Trends` regarding the need for a more comprehensive test suite.
+
+
 @pytest.fixture
 def data_dji_1D(path_res, xnys) -> abc.Iterator[pd.DataFrame]:
     """Daily data for Dow Jones Index.

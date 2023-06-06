@@ -2432,6 +2432,22 @@ class OHLCTrends(OHLC):
         else:
             self.figure.marks = [m for m in self.figure.marks] + marks
 
+    def added_marks(self, group: str) -> list[bq.Mark]:
+        """Marks that have been added to the chart.
+
+        Parameters
+        ----------
+        group
+            Name of group of marks to return.
+
+        See Also
+        --------
+        add_marks : Add marks to the chart.
+        added_marks_groups : Names of groups of added marks.
+        remove_added_marks : Remove from the chart all marks in a group.
+        """
+        return self._added_marks[group]
+
     @property
     def added_marks_groups(self) -> list[str]:
         """Names of groups of added marks."""

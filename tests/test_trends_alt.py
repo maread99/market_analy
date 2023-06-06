@@ -9,6 +9,10 @@ import pytest
 from market_analy import trends_alt
 
 
+# NOTE: testing of `trends_akt.Trends` is LIMITED. See Notes section of
+# `trends_alt.Trends` regarding the need for a more comprehensive test suite.
+
+
 @pytest.fixture
 def data_dji_1D_alt(path_res, xnys) -> abc.Iterator[pd.DataFrame]:
     """Daily data for Dow Jones Index.
