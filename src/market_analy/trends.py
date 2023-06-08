@@ -715,7 +715,8 @@ class Trends:
             return end_limit, end_px_limit, False, line_break, line_limit
         if end_limit is None:
             return end_break, end_px_break, True, line_break, line_limit
-        by_break = end_break < end_limit
+        # if same bar then break will occur first as limit happens at bar close
+        by_break = end_break <= end_limit
         px = end_px_break if by_break else end_px_limit
         return min(end_break, end_limit), px, by_break, line_break, line_limit
 
