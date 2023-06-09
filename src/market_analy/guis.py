@@ -1864,7 +1864,7 @@ class TrendsGuiBase(ChartOHLC):
         """
         data_moves = data.copy()
         if isinstance(data_moves.index, pd.IntervalIndex):
-            data_moves = data_moves.pt.indexed_left
+            data_moves.index = data_moves.index.left
             if data_moves.index.tz is not None:
                 data_moves.index = data_moves.index.tz_localize(None)
         interval = self._initial_price_params["interval"]

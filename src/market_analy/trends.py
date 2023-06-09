@@ -889,13 +889,11 @@ class TrendsGui(TrendsGuiBase):
         )
 
         fctrs = self.trends.fctrs_pos_limit if is_adv else self.trends.fctrs_neg_limit
-        col = self.trends.data.high if is_adv else self.trends.data.low
-        subset = col[move.start : move.end]
-        i = subset.argmax() if is_adv else subset.argmin()
+        idx = -move.params["prd"]
         self._rulers.append(
             market_analy.utils.bq_utils.TrendRule(
-                x=subset.index[i].asm8,
-                y=subset[i],
+                x=move.line_limit.index[idx].asm8,
+                y=move.line_limit[idx],
                 length=move.params["prd"],
                 factors=fctrs,
                 scales=self.chart.scales,

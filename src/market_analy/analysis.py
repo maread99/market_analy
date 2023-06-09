@@ -980,7 +980,7 @@ class Analysis(Base):
         """
         data = self.prices.get(interval, lose_single_symbol=True, **kwargs)
         if isinstance(data.index, pd.IntervalIndex):
-            data = data.pt.indexed_left
+            data.index = data.index.left
         return trend_cls(data, interval, **trend_kwargs).get_movements()
 
     def trends_chart(
