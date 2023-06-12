@@ -49,6 +49,7 @@ gui = analy.trends_chart(
     years=3,
 )
 ```
+https://github.com/maread99/market_analy/assets/56914820/998c7f46-20f5-43f1-8b82-c857c0702cee
 
 ```python
 comp = Compare(PricesYahoo("MSFT, AMZN, TSLA"))
