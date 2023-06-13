@@ -15,7 +15,7 @@ Functionality includes **defining and visualising trends**.
 
 Interactive charting is offered via guis created from widgets of the [bqplot](https://github.com/bqplot/bqplot), [ipywidgets](https://github.com/jupyter-widgets/ipywidgets) and [ipyvuetify](https://github.com/widgetti/ipyvuetify) libraries. Users can use the underlying parts to develop their own interactive charts and analyses. Contributions very much welcome! This is a WIP and it's anticipated that further analyses will be added.
 
-There's a load of great financial libraries out there for Technical Analysis, Charting, Backtesting, Portfolio Analysis etc. This library isn't reinventing the wheel (not intentionally anyway), rather it provides functions and interactive charting that I think are useful and couldn't find elsewhere.
+There's a load of great financial libraries out there. This library isn't reinventing the wheel (not intentionally anyway), rather it principally provides functions and interactive charting that I think are useful and couldn't find elsewhere.
 
 ## Video tutorials
 
