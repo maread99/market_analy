@@ -76,7 +76,11 @@ tests = [
     "pytest-mock",
 ]
 dev = [
-    "market_analy[tests]",
+    "black",
+    "flake8",
+    "flake8-docstrings",
+    "pytest",
+    "pytest-mock",
     "jupyterlab>=3.0",
     "pandas-stubs",
     "types-pytz",
