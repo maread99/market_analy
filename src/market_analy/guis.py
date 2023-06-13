@@ -32,7 +32,7 @@ from __future__ import annotations
 from abc import ABCMeta, abstractmethod
 from collections.abc import Callable
 from contextlib import contextmanager
-from typing import Literal
+from typing import Literal, TYPE_CHECKING
 
 import bqplot as bq
 from bqplot.interacts import Selector
@@ -45,11 +45,15 @@ from market_prices.intervals import TDInterval, PTInterval, to_ptinterval, ONE_D
 import pandas as pd
 
 from market_analy import charts, gui_parts, analysis
-from market_analy.utils.bq_utils import Crosshairs, FastIntervalSelectorDD
+from market_analy.trends_base import TrendsProto
+from market_analy.utils.bq_utils import Crosshairs, FastIntervalSelectorDD, HFixedRule
 from market_analy.utils.dict_utils import set_kwargs_from_dflt
 import market_analy.utils.ipyvuetify_utils as vu
 import market_analy.utils.ipywidgets_utils as wu
 import market_analy.utils.pandas_utils as upd
+
+if TYPE_CHECKING:
+    from market_analy.movements_base import MovementProto, MovementsChartProto
 
 # CONSTANTS
 HIGHLIGHT_COLOR = "lightyellow"
@@ -646,7 +650,8 @@ class BasePrice(BaseVariableDates):
             can choose to show more via slider). None for no limit.
 
         log_scale
-            True to chart prices against a log scale.
+            True to plot prices against a log scale. False to plot prices
+            against a linear scale.
 
         display
             True to display created GUI.
@@ -656,9 +661,9 @@ class BasePrice(BaseVariableDates):
 
         **kwargs
             Period for which to plot prices. Passed as period parameters as
-            described by market-prices documentation for `PricesCls.get`
-            method where `PricesCls` is the class that was passed to
-            `PricesCls` parameter of `mkt_anlaysis.Analysis` to intantiate
+            described by market-prices documentation for 'PricesCls.get'
+            method where 'PricesCls' is the class that was passed to
+            'PricesCls' parameter of `mkt_anlaysis.Analysis` to intantiate
             `analysis`.
         """
         assert issubclass(self.ChartCls, charts.BasePrice)
@@ -1262,16 +1267,17 @@ class ChartMultLine(BasePrice):
             (client can choose to show more via slider). None for no limit.
 
         log_scale
-            True to chart prices against a log scale.
+            True to plot prices against a log scale. False to plot prices
+            against a linear scale.
 
         display
             True to display created GUI.
 
         **kwargs
             Period for which to plot prices. Passed as period parameters as
-            described by market-prices documentation for `PricesCls.get`
-            method where `PricesCls` is the class that was passed to
-            `PricesCls` parameter of `mkt_anlaysis.Compare` to intantiate
+            described by market-prices documentation for 'PricesCls.get'
+            method where 'PricesCls' is the class that was passed to
+            'PricesCls' parameter of `mkt_anlaysis.Compare` to intantiate
             `analysis`.
         """
         self._rebase_on_zoom = rebase_on_zoom
@@ -1689,3 +1695,350 @@ class PctChgMult(PctChg):
     @property
     def _gui_box_contents(self) -> list[w.Widget]:
         return super()._gui_box_contents + [self._icon_row]
+
+
+class TrendsGuiBase(ChartOHLC):
+    """GUI to display and interact with trend analysis over OHLC Chart.
+
+    Parameters
+    ----------
+    analysis
+        Analysis instance representing instrument to be plotted.
+
+    interval
+        Interval covered by one bar (i.e. one x-axis tick). As 'interval`
+        parameter described by `help(analysis.prices.get)`.
+
+    trend_cls
+        Class to use to analyse trends. Must conform with
+        `trends_base.TrendsProto`, for example, `trends.Trends`.
+
+    trend_kwargs
+        Arguments to pass to `trend_cls`. Do not include `data` or
+        `interval`.
+
+    max_ticks
+        Maximum number of bars (x-axis ticks) that will shown by default
+        (client can choose to show more via slider). None for no limit.
+
+    log_scale
+        True to plot prices against a log scale. False to plot prices
+        against a linear scale.
+
+    display
+        True to display created GUI.
+
+    narrow_view
+        When displaying a movement in 'narrow' view, the number of bars
+        that should be shown before the bar representing the movement's
+        start and after the bar representing the movement's confirmed end.
+
+    wide_view
+        When displaying a movement in 'wide' view, the number of bars that
+        should be shown before the bar representing the movement's start
+        and after the bar representing the movement's confirmed end.
+
+    chart_kwargs
+        Any kwargs to pass on to the chart class.
+
+    **kwargs
+        Period for which to plot prices. Passed as period parameters as
+        described by market-prices documentation for 'PricesCls.get'
+        method where 'PricesCls' is the class that was passed to
+        'PricesCls' parameter of `mkt_anlaysis.Analysis` to intantiate
+        `analysis` (for example, documenation for
+        'market_prices.PricesYahoo.get').
+
+    Notes
+    -----
+    -- Subclass Implementation --
+
+    This base class can be subclassed, including for the purposes of:
+
+        Passing through the required `trend_cls` and concreting in its own
+        constructor arguments passed on to this base as `trend_kwargs`.
+
+        Concrete constructor arguments such as `narrow_view`, `wide_view`
+        etc.
+
+        Defining the `_gui_click_trend_handler` method to customise the
+        handling, at a gui level, of clicking a mark representing the start
+        of a trend. NB Alternatively a handler can be passed within
+        `chart_kwargs` with the key 'click_trend_handler'.
+
+    -- Horrible Hack --
+
+    This class current incorporates at least one horrible hack.
+
+    The trend movements must be based on the same data as the chart.
+    However, the initial chart data is requested within the `BasePrice`
+    subclass' contribution to the constructor. This happens shortly before
+    the chart is created by the `_create_chart` method as defined on the
+    `Base` class and which isn't intended to be extended. So, how to get
+    access to the chart data between these two points in order to be able
+    to evaluate the Movements and pass them to the chart class along with
+    its data? Yup, extend the `_create_chart` method.
+
+    The `BasePrice` class exists not so much to be able to get the initial
+    price data, but to be able to make subsequent calls to get data at
+    different intervals. This behaviour is not required for this
+    `TrendsGuiBase` class which is intended to house a chart based on
+    static data. However, as the OHLC class inherits from `BasePrice`,
+    so must this `TrendsGuiBase` class.
+
+    I suspect the preferable approach to all this would be to lose the
+    inheritance and instead go with a pick-n-mix composition
+    implementation. Could define components as isolated classes, the
+    constructor of each making requirements in terms of attibutes or
+    methods of other components that it requires in order to work. Classes
+    could include the likes of:
+        Prices
+            To administer all things prices, requesting and updating the
+            chart to reflect the changes. Would only be required by GUIs
+            that provide for updating / changing the data. The interval
+            selector buttons would either be included to this component
+            or defined as its own dedicated component.
+
+        Selector
+            To select periods.
+
+        Crosshairs
+            To administer crosshairs.
+
+        TabsControl
+            UI to create crosshairs and undertake analysis.
+
+        DataSlider
+            To scross through plot dates.
+
+    Before diving in would need to have a look at the current
+    implementation and have a think about how to best implement a
+    compositional approach.
+    """
+
+    _HAS_INTERVAL_SELECTOR = False
+
+    def __init__(
+        self,
+        analysis: analysis.Analysis,
+        interval: mp.intervals.RowInterval,
+        trend_cls: type[TrendsProto],
+        trend_kwargs: dict,
+        max_ticks: int | None = None,
+        log_scale: bool = True,
+        display: bool = True,
+        narrow_view: int = 10,
+        wide_view: int = 10,
+        chart_kwargs: dict | None = None,
+        **kwargs,
+    ):
+        self.movements: MovementsChartProto  # set by _create_chart
+        self.trends: TrendsProto  # set by _create_chart
+        self._trends_cls = trend_cls
+        self._trends_kwargs = trend_kwargs
+        self._narrow_view = narrow_view
+        self._wide_view = wide_view
+        chart_kwargs = {} if chart_kwargs is None else chart_kwargs
+        chart_kwargs.setdefault("click_trend_handler", self._gui_click_trend_handler)
+        super().__init__(
+            analysis, interval, max_ticks, log_scale, display, chart_kwargs, **kwargs
+        )
+        self._rulers: list = []
+
+    @property
+    def ChartCls(self) -> type[charts.Base]:
+        return charts.OHLCTrends
+
+    @property
+    def _chart_title(self) -> str:
+        return self._analysis.symbol + " Trend Analysis"
+
+    def _create_chart(
+        self, data: pd.DataFrame | pd.Series, title: str | None, **kwargs
+    ) -> charts.Base:
+        """Create chart.
+
+        Notes
+        -----
+        This is a horrible hack, see the Notes section of the class doc.
+        """
+        data_moves = data.copy()
+        if isinstance(data_moves.index, pd.IntervalIndex):
+            data_moves.index = data_moves.index.left
+            if data_moves.index.tz is not None:
+                data_moves.index = data_moves.index.tz_localize(None)
+        interval = self._initial_price_params["interval"]
+        self.trends = self._trends_cls(data_moves, interval, **self._trends_kwargs)
+        self.movements = self.trends.get_movements()
+        kwargs.setdefault("movements", self.movements)
+        return super()._create_chart(data, title, **kwargs)
+
+    @property
+    def _icon_row_top_handlers(self) -> list[Callable]:
+        return [self._max_x_ticks, self._resize_chart, self.close]
+
+    def _show_all_but_handler(self, but: vu.IconBut, event: str, data: dict):
+        if but.is_light:
+            self.chart.hide_scatters()
+            but.darken()
+            return
+
+        if self.current_move is not None:
+            self.chart.reset_marks()
+            self.trends_controls_container.darken_single_trend()
+        else:
+            self.chart.show_scatters()
+        but.lighten()
+
+    def _show_next_move_handler(self, but: vu.IconBut, event: str, data: dict):
+        if but.is_dark:
+            return
+        self.chart.show_next_move()
+
+    def _show_prev_move_handler(self, but: vu.IconBut, event: str, data: dict):
+        if but.is_dark:
+            return
+        self.chart.show_previous_move()
+
+    def _set_slider_to_current_move(self, bars: int):
+        """Set slider to focus on currently selected movement.
+
+        Parameters
+        ----------
+        bars
+            Number of bars to view prior to movement start and following
+            movement's confirmed end.
+        """
+        if self.current_move is None:
+            return
+        index = self.movements.data.index
+        start = max(index.get_loc(self.current_move.start) - bars, 0)
+        end = self.current_move.end_conf
+        if end is None:
+            stop = len(index) - 1
+        else:
+            stop = min(index.get_loc(end) + bars, len(index) - 1)
+        self.date_slider.interval = pd.Interval(index[start], index[stop], "both")
+
+    def _narrow_view_handler(self, but: vu.IconBut, event: str, data: dict):
+        if but.is_dark:
+            return
+        self._set_slider_to_current_move(self._narrow_view)
+
+    def _wide_view_handler(self, but: vu.IconBut, event: str, data: dict):
+        if but.is_dark:
+            return
+        self._set_slider_to_current_move(self._wide_view)
+
+    def _close_rulers(self):
+        for ruler in self._rulers:
+            ruler.close()
+        self._rulers = []
+
+    def _add_rulers(self):
+        self._close_rulers()  # close any existing
+        ohlc_mark = next(m for m in self.chart.figure.marks if isinstance(m, bq.OHLC))
+        self._rulers.append(
+            HFixedRule(
+                level=self.current_move.start_px,
+                scales=self.chart.scales,
+                figure=self.chart.figure,
+                start=self.current_move.start.asm8,
+                length=self.current_move.params["prd"],
+                color="yellow",
+                draggable=True,
+                ordinal_values=list(ohlc_mark.x),
+                stroke_width=5,
+            )
+        )
+
+    def _ruler_handler(self, but: vu.IconBut, event: str, data: dict):
+        if but.is_dark:
+            return
+        f = self._add_rulers if but.is_light else self._close_rulers
+        f()
+        # chain handlers...
+        self.trends_controls_container.but_ruler_handler(but, event, data)
+
+    def _create_trends_controls_container(self) -> v.Layout:
+        controls = gui_parts.TrendControls()
+        controls.but_show_all.on_event("click", self._show_all_but_handler)
+        controls.but_next.on_event("click", self._show_next_move_handler)
+        controls.but_prev.on_event("click", self._show_prev_move_handler)
+        controls.but_narrow.on_event("click", self._narrow_view_handler)
+        controls.but_wide.on_event("click", self._wide_view_handler)
+        controls.but_ruler.on_event("click", self._ruler_handler)
+        return controls
+
+    def _create_controls_container(self) -> v.Layout:
+        self._tabs_control_container = v.Layout(
+            children=[self.tabs_control], class_="d-flex justify-end mr-2"
+        )
+        self.trends_controls_container = self._create_trends_controls_container()
+        return v.Layout(
+            children=[self._tabs_control_container, self.trends_controls_container],
+            class_="d-flex align-center justify-center",
+        )
+
+    def _create_gui_parts(self):
+        super()._create_gui_parts()
+        self._controls_container = self._create_controls_container()
+
+    @property
+    def _gui_box_contents(self) -> list[w.Widget]:
+        contents = [
+            self._icon_row_top,
+            self.chart.figure,
+            self.date_slider,
+            self._controls_container,
+            self.html_output,
+        ]
+        return contents
+
+    def _create_date_slider(self, **kwargs):
+        ds = super()._create_date_slider(**kwargs)
+        ds.slider.observe(self.chart.update_trend_mark, ["index"])
+        return ds
+
+    @property
+    def current_move(self) -> MovementProto | None:
+        """Currently selected Movement.
+
+        None if no movement has been selected.
+        """
+        return self.chart.current_move
+
+    def _gui_click_trend_handler(self, mark: bq.Scatter, event: dict):
+        """Gui level handler for clicking marker representing trend start.
+
+        Subclass should define if required
+        """
+
+    @contextmanager
+    def _handler_disabled(self):
+        """Undertake an operation within context of disabled handler.
+
+        Undertake an operation with context of slider's handlers being
+        disabled.
+
+        Notes
+        -----
+        Messily overrides method defined on `BaseVariableDates` subclass to
+        include the additional `self.chart.update_trend_mark` handler.
+        """
+        self._slider.unobserve(self._set_chart_x_ticks_to_slider, ["index"])
+        self._slider.unobserve(self.chart.update_trend_mark, ["index"])
+        yield
+        self._slider.observe(self._set_chart_x_ticks_to_slider, ["index"])
+        self._slider.observe(self.chart.update_trend_mark, ["index"])
+
+    def _max_x_ticks(self):
+        """Show data for all plottable x-ticks (bars).
+
+        Notes
+        -----
+        Overrides inherited method to ensure trend mark is also updated.
+        """
+        self.chart.reset_x_ticks()
+        self._set_slider_limits_to_all_plottable_x_ticks()
+        self.chart.update_trend_mark()

@@ -9,13 +9,22 @@
 
 [![PyPI](https://img.shields.io/pypi/v/market-analy)](https://pypi.org/project/market-analy/) ![Python Support](https://img.shields.io/pypi/pyversions/market-analy) [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
-A python package to analyse financial instruments.
+A python package for interactive charting and analysis of financial instruments.
 
-There's a load of great financial libraries out there for Technical Analysis, Charting, Backtesting, Portfolio Analysis etc. This library isn't reinventing the wheel (not intentionally anyway), rather it provides functions and interactive charting that I think are useful and couldn't find elsewhere. It's not comprehensive, but rather fills some of the gaps.
+Functionality includes **defining and visualising trends**.
 
-Some functionality is general, some is focused on defining and identifying trends. Interactive charting is offered via guis created from widgets of the [bqplot](https://github.com/bqplot/bqplot), [ipywidgets](https://github.com/jupyter-widgets/ipywidgets) and [ipyvuetify](https://github.com/widgetti/ipyvuetify) libraries. Users can use the underlying parts to develop their own interactive charts and analyses. Contributions very much welcome! This is a WIP and it's anticipated that further analyses will be added.
+Interactive charting is offered via guis created from widgets of the [bqplot](https://github.com/bqplot/bqplot), [ipywidgets](https://github.com/jupyter-widgets/ipywidgets) and [ipyvuetify](https://github.com/widgetti/ipyvuetify) libraries. Users can use the underlying parts to develop their own interactive charts and analyses. Contributions very much welcome! This is a WIP and it's anticipated that further analyses will be added.
 
-The [demo video](https://vimeo.com/801302973) gives an overview of what´s on offer. All analyses are accessed via the classes `analysis.Analysis` (single instrument analyses) and `analysis.Compare` (to compare multiple instruments). For example:
+There's a load of great financial libraries out there. This library isn't reinventing the wheel (not intentionally anyway), rather it principally provides functions and interactive charting that I think are useful and couldn't find elsewhere.
+
+## Video tutorials
+
+The following videos cover what's on offer:
+* [General tutorial](https://vimeo.com/801302973) demonstrates the functionality as of the initial release (February 2023).
+* [Trends](https://vimeo.com/835495038) demonstrates functionality (added June 2023) to define and visualise trends.
+
+## Quickstart
+All analyses can be accessed via the classes `Analysis` (single instrument analyses) and `Compare` (to compare multiple instruments). For example:
 
 ```python
 from market_prices import PricesYahoo
@@ -28,6 +37,21 @@ gui = analy.plot(days=30)
 https://user-images.githubusercontent.com/56914820/220773777-df0d0bec-bbe1-45bb-b067-d679666450cd.mp4
 
 ```python
+trend_kwargs = {
+    "prd":60,
+    "ext_break":0.05,
+    "ext_limit":0.03,
+    "min_bars":5,
+}
+gui = analy.trends_chart(
+    "1D",
+    trend_kwargs,
+    years=3,
+)
+```
+https://github.com/maread99/market_analy/assets/56914820/998c7f46-20f5-43f1-8b82-c857c0702cee
+
+```python
 comp = Compare(PricesYahoo("MSFT, AMZN, TSLA"))
 gui = comp.plot(hours=30)
 ```
@@ -38,8 +62,7 @@ gui = comp.chg_every_interval("20T", days=5, chart=True)
 ```
 https://user-images.githubusercontent.com/56914820/220773802-ae329259-4a4e-4e5e-8d02-d4ee88b8b452.mp4
 
-
-For further documentation, see the [analysis](https://github.com/maread99/market_analy/blob/master/src/market_analy/analysis.py) module.
+For further documentation see the [video tutorials](#Video-tutorials) and the [analysis](https://github.com/maread99/market_analy/blob/master/src/market_analy/analysis.py) module.
 
 ## Installation and environment
 
@@ -73,12 +96,11 @@ The color scheme assumes the package is being used with the JupyterLab dark them
 Most of the arguments available to the market-prices `get` function can be passed directly to the `market_analy` functions. See the [market-prices][market-prices] documentation for further info.
 
 ## Release schedule, bugs, development and feedback
-
-The first beta version of `market_analy` was released Feb 2023. It's anticipated that functionality to define and visually interrogate trends will be added later in 2023.
+The first beta version of `market_analy` was released Feb 2023. Functionality to  define and visually interrogate trends was added in June 2023.
 
 The project is immature. Whilst it's not anticipated that major changes will be made to the existing public side, they could be. All that's under-the-bonnet is subject to change as the project evolves. The `guis` module in particular won't permit much further development without overhauling the current inheritance-based approach to a compositional one.
 
-The test suite is limited. It's pretty much guaranteed that there are bugs. Please raise an [issue](https://github.com/maread99/market_analy/issues) if you find one or come across unexpected behaviour.
+The test suite is somewhat limited. It's pretty much guaranteed that there are bugs. Please raise an [issue](https://github.com/maread99/market_analy/issues) if you find one or come across unexpected behaviour.
 
 Please use [discussions](https://github.com/maread99/market_analy/discussions) to make any suggestions and offer general feedback.
 

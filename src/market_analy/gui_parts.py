@@ -596,3 +596,158 @@ class PctChgIconRowMult(v.Layout):
         ]
 
         super().__init__(children=children, class_=BG, justify_space_around=True)
+
+
+class TrendControls(v.Layout):
+    """Container of controls for selecting and viewing trend movements.
+
+    Client should directly assign handlers to exposed buttons after
+    creating instance.
+
+    Includes vu.IconBut arranged as:
+
+                        but_next  //  but_prev
+        but_show_all //                           // but_ruler
+                        but_narrow  //  but_wide
+    """
+
+    _TURN_OFF_COLOR = "#CD853F"
+
+    def __init__(self):
+        self.but_show_all: vu.IconBut
+        self.but_next: vu.IconBut
+        self.but_prev: vu.IconBut
+        self.but_narrow: vu.IconBut
+        self.but_wide: vu.IconBut
+        self.but_ruler: vu.IconBut
+        self._buts: list[vu.IconBut] = []
+        self._dark = True
+
+        super().__init__(
+            children=[
+                self._create_show_all_container(),
+                self._create_trend_container(),
+                self._create_ruler_container(),
+            ],
+            class_="d-flex justify-start ml-2",
+        )
+
+    def _create_iconbut(
+        self,
+        icon_name: str,
+        tooltip: str,
+        color: str,
+        class_="mr-2",
+        dark: bool | None = None,
+    ) -> vu.IconBut:
+        if dark is None:
+            dark = self._dark
+        but = create_icon_but(
+            icon_name=icon_name,
+            tooltip=tooltip,
+            color=color,
+            class_=class_,
+            dark_color="grey",
+            dark=dark,
+        )
+        self._buts.append(but)
+        return but
+
+    def _create_show_all_container(self) -> v.Layout:
+        self.but_show_all = self._create_iconbut(
+            icon_name="mdi-chart-scatter-plot",
+            tooltip="Toggle visibilty of trend marks",
+            color="yellow",
+            class_="flex-grow-0 align-self-center",
+            dark=False,
+        )
+        return v.Layout(
+            children=[
+                v.Layout(
+                    children=[self.but_show_all.tt],
+                    class_="d-flex justify-start flex-grow-0 mr-2",
+                )
+            ],
+            class_="d-flex justify-start flex-grow-0",
+        )
+
+    def _create_prev_next_container(self) -> v.Layout:
+        self.but_prev = self._create_iconbut(
+            "mdi-arrow-left-circle", "Select previous movement", "#F0E68C"
+        )
+        self.but_next = self._create_iconbut(
+            "mdi-arrow-right-circle", "Select next movement", "#FFD700"
+        )
+        return v.Layout(
+            children=[self.but_prev.tt, self.but_next.tt],
+            class_="d-flex justify-start mb-2",
+        )
+
+    def _create_narrow_wide_view_container(self) -> v.Layout:
+        self.but_narrow = self._create_iconbut(
+            "mdi-arrow-expand-horizontal",
+            "Narrow view around selected movement",
+            "#BDB76B",
+        )
+        self.but_wide = self._create_iconbut(
+            "mdi-arrow-left-right", "Wide view around selected movement", "#BDB76B"
+        )
+        return v.Layout(
+            children=[self.but_narrow.tt, self.but_wide.tt],
+            class_="d-flex justify-start",
+        )
+
+    def _create_trend_container(self) -> v.Layout:
+        contain_prev_next = self._create_prev_next_container()
+        contain_narrow_wide = self._create_narrow_wide_view_container()
+        return v.Layout(
+            children=[contain_prev_next, contain_narrow_wide],
+            class_="d-flex flex-column justify-center flex-grow-0 ml-2",
+        )
+
+    def but_ruler_handler(self, but: vu.IconBut, event: str, data: dict):
+        """Handler to toggle ruler but color light/red if group not dark."""
+        if but.is_dark:
+            return
+        if but.is_light:
+            but.icon_color = self._TURN_OFF_COLOR
+            return
+        f = but.darken if self.is_dark_single_trend else but.lighten
+        f()
+
+    def _create_ruler_container(self) -> v.Layout:
+        self.but_ruler = self._create_iconbut(
+            icon_name="mdi-ruler",
+            tooltip="Show ruler with width of trend period",
+            color="yellow",
+            class_="flex-grow-0 align-self-center",
+        )
+        self.but_ruler.on_event("click", self.but_ruler_handler)
+        return v.Layout(
+            children=[self.but_ruler.tt],
+            class_="d-flex justify-start flex-grow-1",
+        )
+
+    @property
+    def is_dark_single_trend(self) -> bool:
+        """Query if icons for single-trend actions are dark."""
+        return self._dark
+
+    def darken_single_trend(self):
+        """Darken icon buttons for single-trend actions.
+
+        Will not darken any icon waiting to be switched off.
+        """
+        for but in self._buts:
+            if (but.icon_color == self._TURN_OFF_COLOR) or but is self.but_show_all:
+                continue
+            but.darken()
+        self._dark = True
+
+    def lighten_single_trend(self):
+        """Lighten icon buttons for single-trend actions."""
+        for but in self._buts:
+            if but is self.but_show_all:
+                continue
+            but.lighten()
+        self._dark = False

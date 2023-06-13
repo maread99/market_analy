@@ -6,6 +6,7 @@ from collections import abc
 import pathlib
 import pickle
 
+import exchange_calendars as xcals
 import pandas as pd
 import pytest
 import market_prices as mp
@@ -112,3 +113,15 @@ def prices_compare(class_mocker) -> abc.Iterator[mp.PricesYahoo]:
 def prices_analysis_other(class_mocker) -> abc.Iterator[mp.PricesYahoo]:
     """'Another' `PricesYahoo` instance to use for testing `Analysis` class."""
     yield _unpickle_prices(_PATH_ANALYSIS_OTHER, class_mocker)
+
+
+@pytest.fixture
+def path_res() -> abc.Iterator[pathlib.Path]:
+    yield _RESOURCES_DIR
+
+
+@pytest.fixture
+def xnys() -> abc.Iterator[xcals.ExchangeCalendar]:
+    yield xcals.get_calendar(
+        "XNYS", start=pd.Timestamp("2015"), end=pd.Timestamp("2024")
+    )
