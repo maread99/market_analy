@@ -148,7 +148,7 @@ pyzmq==25.1.0
     #   jupyter-client
 requests==2.31.0
     # via requests-futures
-requests-futures==1.0.0
+requests-futures==1.0.1
     # via yahooquery
 six==1.16.0
     # via
