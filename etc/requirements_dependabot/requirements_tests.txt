@@ -85,7 +85,7 @@ jupyter-core==5.3.1
     # via
     #   ipykernel
     #   jupyter-client
-jupyterlab-widgets==3.0.7
+jupyterlab-widgets==3.0.8
     # via ipywidgets
 kiwisolver==1.4.4
     # via matplotlib
