@@ -240,7 +240,7 @@ urllib3==2.0.3
     # via requests
 wcwidth==0.2.6
     # via prompt-toolkit
-widgetsnbextension==4.0.7
+widgetsnbextension==4.0.8
     # via ipywidgets
 yahooquery==2.3.1
     # via market-prices
