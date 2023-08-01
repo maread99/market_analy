@@ -70,7 +70,7 @@ ipyvue==1.9.2
     # via ipyvuetify
 ipyvuetify==1.8.10
     # via market-analy (pyproject.toml)
-ipywidgets==8.0.6
+ipywidgets==8.1.0
     # via
     #   bqplot
     #   ipyvue
