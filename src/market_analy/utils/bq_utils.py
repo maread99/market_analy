@@ -13,6 +13,8 @@ import numpy as np
 from bqplot.interacts import FastIntervalSelector
 from traitlets import HasTraits, Any, dlink, link
 
+from market_analy.utils import UTC
+
 # possible keys for dictionary taken by +scales+ parameter of Axes class.
 ScaleKeys = Literal["x", "y", "color", "opacity", "size", "rotation", "skew"]
 
@@ -64,7 +66,7 @@ def discontinuous_date_to_timestamp(value: np.int64) -> pd.Timestamp:
     """
     # utc version of fromtimestamp ensures that operation is the inverse
     # of dates_to_posix
-    return pd.Timestamp.fromtimestamp(value / 1000, tz="UTC").tz_convert(None)
+    return pd.Timestamp.fromtimestamp(value / 1000, tz=UTC).tz_convert(None)
 
 
 def format_label(value: Any, label_format: str) -> str:

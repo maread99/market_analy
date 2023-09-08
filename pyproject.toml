@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "market_analy"
 description = "Analysis of exchange-listed financial instruments"
 authors = [
-  {email = "marcusaread@gmail.com"},
+  {email = "marcusaread.prog@proton.me"},
   {name = "Marcus Read"},
 ]
 readme = "README.md"
@@ -51,12 +51,14 @@ classifiers = [
 dependencies = [
     "market-prices",
     "exchange-calendars",
+    "numpy",
     "pandas",
     "Jinja2",
     "matplotlib",
     "numpy",
     "bqplot",
     "traitlets",
+    "tzdata",
     "ipywidgets>=8.0",
     "ipyvuetify",
 ]
@@ -83,7 +85,6 @@ dev = [
     "pytest-mock",
     "jupyterlab>=3.0",
     "pandas-stubs",
-    "types-pytz",
     "mypy",
     "pip-tools",
     "pre-commit",

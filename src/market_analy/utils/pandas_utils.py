@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 from typing import Any, Literal
+from zoneinfo import ZoneInfo
 
 import pandas as pd
-import pytz
 import numpy as np
 
 
@@ -209,7 +209,7 @@ def intervals_subset(
 
 
 def interval_index_new_tz(
-    index: pd.IntervalIndex, tz: pytz.tzinfo.BaseTzInfo | str | None
+    index: pd.IntervalIndex, tz: ZoneInfo | str | None
 ) -> pd.IntervalIndex:
     """Return pd.IntervalIndex with different timezone.
 
@@ -237,17 +237,17 @@ def interval_index_new_tz(
 
     Examples
     --------
+    >>> tz = ZoneInfo("US/Central")
     >>> left = pd.date_range(
-    ...     '2021-05-01 12:00', periods=5, freq='1H', tz='US/Central'
+    ...     '2021-05-01 12:00', periods=5, freq='1H', tz=tz
     ... )
     >>> right = left + pd.Timedelta(30, 'T')
     >>> index = pd.IntervalIndex.from_arrays(left, right)
     >>> index.right.tz
-    <DstTzInfo 'US/Central' LMT-1 day, 18:09:00 STD>
-    >>> new_index = interval_index_new_tz(index, tz=pytz.UTC)
-    >>> new_index.left.tz == new_index.right.tz == pytz.UTC
-    True
-    >>> new_index.left.tz.zone == new_index.right.tz.zone == "UTC"
+    zoneinfo.ZoneInfo(key='US/Central')
+    >>> UTC = ZoneInfo("UTC")
+    >>> new_index = interval_index_new_tz(index, tz=UTC)
+    >>> new_index.left.tz == new_index.right.tz == UTC
     True
     >>> tz_naive = interval_index_new_tz(index, tz=None)
     >>> tz_naive[0].left

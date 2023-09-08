@@ -9,6 +9,7 @@ import contextlib
 import io
 import pickle
 import re
+from zoneinfo import ZoneInfo
 
 import bqplot as bq
 import market_prices as mp
@@ -19,6 +20,7 @@ from pandas.testing import assert_series_equal, assert_frame_equal, assert_index
 import pytest
 
 from market_analy import analysis, guis, trends
+from market_analy.utils import UTC
 from market_analy.utils import bq_utils as bqu
 
 # pylint: disable=too-many-lines
@@ -275,8 +277,8 @@ def intraday_pp():
     "2023-01-09 16:15" UTC.
     """
     return {
-        "start": T("2023-01-06 14:45", tz="UTC"),
-        "end": T("2023-01-10 16:15", tz="UTC"),
+        "start": T("2023-01-06 14:45", tz=UTC),
+        "end": T("2023-01-10 16:15", tz=UTC),
     }
 
 
@@ -290,6 +292,10 @@ class TestAnalysis:
     @pytest.fixture(scope="class")
     def analy_other(self, prices_analysis_other) -> abc.Iterator[analysis.Analysis]:
         yield analysis.Analysis(prices_analysis_other)
+
+    @pytest.fixture(scope="class")
+    def tz(self) -> abc.Iterator[ZoneInfo]:
+        yield ZoneInfo("Europe/London")
 
     def test_constructor_raises(self):
         msg = re.escape(
@@ -496,70 +502,70 @@ class TestAnalysis:
         expected = "\\begin{table}\n\\caption{Change 2023-01-06 14:45 to 2023-01-10 16:15}\n\\begin{tabular}{lrrr}\n & pct_chg & chg & close \\\\\nsymbol &  &  &  \\\\\nAZN.L & \\colorYellowGreen 0.62% & \\colorYellowGreen 72.32 & 11804.32 \\\\\n\\end{tabular}\n\\end{table}\n"
         assert rtrn.to_latex() == expected
 
-    def test_chg_every_interval(self, analy, intraday_pp):
+    def test_chg_every_interval(self, analy, intraday_pp, tz):
         f = analy.chg_every_interval
         rtrn = f("90T", style=False, **intraday_pp, anchor="workback")
         expected = pd.DataFrame(
             {
                 "AZN.L": {
                     pd.Interval(
-                        T("2023-01-06 15:15:00", tz="Europe/London"),
-                        T("2023-01-09 08:15:00", tz="Europe/London"),
+                        T("2023-01-06 15:15:00", tz=tz),
+                        T("2023-01-09 08:15:00", tz=tz),
                         closed="left",
                     ): -0.004094864357618154,
                     pd.Interval(
-                        T("2023-01-09 08:15:00", tz="Europe/London"),
-                        T("2023-01-09 09:45:00", tz="Europe/London"),
+                        T("2023-01-09 08:15:00", tz=tz),
+                        T("2023-01-09 09:45:00", tz=tz),
                         closed="left",
                     ): -0.0006852835360630461,
                     pd.Interval(
-                        T("2023-01-09 09:45:00", tz="Europe/London"),
-                        T("2023-01-09 11:15:00", tz="Europe/London"),
+                        T("2023-01-09 09:45:00", tz=tz),
+                        T("2023-01-09 11:15:00", tz=tz),
                         closed="left",
                     ): -0.0008571918395336877,
                     pd.Interval(
-                        T("2023-01-09 11:15:00", tz="Europe/London"),
-                        T("2023-01-09 12:45:00", tz="Europe/London"),
+                        T("2023-01-09 11:15:00", tz=tz),
+                        T("2023-01-09 12:45:00", tz=tz),
                         closed="left",
                     ): -0.0011701826044526423,
                     pd.Interval(
-                        T("2023-01-09 12:45:00", tz="Europe/London"),
-                        T("2023-01-09 14:15:00", tz="Europe/London"),
+                        T("2023-01-09 12:45:00", tz=tz),
+                        T("2023-01-09 14:15:00", tz=tz),
                         closed="left",
                     ): 0.0032329911891490672,
                     pd.Interval(
-                        T("2023-01-09 14:15:00", tz="Europe/London"),
-                        T("2023-01-09 15:45:00", tz="Europe/London"),
+                        T("2023-01-09 14:15:00", tz=tz),
+                        T("2023-01-09 15:45:00", tz=tz),
                         closed="left",
                     ): 0.00017123287671232877,
                     pd.Interval(
-                        T("2023-01-09 15:45:00", tz="Europe/London"),
-                        T("2023-01-10 08:45:00", tz="Europe/London"),
+                        T("2023-01-09 15:45:00", tz=tz),
+                        T("2023-01-10 08:45:00", tz=tz),
                         closed="left",
                     ): 0.005231907261171033,
                     pd.Interval(
-                        T("2023-01-10 08:45:00", tz="Europe/London"),
-                        T("2023-01-10 10:15:00", tz="Europe/London"),
+                        T("2023-01-10 08:45:00", tz=tz),
+                        T("2023-01-10 10:15:00", tz=tz),
                         closed="left",
                     ): 0.011315635802016374,
                     pd.Interval(
-                        T("2023-01-10 10:15:00", tz="Europe/London"),
-                        T("2023-01-10 11:45:00", tz="Europe/London"),
+                        T("2023-01-10 10:15:00", tz=tz),
+                        T("2023-01-10 11:45:00", tz=tz),
                         closed="left",
                     ): -0.005894240485011789,
                     pd.Interval(
-                        T("2023-01-10 11:45:00", tz="Europe/London"),
-                        T("2023-01-10 13:15:00", tz="Europe/London"),
+                        T("2023-01-10 11:45:00", tz=tz),
+                        T("2023-01-10 13:15:00", tz=tz),
                         closed="left",
                     ): -0.001694053870913095,
                     pd.Interval(
-                        T("2023-01-10 13:15:00", tz="Europe/London"),
-                        T("2023-01-10 14:45:00", tz="Europe/London"),
+                        T("2023-01-10 13:15:00", tz=tz),
+                        T("2023-01-10 14:45:00", tz=tz),
                         closed="left",
                     ): 0.0035635499745460715,
                     pd.Interval(
-                        T("2023-01-10 14:45:00", tz="Europe/London"),
-                        T("2023-01-10 16:15:00", tz="Europe/London"),
+                        T("2023-01-10 14:45:00", tz=tz),
+                        T("2023-01-10 16:15:00", tz=tz),
                         closed="left",
                     ): -0.002002002663172134,
                 }
@@ -714,7 +720,7 @@ class TestAnalysis:
         expected = "\\begin{table}\n\\caption{Price 2023-01-05}\n\\begin{tabular}{lrrrrrrr}\n & pct_chg & chg & close & open & high & low & volume \\\\\nsymbol &  &  &  &  &  &  &  \\\\\nAZN.L & \\colorYellowGreen 0.93% & \\colorYellowGreen 108.00 & 11710.00 & 11524.00 & 11730.00 & 11476.00 & 2215897 \\\\\n\\end{tabular}\n\\end{table}\n"
         assert rtrn.to_latex() == expected
 
-    def test_price_at(self, analy):
+    def test_price_at(self, analy, tz):
         """Test `Analysis.price_at`.
 
         Also tests:
@@ -735,7 +741,7 @@ class TestAnalysis:
         # test default
         rtrn = f()
         expected = pd.DataFrame(
-            {"AZN.L": {T("2023-02-02 15:10:00+0000", tz="Europe/London"): 10194.0}}
+            {"AZN.L": {T("2023-02-02 15:10:00+0000", tz=tz): 10194.0}}
         )
         expected.columns.name = "symbol"
         assert_frame_equal(rtrn, expected)
@@ -745,22 +751,18 @@ class TestAnalysis:
         dt = "2023-01-06 09:33"
         rtrn = analy.price_at(dt)
         expected = pd.DataFrame(
-            {
-                "AZN.L": {
-                    T("2023-01-06 09:33:00+0000", tz="Europe/London"): 11709.7802734375
-                }
-            }
+            {"AZN.L": {T("2023-01-06 09:33:00+0000", tz=tz): 11709.7802734375}}
         )
         expected.columns.name = "symbol"
         assert_frame_equal(rtrn, expected)
         # test .price()
         assert_frame_equal(rtrn, analy.price(dt))
 
-    def test_price_range(self, analy, intraday_pp):
+    def test_price_range(self, analy, intraday_pp, tz):
         rtrn = analy.price_range(**intraday_pp)
         interval = pd.Interval(
-            T("2023-01-06 14:45:00", tz="Europe/London"),
-            T("2023-01-10 16:15:00", tz="Europe/London"),
+            T("2023-01-06 14:45:00", tz=tz),
+            T("2023-01-10 16:15:00", tz=tz),
             closed="right",
         )
         expected = pd.DataFrame(
@@ -775,14 +777,14 @@ class TestAnalysis:
         expected.columns.names = ["symbol", ""]
         assert_frame_equal(rtrn, expected)
 
-    def test_max_adv(self, analy, daily_pp):
+    def test_max_adv(self, analy, daily_pp, tz):
         f = analy.max_adv
         rtrn = f(style=False, **daily_pp)
         expected = pd.DataFrame(
             {
-                "start": {"AZN.L": T("2023-01-09 15:00:00+0000", tz="Europe/London")},
+                "start": {"AZN.L": T("2023-01-09 15:00:00+0000", tz=tz)},
                 "low": {"AZN.L": 11602.0},
-                "end": {"AZN.L": T("2023-01-10 10:00:00+0000", tz="Europe/London")},
+                "end": {"AZN.L": T("2023-01-10 10:00:00+0000", tz=tz)},
                 "high": {"AZN.L": 11886.0},
                 "pct_chg": {"AZN.L": 0.024478538183071885},
                 "hours": {"AZN.L": 19},
@@ -794,14 +796,14 @@ class TestAnalysis:
         expected = "\\begin{table}\n\\caption{Maximum Advance 2023-01-06 to 2023-01-10}\n\\begin{tabular}{llrlrrr}\n & start & low & end & high & pct_chg & hours \\\\\nAZN.L & 2023-01-09 15:00 & 11602.00 & 2023-01-10 10:00 & 11886.00 & \\colorYellowGreen 2.45% & 19 \\\\\n\\end{tabular}\n\\end{table}\n"
         assert rtrn.to_latex() == expected
 
-    def test_max_dec(self, analy, daily_pp):
+    def test_max_dec(self, analy, daily_pp, tz):
         f = analy.max_dec
         rtrn = f(style=False, **daily_pp)
         expected = pd.DataFrame(
             {
-                "start": {"AZN.L": T("2023-01-06 16:00:00+0000", tz="Europe/London")},
+                "start": {"AZN.L": T("2023-01-06 16:00:00+0000", tz=tz)},
                 "high": {"AZN.L": 11808.0},
-                "end": {"AZN.L": T("2023-01-09 15:00:00+0000", tz="Europe/London")},
+                "end": {"AZN.L": T("2023-01-09 15:00:00+0000", tz=tz)},
                 "low": {"AZN.L": 11602.0},
                 "pct_chg": {"AZN.L": -0.017445799457994626},
                 "days": {"AZN.L": 2},
@@ -1392,6 +1394,10 @@ class TestCompare:
     def analy(self, prices_compare) -> abc.Iterator[analysis.Compare]:
         yield analysis.Compare(prices_compare)
 
+    @pytest.fixture(scope="class")
+    def tz(self) -> abc.Iterator[ZoneInfo]:
+        yield ZoneInfo("America/New_York")
+
     def test_constructor_raises(self):
         msg = re.escape(
             "The Compare class requires a `prices` instance that gets"
@@ -1786,7 +1792,7 @@ class TestCompare:
         expected = "\\begin{table}\n\\caption{Change 2023-01-06 09:45 to 2023-01-10 11:15}\n\\begin{tabular}{lrrr}\n & pct_chg & chg & close \\\\\nsymbol &  &  &  \\\\\nMSFT & \\colorYellowGreen 4.19% & \\colorYellowGreen 9.22 & 229.13 \\\\\nAZN.L & \\colorYellowGreen 0.62% & \\colorYellowGreen 72.32 & 11804.32 \\\\\n9988.HK & \\colorYellowGreen 3.60% & \\colorYellowGreen 3.80 & 109.50 \\\\\nAv. & \\colorYellowGreen 2.80% & \\colorYellowGreen  &  \\\\\n\\end{tabular}\n\\end{table}\n"
         assert rtrn.to_latex() == expected
 
-    def test_chg_every_interval(self, analy, intraday_pp):
+    def test_chg_every_interval(self, analy, intraday_pp, tz):
         f = analy.chg_every_interval
         rtrn = f("90T", style=False, **intraday_pp, anchor="workback")
         # verify against expected first three rows
@@ -1794,52 +1800,52 @@ class TestCompare:
             {
                 "MSFT": {
                     pd.Interval(
-                        T("2023-01-05 21:45:00", tz="America/New_York"),
-                        T("2023-01-06 00:15:00", tz="America/New_York"),
+                        T("2023-01-05 21:45:00", tz=tz),
+                        T("2023-01-06 00:15:00", tz=tz),
                         closed="left",
                     ): 0.0,
                     pd.Interval(
-                        T("2023-01-06 00:15:00", tz="America/New_York"),
-                        T("2023-01-06 01:45:00", tz="America/New_York"),
+                        T("2023-01-06 00:15:00", tz=tz),
+                        T("2023-01-06 01:45:00", tz=tz),
                         closed="left",
                     ): 0.0,
                     pd.Interval(
-                        T("2023-01-06 01:45:00", tz="America/New_York"),
-                        T("2023-01-06 03:15:00", tz="America/New_York"),
+                        T("2023-01-06 01:45:00", tz=tz),
+                        T("2023-01-06 03:15:00", tz=tz),
                         closed="left",
                     ): 0.0,
                 },
                 "AZN.L": {
                     pd.Interval(
-                        T("2023-01-05 21:45:00", tz="America/New_York"),
-                        T("2023-01-06 00:15:00", tz="America/New_York"),
+                        T("2023-01-05 21:45:00", tz=tz),
+                        T("2023-01-06 00:15:00", tz=tz),
                         closed="left",
                     ): 0.0,
                     pd.Interval(
-                        T("2023-01-06 00:15:00", tz="America/New_York"),
-                        T("2023-01-06 01:45:00", tz="America/New_York"),
+                        T("2023-01-06 00:15:00", tz=tz),
+                        T("2023-01-06 01:45:00", tz=tz),
                         closed="left",
                     ): 0.0,
                     pd.Interval(
-                        T("2023-01-06 01:45:00", tz="America/New_York"),
-                        T("2023-01-06 03:15:00", tz="America/New_York"),
+                        T("2023-01-06 01:45:00", tz=tz),
+                        T("2023-01-06 03:15:00", tz=tz),
                         closed="left",
                     ): 0.0018748934719618204,
                 },
                 "9988.HK": {
                     pd.Interval(
-                        T("2023-01-05 21:45:00", tz="America/New_York"),
-                        T("2023-01-06 00:15:00", tz="America/New_York"),
+                        T("2023-01-05 21:45:00", tz=tz),
+                        T("2023-01-06 00:15:00", tz=tz),
                         closed="left",
                     ): -0.0029586099333661934,
                     pd.Interval(
-                        T("2023-01-06 00:15:00", tz="America/New_York"),
-                        T("2023-01-06 01:45:00", tz="America/New_York"),
+                        T("2023-01-06 00:15:00", tz=tz),
+                        T("2023-01-06 01:45:00", tz=tz),
                         closed="left",
                     ): 0.0029673892807684393,
                     pd.Interval(
-                        T("2023-01-06 01:45:00", tz="America/New_York"),
-                        T("2023-01-06 03:15:00", tz="America/New_York"),
+                        T("2023-01-06 01:45:00", tz=tz),
+                        T("2023-01-06 03:15:00", tz=tz),
                         closed="left",
                     ): 0.001972356461860063,
                 },
@@ -1853,52 +1859,52 @@ class TestCompare:
             {
                 "MSFT": {
                     pd.Interval(
-                        T("2023-01-10 06:45:00", tz="America/New_York"),
-                        T("2023-01-10 08:15:00", tz="America/New_York"),
+                        T("2023-01-10 06:45:00", tz=tz),
+                        T("2023-01-10 08:15:00", tz=tz),
                         closed="left",
                     ): 0.0,
                     pd.Interval(
-                        T("2023-01-10 08:15:00", tz="America/New_York"),
-                        T("2023-01-10 09:45:00", tz="America/New_York"),
+                        T("2023-01-10 08:15:00", tz=tz),
+                        T("2023-01-10 09:45:00", tz=tz),
                         closed="left",
                     ): 0.011094009862088488,
                     pd.Interval(
-                        T("2023-01-10 09:45:00", tz="America/New_York"),
-                        T("2023-01-10 11:15:00", tz="America/New_York"),
+                        T("2023-01-10 09:45:00", tz=tz),
+                        T("2023-01-10 11:15:00", tz=tz),
                         closed="left",
                     ): -0.0023572826187263285,
                 },
                 "AZN.L": {
                     pd.Interval(
-                        T("2023-01-10 06:45:00", tz="America/New_York"),
-                        T("2023-01-10 08:15:00", tz="America/New_York"),
+                        T("2023-01-10 06:45:00", tz=tz),
+                        T("2023-01-10 08:15:00", tz=tz),
                         closed="left",
                     ): -0.001694053870913095,
                     pd.Interval(
-                        T("2023-01-10 08:15:00", tz="America/New_York"),
-                        T("2023-01-10 09:45:00", tz="America/New_York"),
+                        T("2023-01-10 08:15:00", tz=tz),
+                        T("2023-01-10 09:45:00", tz=tz),
                         closed="left",
                     ): 0.0035635499745460715,
                     pd.Interval(
-                        T("2023-01-10 09:45:00", tz="America/New_York"),
-                        T("2023-01-10 11:15:00", tz="America/New_York"),
+                        T("2023-01-10 09:45:00", tz=tz),
+                        T("2023-01-10 11:15:00", tz=tz),
                         closed="left",
                     ): -0.002002002663172134,
                 },
                 "9988.HK": {
                     pd.Interval(
-                        T("2023-01-10 06:45:00", tz="America/New_York"),
-                        T("2023-01-10 08:15:00", tz="America/New_York"),
+                        T("2023-01-10 06:45:00", tz=tz),
+                        T("2023-01-10 08:15:00", tz=tz),
                         closed="left",
                     ): 0.0,
                     pd.Interval(
-                        T("2023-01-10 08:15:00", tz="America/New_York"),
-                        T("2023-01-10 09:45:00", tz="America/New_York"),
+                        T("2023-01-10 08:15:00", tz=tz),
+                        T("2023-01-10 09:45:00", tz=tz),
                         closed="left",
                     ): 0.0,
                     pd.Interval(
-                        T("2023-01-10 09:45:00", tz="America/New_York"),
-                        T("2023-01-10 11:15:00", tz="America/New_York"),
+                        T("2023-01-10 09:45:00", tz=tz),
+                        T("2023-01-10 11:15:00", tz=tz),
                         closed="left",
                     ): 0.0,
                 },
@@ -2137,7 +2143,7 @@ class TestCompare:
         expected = "\\begin{table}\n\\caption{Price 2023-01-05}\n\\begin{tabular}{lrrrrrrr}\n & pct_chg & chg & close & open & high & low & volume \\\\\nsymbol &  &  &  &  &  &  &  \\\\\n9988.HK & \\colorYellowGreen 3.32% & \\colorYellowGreen 3.20 & 99.60 & 102.10 & 103.80 & 98.20 & 104685426 \\\\\nAZN.L & \\colorYellowGreen 0.93% & \\colorYellowGreen 108.00 & 11710.00 & 11524.00 & 11730.00 & 11476.00 & 2215897 \\\\\nMSFT & \\colorCrimson -2.96% & \\colorCrimson -6.79 & 222.31 & 227.20 & 227.55 & 221.76 & 39585600 \\\\\nAv. & \\colorYellowGreen 0.43% & \\colorYellowGreen  &  &  &  &  &  \\\\\n\\end{tabular}\n\\end{table}\n"
         assert rtrn.to_latex() == expected
 
-    def test_price_at(self, analy):
+    def test_price_at(self, analy, tz):
         """Test `Compare.price_at`.
 
         Also tests:
@@ -2146,7 +2152,7 @@ class TestCompare:
         """
         # test default
         rtrn = analy.price_at()
-        ts = T("2023-02-02 10:10:00-0500", tz="America/New_York")
+        ts = T("2023-02-02 10:10:00-0500", tz=tz)
         expected = pd.DataFrame(
             {
                 "MSFT": {ts: 260.17999267578125},
@@ -2161,7 +2167,7 @@ class TestCompare:
         # test passing a value
         dt = "2023-01-06 09:33"
         rtrn = analy.price_at(dt)
-        ts = T("2023-01-06 09:33:00-0500", tz="America/New_York")
+        ts = T("2023-01-06 09:33:00-0500", tz=tz)
         expected = pd.DataFrame(
             {
                 "MSFT": {ts: 222.07000732421875},
@@ -2175,11 +2181,11 @@ class TestCompare:
         # test .price()
         assert_frame_equal(rtrn, analy.price(dt))
 
-    def test_price_range(self, analy, intraday_pp):
+    def test_price_range(self, analy, intraday_pp, tz):
         rtrn = analy.price_range(**intraday_pp)
         interval = pd.Interval(
-            T("2023-01-06 09:45:00", tz="America/New_York"),
-            T("2023-01-10 11:15:00", tz="America/New_York"),
+            T("2023-01-06 09:45:00", tz=tz),
+            T("2023-01-10 11:15:00", tz=tz),
             closed="right",
         )
         expected = pd.DataFrame(
@@ -2249,21 +2255,21 @@ class TestCompare:
         expected = "\\begin{table}\n\\caption{Relative Strength 2023-01-06 to 2023-01-10 (2023-01-05 16:00 to 10 16:00)}\n\\begin{tabular}{lrrrr}\n & MSFT & AZN.L & 9988.HK & Av. \\\\\nsymbol &  &  &  &  \\\\\nMSFT & \\background-color#f6f7f7 \\color#000000 0.00% & \\background-color#a7d0e4 \\color#000000 2.51% & \\background-color#c94741 \\color#f1f1f1 -5.01% & \\background-color#fae7dc \\color#000000 -0.83% \\\\\nAZN.L & \\background-color#f7b799 \\color#000000 -2.51% & \\background-color#f6f7f7 \\color#000000 0.00% & \\background-color#67001f \\color#f1f1f1 -7.53% & \\background-color#ee9677 \\color#000000 -3.35% \\\\\n9988.HK & \\background-color#3783bb \\color#f1f1f1 5.01% & \\background-color#053061 \\color#f1f1f1 7.53% & \\background-color#f6f7f7 \\color#000000 0.00% & \\background-color#529dc8 \\color#f1f1f1 4.18% \\\\\n\\end{tabular}\n\\end{table}\n"
         assert rtrn.to_latex() == expected
 
-    def test_max_adv(self, analy, daily_pp):
+    def test_max_adv(self, analy, daily_pp, tz):
         f = analy.max_adv
         rtrn = f(style=False, **daily_pp)
         expected = pd.DataFrame(
             {
                 "start": {
-                    "9988.HK": T("2023-01-08 20:30:00-0500", tz="America/New_York"),
-                    "AZN.L": T("2023-01-09 10:05:00-0500", tz="America/New_York"),
-                    "MSFT": T("2023-01-06 09:50:00-0500", tz="America/New_York"),
+                    "9988.HK": T("2023-01-08 20:30:00-0500", tz=tz),
+                    "AZN.L": T("2023-01-09 10:05:00-0500", tz=tz),
+                    "MSFT": T("2023-01-06 09:50:00-0500", tz=tz),
                 },
                 "low": {"9988.HK": 105.0, "AZN.L": 11602.0, "MSFT": 219.35000610351562},
                 "end": {
-                    "9988.HK": T("2023-01-09 02:55:00-0500", tz="America/New_York"),
-                    "AZN.L": T("2023-01-10 05:15:00-0500", tz="America/New_York"),
-                    "MSFT": T("2023-01-10 10:15:00-0500", tz="America/New_York"),
+                    "9988.HK": T("2023-01-09 02:55:00-0500", tz=tz),
+                    "AZN.L": T("2023-01-10 05:15:00-0500", tz=tz),
+                    "MSFT": T("2023-01-10 10:15:00-0500", tz=tz),
                 },
                 "high": {
                     "9988.HK": 112.0,
@@ -2286,15 +2292,15 @@ class TestCompare:
         expected = "\\begin{table}\n\\caption{Maximum Advance 2023-01-06 to 2023-01-10}\n\\begin{tabular}{llrlrrrrr}\n & start & low & end & high & pct_chg & days & hours & minutes \\\\\n9988.HK & 2023-01-08 20:30 & 105.00 & 2023-01-09 02:55 & 112.00 & \\colorYellowGreen 6.67% & 0 & 6 & 25 \\\\\nAZN.L & 2023-01-09 10:05 & 11602.00 & 2023-01-10 05:15 & 11886.00 & \\colorYellowGreen 2.45% & 0 & 19 & 10 \\\\\nMSFT & 2023-01-06 09:50 & 219.35 & 2023-01-10 10:15 & 231.31 & \\colorYellowGreen 5.45% & 4 & 0 & 25 \\\\\nAv. &  &  &  &  & \\colorYellowGreen 4.86% & 1 &  &  \\\\\n\\end{tabular}\n\\end{table}\n"
         assert rtrn.to_latex() == expected
 
-    def test_max_dec(self, analy, intraday_pp):
+    def test_max_dec(self, analy, intraday_pp, tz):
         f = analy.max_dec
         rtrn = f(style=False, **intraday_pp)
         expected = pd.DataFrame(
             {
                 "start": {
-                    "9988.HK": T("2023-01-09 02:55:00-0500", tz="America/New_York"),
-                    "AZN.L": T("2023-01-06 11:10:00-0500", tz="America/New_York"),
-                    "MSFT": T("2023-01-09 11:15:00-0500", tz="America/New_York"),
+                    "9988.HK": T("2023-01-09 02:55:00-0500", tz=tz),
+                    "AZN.L": T("2023-01-06 11:10:00-0500", tz=tz),
+                    "MSFT": T("2023-01-09 11:15:00-0500", tz=tz),
                 },
                 "high": {
                     "9988.HK": 112.0,
@@ -2302,9 +2308,9 @@ class TestCompare:
                     "MSFT": 231.23660278320312,
                 },
                 "end": {
-                    "9988.HK": T("2023-01-09 20:40:00-0500", tz="America/New_York"),
-                    "AZN.L": T("2023-01-09 10:05:00-0500", tz="America/New_York"),
-                    "MSFT": T("2023-01-09 15:55:00-0500", tz="America/New_York"),
+                    "9988.HK": T("2023-01-09 20:40:00-0500", tz=tz),
+                    "AZN.L": T("2023-01-09 10:05:00-0500", tz=tz),
+                    "MSFT": T("2023-01-09 15:55:00-0500", tz=tz),
                 },
                 "low": {"9988.HK": 107.0, "AZN.L": 11602.0, "MSFT": 226.77000427246094},
                 "pct_chg": {
@@ -2409,7 +2415,7 @@ class TestCompare:
         expected = "\\begin{table}\n\\caption{Correlation 2023-01-06 to 2023-01-10 (2023-01-06 09:30 to 2023-01-10 16:00)}\n\\begin{tabular}{lrrrr}\n & MSFT & AZN.L & 9988.HK & Av. \\\\\nsymbol &  &  &  &  \\\\\nMSFT & \\background-color#053061 \\color#f1f1f1 1.00 & \\background-color#eaf1f5 \\color#000000 0.07 & \\background-color#4997c5 \\color#f1f1f1 0.59 & \\background-color#a9d1e5 \\color#000000 0.33 \\\\\nAZN.L & \\background-color#eaf1f5 \\color#000000 0.07 & \\background-color#053061 \\color#f1f1f1 1.00 & \\background-color#f5ac8b \\color#000000 -0.37 & \\background-color#fce2d2 \\color#000000 -0.15 \\\\\n9988.HK & \\background-color#4997c5 \\color#f1f1f1 0.59 & \\background-color#f5ac8b \\color#000000 -0.37 & \\background-color#053061 \\color#f1f1f1 1.00 & \\background-color#e3edf3 \\color#000000 0.11 \\\\\n\\end{tabular}\n\\end{table}\n"
         assert rtrn.to_latex() == expected
 
-    def test_plot_mult(self, analy, intraday_pp):
+    def test_plot_mult(self, analy, intraday_pp, tz):
         """Verifies various aspects of gui beahviour for multiple line plots."""
         f = analy.plot
         verify_app(f, guis.ChartMultLine, **intraday_pp)
@@ -2420,8 +2426,8 @@ class TestCompare:
         assert gui._interval_selector.value == mp.intervals.TDInterval.T5
         interval = gui._interval_selector.value
         start, end = intraday_pp["start"], intraday_pp["end"]
-        start = start.astimezone("America/New_York").tz_localize(None)
-        end = end.astimezone("America/New_York").tz_localize(None)
+        start = start.astimezone(tz).tz_localize(None)
+        end = end.astimezone(tz).tz_localize(None)
         expected = expected_plottable = pd.Interval(start, end, "left")
         assert gui.chart.plotted_interval == expected
         assert gui.chart.plottable_interval == expected_plottable
