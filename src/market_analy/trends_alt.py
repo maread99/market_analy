@@ -1262,7 +1262,7 @@ class Trends:
         stop = idx + 1 if end_alt is None else min(idx + 1, len(bv))
         line_ = line.iloc[:stop]
 
-        px_break = line[idx]
+        px_break = line.iloc[idx]
         row = df.iloc[idx + 1]
         px = min(px_break, row.open) if is_adv else max(px_break, row.open)
         return bv.index[idx], px, line_, rvr_max, rvr_arr
@@ -1295,7 +1295,7 @@ class Trends:
         # line that, if not exceeded over prd, movement will be considered to have ended
         line_ = win.apply(rolling_win_func)
         # shift as evaluating limits for subsequent bar to exceed
-        line = line_.shift(1, fill_value=line_[0])
+        line = line_.shift(1, fill_value=line_.iloc[0])
 
         if len(df) <= self.prd:
             return None, None, line

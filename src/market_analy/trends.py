@@ -456,13 +456,13 @@ class Trends:
         def func(arr: np.ndarray) -> bool:
             """Query if base broken over an array shorter than `self.prd`."""
             fctrs = self.fctrs_pos_break if is_adv else self.fctrs_neg_break
-            line = arr[0] * fctrs[: len(arr)]
+            line = arr.iloc[0] * fctrs[: len(arr)]
             bv = (arr >= line) if is_adv else (arr <= line)
             return bv.all()
 
         col = self.data.low if is_adv else self.data.high
         bv = col.rolling(self.prd, min_periods=self.prd).apply(func)
-        bv[bv.isna()] = False
+        bv[bv.isna()] = 0
         return bv.astype("bool")
 
     @functools.lru_cache
@@ -483,13 +483,13 @@ class Trends:
         def func(arr: np.ndarray) -> bool:
             """Query if limit extended over array shorter than `self.prd`."""
             fctrs = self.fctrs_pos_limit if is_adv else self.fctrs_neg_limit
-            line = arr[0] * fctrs[: len(arr)]
+            line = arr.iloc[0] * fctrs[: len(arr)]
             bv = (arr > line) if is_adv else (arr < line)
             return bv.any()
 
         col = self.data.high if is_adv else self.data.low
         bv = col.rolling(self.prd, min_periods=self.prd).apply(func)
-        bv[bv.isna()] = False
+        bv[bv.isna()] = 0
         return bv.astype("bool")
 
     @functools.lru_cache
@@ -893,7 +893,7 @@ class TrendsGui(TrendsGuiBase):
         self._rulers.append(
             market_analy.utils.bq_utils.TrendRule(
                 x=move.line_limit.index[idx].asm8,
-                y=move.line_limit[idx],
+                y=move.line_limit.iloc[idx],
                 length=move.params["prd"],
                 factors=fctrs,
                 scales=self.chart.scales,
