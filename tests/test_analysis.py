@@ -95,8 +95,8 @@ def test_add_summary():
 def test_add_summary_row():
     f = analysis.add_summary_row
     index = list(range(4))
-    a = pd.Series(index, index=index)
-    b = pd.Series(list(range(0, 40, 10)), index=index)
+    a = pd.Series(index, index=index, dtype="float64")
+    b = pd.Series(list(range(0, 40, 10)), index=index, dtype="float64")
     df = pd.DataFrame(dict(a=a, b=b))
     rtrn = f(df, [("mean", "a")])
     expected = df.copy()
@@ -112,7 +112,7 @@ def test_add_summary_row():
 
     rtrn = f(df, [("mean", "a"), ("sum", "b")], label="spam")
     expected = df.copy()
-    expected.loc["spam"] = [0, 60]
+    expected.loc["spam"] = [0.0, 60.0]
     expected.loc[("spam", "a")] = 1.5
     assert_frame_equal(rtrn, expected)
 

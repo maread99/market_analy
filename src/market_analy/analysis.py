@@ -320,7 +320,7 @@ def style_df(
 
     chg_subset = [c for c in df.columns if c in chg_cols]
     if chg_subset:
-        styler.applymap(_color_chg, subset=chg_subset)
+        styler.map(_color_chg, subset=chg_subset)
 
     if caption:
         styler.set_caption(caption)
@@ -1117,7 +1117,8 @@ class Compare(Base):
         """
         func = max_advance if direction == "advance" else max_decline
         dfs = []
-        for symbol, s_prices in prices.groupby(axis="columns", level="symbol"):
+        for symbol, s_prices in prices.T.groupby(level="symbol"):
+            s_prices = s_prices.T
             s_prices.columns = s_prices.columns.droplevel(level=0)
             if isinstance(s_prices.index, pd.IntervalIndex):
                 s_prices = s_prices.pt.indexed_left
@@ -1191,7 +1192,8 @@ class Compare(Base):
         """
         subset = self.prices.get(fill="both", add_a_row=True, close_only=True, **kwargs)
         pct_chg = pct_chg_top_to_bot(subset)
-        df = pct_chg.apply(lambda x: x - pct_chg)
+        df = pd.DataFrame({s: pct_chg - v for s, v in pct_chg.items()})
+        df.columns.name = "symbol"
         if not style:
             return df
         if len(df.index) > 1:
@@ -1303,7 +1305,8 @@ class Compare(Base):
     ) -> pd.DataFrame | Styler:
         """Relative strength of maximum change over specified period."""
         df = func(style=False, **kwargs)
-        rel_str_df = df["pct_chg"].apply(lambda x: x - df["pct_chg"])
+        srs = df["pct_chg"]
+        rel_str_df = pd.DataFrame({s: srs - v for s, v in srs.items()})
         if not style:
             return rel_str_df
         if len(rel_str_df.index) > 1:
