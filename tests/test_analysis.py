@@ -1001,11 +1001,11 @@ class TestAnalysis:
         assert ch_bot.vhair.x[0] == pd.Timestamp("2023-01-09 15:05")
 
         # verify effect of `log_scale` and `max_ticks` kwargs
-        assert type(gui.chart.scales["y"]) == bq.scales.LogScale
+        assert isinstance(gui.chart.scales["y"], bq.scales.LogScale)
         assert gui._icon_row_top.children[-1].tooltip == "Close"  # close gui
         gui._icon_row_top.children[-1].click()
         gui = analy.plot(**intraday_pp, display=False, log_scale=False, max_ticks=50)
-        assert type(gui.chart.scales["y"]) == bq.scales.LinearScale
+        assert isinstance(gui.chart.scales["y"], bq.scales.LinearScale)
         expected = pd.Interval(
             pd.Timestamp("2023-01-10 12:05"), pd.Timestamp("2023-01-10 16:15"), "left"
         )
@@ -2542,7 +2542,7 @@ class TestCompare:
         assert ch_bot.vhair.x[0] == pd.Timestamp("2023-01-09 15:55")
 
         # verify effect of `log_scale`, `max_ticks` and 'rebase_on_zoom' kwargs
-        assert type(gui.chart.scales["y"]) == bq.scales.LogScale
+        assert isinstance(gui.chart.scales["y"], bq.scales.LogScale)
         assert gui._icon_row_top.children[-1].tooltip == "Close"
         gui._icon_row_top.children[-1].click()  # close gui
         gui = analy.plot(
@@ -2552,7 +2552,7 @@ class TestCompare:
             max_ticks=50,
             rebase_on_zoom=False,
         )
-        assert type(gui.chart.scales["y"]) == bq.scales.LinearScale
+        assert isinstance(gui.chart.scales["y"], bq.scales.LinearScale)
         expected = pd.Interval(
             pd.Timestamp("2023-01-10 07:05"), pd.Timestamp("2023-01-10 11:15"), "left"
         )

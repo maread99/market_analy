@@ -66,7 +66,7 @@ class MovementProto(typing.Protocol):
     duration: int
 
     def __eq__(self, other):
-        if not type(self) == type(other):
+        if not isinstance(self, type(other)):
             return False
         for name in self.__dataclass_fields__.keys():
             v, v_other = getattr(self, name), getattr(other, name)
