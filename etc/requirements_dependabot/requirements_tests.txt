@@ -138,7 +138,7 @@ pygments==2.16.1
     # via ipython
 pyluach==2.2.0
     # via exchange-calendars
-pyparsing==3.0.9
+pyparsing==3.1.1
     # via matplotlib
 pytest==7.4.2
     # via
