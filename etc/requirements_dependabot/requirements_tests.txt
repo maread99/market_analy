@@ -71,7 +71,7 @@ jedi==0.19.0
     # via ipython
 jinja2==3.1.2
     # via market-analy (pyproject.toml)
-jupyterlab-widgets==3.0.8
+jupyterlab-widgets==3.0.9
     # via ipywidgets
 kiwisolver==1.4.5
     # via matplotlib
