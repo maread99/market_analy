@@ -83,7 +83,7 @@ market-prices==0.11
     # via market-analy (pyproject.toml)
 markupsafe==2.1.3
     # via jinja2
-matplotlib==3.7.2
+matplotlib==3.8.0
     # via market-analy (pyproject.toml)
 matplotlib-inline==0.1.6
     # via ipython
