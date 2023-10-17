@@ -10,7 +10,7 @@ backcall==0.2.0
     # via ipython
 black==23.9.1
     # via market-analy (pyproject.toml)
-bqplot==0.12.40
+bqplot==0.12.42
     # via market-analy (pyproject.toml)
 certifi==2023.7.22
     # via requests
