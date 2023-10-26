@@ -4,7 +4,7 @@
 #
 #    pip-compile --extra=tests --output-file=etc/requirements_dependabot/requirements_tests.txt pyproject.toml
 #
-asttokens==2.4.0
+asttokens==2.4.1
     # via stack-data
 backcall==0.2.0
     # via ipython
