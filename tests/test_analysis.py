@@ -298,13 +298,16 @@ class TestAnalysis:
         yield ZoneInfo("Europe/London")
 
     def test_constructor_raises(self):
+        prices = mp.PricesYahoo(
+            "AZN.L, MSFT", calendars=["XLON", "XNYS"], delays=[15, 0]
+        )
         msg = re.escape(
             "The Analysis class requires a `prices` instance that gets"
             "price data for a single symbol, although the past instance"
             " gets prices for 2: ['AZN.L', 'MSFT']."
         )
         with pytest.raises(ValueError, match=msg):
-            analysis.Analysis(mp.PricesYahoo("AZN.L, MSFT"))
+            analysis.Analysis(prices)
 
     def test_prices(self, analy, prices_analysis):
         assert analy.prices is prices_analysis
@@ -1399,13 +1402,14 @@ class TestCompare:
         yield ZoneInfo("America/New_York")
 
     def test_constructor_raises(self):
+        prices = mp.PricesYahoo("MSFT", calendars="XNYS", delays=0)
         msg = re.escape(
             "The Compare class requires a `prices` instance that gets"
             "price data for multiple symbols, although the past instance"
             "gets prices for only one: MSFT."
         )
         with pytest.raises(ValueError, match=msg):
-            analysis.Compare(mp.PricesYahoo("MSFT"))
+            analysis.Compare(prices)
 
     def test_prices(self, analy, prices_compare):
         assert analy.prices is prices_compare
