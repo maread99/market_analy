@@ -75,6 +75,17 @@ def _pickle_new_prices(symbols: str, path: pathlib.Path):
     file.close()
 
 
+CAL_START = "1986-03-13"
+XLON = xcals.get_calendar("XLON", start=CAL_START)
+CAL_MAPPING = {
+    "AZN.L": XLON,
+    "BARC.L": XLON,
+    "MSFT": xcals.get_calendar("XNYS", start=CAL_START),
+    "9988.HK": xcals.get_calendar("XHKG", start=CAL_START),
+}
+DELAY_MAPPING = {"AZN.L": 15, "BARC.L": 15, "MSFT": 0, "9988.HK": 15}
+
+
 def _unpickle_prices(path: pathlib.Path, class_mocker) -> mp.PricesYahoo:
     """Reconstruct an instance of `PricesYahoo` to use in testing"""
     file = open(path, "rb")
@@ -87,7 +98,9 @@ def _unpickle_prices(path: pathlib.Path, class_mocker) -> mp.PricesYahoo:
 
     # reconstruct each of the data instances
     symbols = pickle.load(file)
-    prices = mp.PricesYahoo(symbols)
+    calendars = {s: CAL_MAPPING[s] for s in symbols}
+    delays = {s: DELAY_MAPPING[s] for s in symbols}
+    prices = mp.PricesYahoo(symbols, calendars=calendars, delays=delays)
 
     for bi in prices.bis:
         data = prices._pdata[bi]
