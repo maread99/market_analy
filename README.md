@@ -31,6 +31,8 @@ from market_prices import PricesYahoo
 from market_analy import Analysis,  Compare
 
 prices = PricesYahoo("MSFT")
+# OR if Yahoo API endpoints are not all currently available in your region...
+prices = PricesYahoo("MSFT", calendars="XNYS", delays=0)
 analy = Analysis(prices)
 gui = analy.plot(days=30)
 ```
@@ -53,6 +55,8 @@ https://github.com/maread99/market_analy/assets/56914820/998c7f46-20f5-43f1-8b82
 
 ```python
 comp = Compare(PricesYahoo("MSFT, AMZN, TSLA"))
+# OR if Yahoo API endpoints are not all currently available in your region...
+comp = Compare(PricesYahoo("MSFT, AMZN, TSLA", calendars="XNYS", delays=0))
 gui = comp.plot(hours=30)
 ```
 https://user-images.githubusercontent.com/56914820/220773790-1fdabf13-25bb-4205-acc2-6bac9b832dae.mp4
