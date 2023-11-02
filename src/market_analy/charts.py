@@ -200,6 +200,9 @@ class Base(metaclass=ABCMeta):
     title: str (settable property)
         Chart title
 
+    added_marks_groups
+        Names of groups of added marks.
+
     Mixin Methods
     -------------
     The following public Mixin Methods are made available to subclasses.
@@ -215,6 +218,18 @@ class Base(metaclass=ABCMeta):
 
     display():
         Display chart.
+
+    add_marks():
+        Add extra marks to the chart.
+
+    added_marks():
+        Get extra marks that have been added to the chart.
+
+    remove_added_marks():
+        Remove a group of extra marks
+
+    remove_all_added_marks():
+        Remove extra marks in all groups.
 
     The following private Mixin Methods are made available to subclasses to
     expose if appropriate.
@@ -266,6 +281,9 @@ class Base(metaclass=ABCMeta):
         self.axes: list[bq.BaseAxis]
         self.mark: bq.Mark
         self.figure: bq.Figure
+
+        # set by add_marks and remove_marks
+        self._added_marks: defaultdict[str, list[bq.Mark]] = defaultdict(list)
 
         self._create_chart()
         self.title = title
@@ -635,13 +653,73 @@ class Base(metaclass=ABCMeta):
         if title:
             self.title = title
 
+    def add_marks(self, marks: list[bq.Mark], group: str, under: bool = False):
+        """Add marks to the chart.
+
+        Parameters
+        ----------
+        marks
+            Marks to add.
+
+        group
+            Name of group to which to add marks. This can be subsequently
+            be passed to `remove_added_marks` to remove the added marks.
+
+        under
+            True: place marks under existing marks.
+            False: place marks on top of existing marks.
+        """
+        self._added_marks[group].extend(marks)
+        if under:
+            self.figure.marks = marks + [m for m in self.figure.marks]
+        else:
+            self.figure.marks = [m for m in self.figure.marks] + marks
+
+    def added_marks(self, group: str) -> list[bq.Mark]:
+        """Marks that have been added to the chart.
+
+        Parameters
+        ----------
+        group
+            Name of group of marks to return.
+
+        See Also
+        --------
+        add_marks : Add marks to the chart.
+        added_marks_groups : Names of groups of added marks.
+        remove_added_marks : Remove from the chart all marks in a group.
+        """
+        return self._added_marks[group]
+
+    @property
+    def added_marks_groups(self) -> list[str]:
+        """Names of groups of added marks."""
+        return list(self._added_marks.keys())
+
+    def remove_added_marks(self, group: str):
+        """Remove all marks in `group`."""
+        marks = self._added_marks[group]
+        for m in marks:
+            m.close()
+        self.figure.marks = [m for m in self.figure.marks if m not in marks]
+        del self._added_marks[group]
+
+    def remove_all_added_marks(self):
+        """Remove all added marks."""
+        for group in self.added_marks_groups:
+            self.remove_added_marks(group)
+
     def close(self):
         """Close all chart widgets."""
+        for marks in self._added_marks.values():
+            for m in marks:
+                m.close()
         for widget in self._widgets:
             widget.close()
 
     def delete(self):
         """Delete all chart widgets."""
+        self.remove_all_added_marks()
         self.close()
         for _ in range(len(self._widgets)):
             del self._widgets[0]
@@ -2144,9 +2222,6 @@ class OHLCTrends(OHLC):
         self.mark_trend: bq.FlexLine  # set by _create_mark
         self.mark_scatters: list[bq.Scatter] = []  # set by _create_mark
 
-        # set by add_marks and remove_marks
-        self._added_marks: defaultdict[str, list[bq.Mark]] = defaultdict(list)
-
         super().__init__(prices, title, visible_x_ticks, max_ticks, log_scale, display)
 
         if max_ticks is not None or visible_x_ticks is not None:
@@ -2409,62 +2484,6 @@ class OHLCTrends(OHLC):
         self.figure.marks = (
             self.figure.marks[:index] + [self.mark_trend] + self.figure.marks[index:]
         )
-
-    def add_marks(self, marks: list[bq.Mark], group: str, under: bool = False):
-        """Add marks to the chart.
-
-        Parameters
-        ----------
-        marks
-            Marks to add.
-
-        group
-            Name of group to which to add marks. This can be subsequently
-            be passed to `remove_added_marks` to remove the added marks.
-
-        under
-            True: place marks under existing marks.
-            False: place marks on top of existing marks.
-        """
-        self._added_marks[group].extend(marks)
-        if under:
-            self.figure.marks = marks + [m for m in self.figure.marks]
-        else:
-            self.figure.marks = [m for m in self.figure.marks] + marks
-
-    def added_marks(self, group: str) -> list[bq.Mark]:
-        """Marks that have been added to the chart.
-
-        Parameters
-        ----------
-        group
-            Name of group of marks to return.
-
-        See Also
-        --------
-        add_marks : Add marks to the chart.
-        added_marks_groups : Names of groups of added marks.
-        remove_added_marks : Remove from the chart all marks in a group.
-        """
-        return self._added_marks[group]
-
-    @property
-    def added_marks_groups(self) -> list[str]:
-        """Names of groups of added marks."""
-        return list(self._added_marks.keys())
-
-    def remove_added_marks(self, group: str):
-        """Remove all marks in `group`."""
-        marks = self._added_marks[group]
-        for m in marks:
-            m.close()
-        self.figure.marks = [m for m in self.figure.marks if m not in marks]
-        del self._added_marks[group]
-
-    def remove_all_added_marks(self):
-        """Remove all added marks."""
-        for group in self.added_marks_groups:
-            self.remove_added_marks(group)
 
     def reset_marks(self, reset_current_move: bool = True):
         """Reset marks.
