@@ -1885,7 +1885,7 @@ class TrendsGuiBase(ChartOHLC):
 
         if self.current_move is not None:
             self.chart.reset_marks()
-            self.trends_controls_container.darken_single_trend()
+            self.trends_controls_container.darken_single_case()
         else:
             self.chart.show_scatters()
         but.lighten()

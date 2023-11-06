@@ -859,7 +859,7 @@ class TrendsGui(TrendsGuiBase):
         Lightens 'show all scatters' button to indicate option available.
         Displays tooltip to html output.
         """
-        self.trends_controls_container.lighten_single_trend()
+        self.trends_controls_container.lighten_single_case()
         self.trends_controls_container.but_show_all.darken()
         move = self.movements.mark_to_move(mark, event)
         html = self.movements.get_move_html(move)
