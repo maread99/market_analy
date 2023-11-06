@@ -231,7 +231,7 @@ class MovementsBase:
     """Movements identified over an analysis period.
 
     Fulfills `MovementsChartProto` with exception of handlers which should
-    be added by the subclass if it iss intended that instances will be
+    be added by the subclass if it is intended that instances will be
     passed to the 'movements' parameter of `charts.OHLCTrends`.
 
     Attributes

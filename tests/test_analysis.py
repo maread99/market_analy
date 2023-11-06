@@ -1175,14 +1175,14 @@ class TestAnalysis:
 
         controls = gui.trends_controls_container
         # verify initial gui config as expected
-        assert controls.is_dark_single_trend
+        assert controls.is_dark_single_case
         assert controls.but_show_all.is_light
         assert not gui._html_output._html.value
         assert gui.chart.current_move is None
         gui.current_move is None
 
         def verify_controls_reflect_single_trend():
-            assert not controls.is_dark_single_trend
+            assert not controls.is_dark_single_case
             assert not controls.but_show_all.is_light
 
         def assert_trend_reflects_move(move: trends.Movement):
@@ -1382,7 +1382,7 @@ class TestAnalysis:
 
         # verify show_all but shows all scatters again
         controls.but_show_all.fire_event("click", None)
-        assert controls.is_dark_single_trend
+        assert controls.is_dark_single_case
         assert controls.but_show_all.is_light
         assert not gui.chart.added_marks_groups
         assert all([s.visible for s in scats])
