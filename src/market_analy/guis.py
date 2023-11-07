@@ -1761,10 +1761,10 @@ class TrendsGuiBase(ChartOHLC):
         Concrete constructor arguments such as `narrow_view`, `wide_view`
         etc.
 
-        Defining the `_gui_click_trend_handler` method to customise the
+        Defining the `_gui_click_case_handler` method to customise the
         handling, at a gui level, of clicking a mark representing the start
         of a trend. NB Alternatively a handler can be passed within
-        `chart_kwargs` with the key 'click_trend_handler'.
+        `chart_kwargs` with the key 'click_case_handler'.
 
     -- Horrible Hack --
 
@@ -1839,7 +1839,7 @@ class TrendsGuiBase(ChartOHLC):
         self._narrow_view = narrow_view
         self._wide_view = wide_view
         chart_kwargs = {} if chart_kwargs is None else chart_kwargs
-        chart_kwargs.setdefault("click_trend_handler", self._gui_click_trend_handler)
+        chart_kwargs.setdefault("click_case_handler", self._gui_click_case_handler)
         super().__init__(
             analysis, interval, max_ticks, log_scale, display, chart_kwargs, **kwargs
         )
@@ -1893,12 +1893,12 @@ class TrendsGuiBase(ChartOHLC):
     def _show_next_move_handler(self, but: vu.IconBut, event: str, data: dict):
         if but.is_dark:
             return
-        self.chart.show_next_move()
+        self.chart.select_next_case()
 
     def _show_prev_move_handler(self, but: vu.IconBut, event: str, data: dict):
         if but.is_dark:
             return
-        self.chart.show_previous_move()
+        self.chart.select_previous_case()
 
     def _set_slider_to_current_move(self, bars: int):
         """Set slider to focus on currently selected movement.
@@ -2006,9 +2006,9 @@ class TrendsGuiBase(ChartOHLC):
 
         None if no movement has been selected.
         """
-        return self.chart.current_move
+        return self.chart.current_case
 
-    def _gui_click_trend_handler(self, mark: bq.Scatter, event: dict):
+    def _gui_click_case_handler(self, mark: bq.Scatter, event: dict):
         """Gui level handler for clicking marker representing trend start.
 
         Subclass should define if required

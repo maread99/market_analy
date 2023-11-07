@@ -35,7 +35,7 @@ import market_prices as mp
 import numpy as np
 import pandas as pd
 
-from market_analy.charts import OHLCTrends, tooltip_html_style, TOOLTIP_STYLE
+from market_analy.charts import OHLCTrends, tooltip_html_style, TOOLTIP_STYLE, Groups
 from market_analy.config import COL_ADV, COL_DEC
 from market_analy.formatters import (
     formatter_percent,
@@ -250,7 +250,7 @@ class Movements(MovementsBase, MovementsChartProto):
             marks.append(line)
             return line
 
-        group = "one_trend"
+        group = Groups.CASE
         # remove any existing marks for a selected movement.
         if group in chart.added_marks_groups:
             chart.remove_added_marks(group)
@@ -853,7 +853,7 @@ class TrendsGui(TrendsGuiBase):
         self.movements: Movements
         self.trends: Trends
 
-    def _gui_click_trend_handler(self, mark: bq.Scatter, event: dict):
+    def _gui_click_case_handler(self, mark: bq.Scatter, event: dict):
         """Gui level handler for clicking a mark representing a trend start.
 
         Lightens 'show all scatters' button to indicate option available.

@@ -19,7 +19,7 @@ from pandas import Timestamp as T
 from pandas.testing import assert_series_equal, assert_frame_equal, assert_index_equal
 import pytest
 
-from market_analy import analysis, guis, trends
+from market_analy import analysis, guis, trends, charts
 from market_analy.utils import UTC
 from market_analy.utils import bq_utils as bqu
 
@@ -1116,7 +1116,7 @@ class TestAnalysis:
         ext_limit = trend_kwargs["ext_limit"]
 
         # verify scatter marks
-        scats = gui.chart.mark_scatters
+        scats = gui.chart.added_marks[charts.Groups.SCATTERS]
         assert len(scats) == 8
         for s in scats:
             assert isinstance(s, bq.Scatter)
@@ -1178,8 +1178,10 @@ class TestAnalysis:
         assert controls.is_dark_single_case
         assert controls.but_show_all.is_light
         assert not gui._html_output._html.value
-        assert gui.chart.current_move is None
+        assert gui.chart.current_case is None
         gui.current_move is None
+
+        GROUP_CASE = charts.Groups.CASE
 
         def verify_controls_reflect_single_trend():
             assert not controls.is_dark_single_case
@@ -1193,11 +1195,10 @@ class TestAnalysis:
                 in gui._html_output._html.value
             )
             assert not any([s.visible for s in scats])
-            assert gui.chart.current_move == move == gui.current_move
+            assert gui.chart.current_case == move == gui.current_move
 
             # verify trend marks
-            group = gui.chart.added_marks_groups[0]
-            trend_marks = gui.chart.added_marks(group)
+            trend_marks = gui.chart.added_marks[GROUP_CASE]
             trend_scat_marks = [m for m in trend_marks if isinstance(m, bq.Scatter)]
             assert len(trend_scat_marks) == 4
 
@@ -1255,7 +1256,7 @@ class TestAnalysis:
             assert (line.y == move.line_limit).all()
 
         # verify marks for various single trend and control buttons to progress through trends
-        gui.chart._click_starts_adv(0)
+        gui.chart.select_case(gui.chart.cases.advances[0])
         assert_trend_reflects_move(gui.movements.moves[1])
         controls.but_next.fire_event("click", None)
         assert_trend_reflects_move(gui.movements.moves[2])
@@ -1384,9 +1385,9 @@ class TestAnalysis:
         controls.but_show_all.fire_event("click", None)
         assert controls.is_dark_single_case
         assert controls.but_show_all.is_light
-        assert not gui.chart.added_marks_groups
+        assert GROUP_CASE not in gui.chart.added_marks_groups
         assert all([s.visible for s in scats])
-        assert gui.chart.current_move is None
+        assert gui.chart.current_case is None
         assert gui.current_move is None
 
 
