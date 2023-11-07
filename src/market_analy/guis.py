@@ -25,6 +25,27 @@ PctChg(Base, DateSliderMixin):
 
 PctChgMult(PctChg):
     Bar chart GUI of precentage changes of multiple instruments.
+
+Notes
+-----
+Module might benefit from a more compositional approach, as opposed to
+hierarchical, to creating the gui interfaces. For example:
+
+    Selector
+        To select periods.
+
+    Crosshairs
+        To administer crosshairs.
+
+    TabsControl
+        UI to create crosshairs and undertake analysis.
+
+    DataSlider
+        To scross through plot dates.
+
+Before diving in making changes, would need to have a look at the current
+implementation and get clear how to best implement a compositional
+approach.
 """
 
 from __future__ import annotations
@@ -44,7 +65,7 @@ import market_prices as mp
 from market_prices.intervals import TDInterval, PTInterval, to_ptinterval, ONE_DAY
 import pandas as pd
 
-from market_analy import charts, gui_parts, analysis
+from market_analy import charts, gui_parts, analysis as ma_analysis
 from market_analy.trends_base import TrendsProto
 from market_analy.utils.bq_utils import Crosshairs, FastIntervalSelectorDD, HFixedRule
 from market_analy.utils.dict_utils import set_kwargs_from_dflt
@@ -626,7 +647,7 @@ class BasePrice(BaseVariableDates):
 
     def __init__(
         self,
-        analysis: analysis.Analysis,
+        analysis: ma_analysis.Analysis,
         interval: mp.intervals.RowInterval | None = None,
         max_ticks: int | None = None,
         log_scale: bool = True,
@@ -669,9 +690,10 @@ class BasePrice(BaseVariableDates):
         assert issubclass(self.ChartCls, charts.BasePrice)
         chart_kwargs = {} if chart_kwargs is None else chart_kwargs
         ptinterval = None if interval is None else to_ptinterval(interval)
+        self._initial_prices: pd.DataFrame | pd.Series  # set by _set_initial_prices
+        self._initial_price_params_non_period_: dict  # set via _set_initial_prices
+        prices = self._set_initial_prices(analysis, ptinterval, kwargs)
         self._analysis = analysis
-        self._initial_price_params: dict  # set by _get_initial_prices
-        prices = self._get_initial_prices(ptinterval, kwargs)
         super().__init__(
             data=prices,
             title=self._chart_title,
@@ -705,30 +727,49 @@ class BasePrice(BaseVariableDates):
         """
         return {}
 
-    def _get_initial_prices(
+    def _set_initial_prices(
         self,
+        analysis: ma_analysis.Analysis,
         interval: mp.intervals.RowInterval | None,
         period_parameters: dict,
     ) -> pd.DataFrame | pd.Series:
-        """Get prices data for parameters as passed to constructor.
+        """Set initial prices data.
 
+        Parameters
+        ----------
+        analysis
+            'analysis' parameter as received by constructor.
         interval
-            Interval parameter as received by constructor
+            'interval' parameter as received by constructor.
 
         period_parameters
-            **kwargs consolidated by constructor.
-        """
-        period_parameters["composite"] = False
-        prices = self._analysis.prices.get(
-            interval, **period_parameters, **self._prices_kwargs
-        )
-        self._initial_price_params = period_parameters
-        self._initial_price_params["interval"] = interval
-        return prices
+            **kwargs receieved by constructor.
 
-    @property
-    def _initial_price_params_non_period(self):
-        """Initial price params excluding those that define the interval and period."""
+        Notes
+        -----
+        Initial prices are evaluated once, when this method is first
+        called. Subsequent calls will return a copy of the initial prices.
+
+        The method is implemented in this way in order that prices can be
+        requested by a base class earlier than they would otherwise be
+        called by this `BasePrice` class. For example, price data may be
+        required by a subclass to undertake analysis, such as evaluting
+        trends or positions, which is then be displayed visually over a
+        chart of the underlying data.
+        """
+        if hasattr(self, "_initial_prices"):
+            return self._initial_prices.copy()
+
+        params = period_parameters.copy()
+        params["composite"] = False
+        params["interval"] = interval
+        prices = analysis.prices.get(**params, **self._prices_kwargs)
+        self._initial_prices = prices
+        self._set_initial_price_params_non_period(params)
+        return self._initial_prices.copy()
+
+    def _set_initial_price_params_non_period(self, initial_price_params: dict):
+        """Set initial price params excluding those that define period and interval."""
         exclude = [
             "interval",
             "start",
@@ -740,15 +781,16 @@ class BasePrice(BaseVariableDates):
             "months",
             "years",
         ]
-        return {k: v for k, v in self._initial_price_params.items() if k not in exclude}
+        params = {k: v for k, v in initial_price_params.items() if k not in exclude}
+        self._initial_price_params_non_period_ = params
+
+    @property
+    def _initial_price_params_non_period(self) -> dict:
+        return self._initial_price_params_non_period_
 
     def _get_prices(self, **kwargs):
         """Get prices from analysis."""
         return self._analysis.prices.get(**kwargs, **self._prices_kwargs)
-
-    def _reget_initial_prices(self) -> pd.DataFrame | pd.Series:
-        """Price data as for initial chart."""
-        return self._get_prices(**self._initial_price_params)
 
     # TOP ICON ROW
     @property
@@ -1199,7 +1241,7 @@ class BasePrice(BaseVariableDates):
 
     def _reset_chart(self):
         """Reset initial chart."""
-        prices = self._reget_initial_prices()
+        prices = self._initial_prices.copy()
         if isinstance(prices.index, pd.IntervalIndex):
             left = prices.index[0].left.tz_localize(None)
             right = prices.index[-1].right.tz_localize(None)
@@ -1281,7 +1323,7 @@ class ChartMultLine(BasePrice):
             `analysis`.
         """
         self._rebase_on_zoom = rebase_on_zoom
-        self._labels: list[str]  # set by --_get_initial_prices--
+        self._labels: list[str]  # set by --_set_initial_prices--
         super().__init__(analysis, interval, max_ticks, log_scale, display, **kwargs)
 
     @property
@@ -1299,12 +1341,13 @@ class ChartMultLine(BasePrice):
         d["close_only"] = True
         return d
 
-    def _get_initial_prices(
+    def _set_initial_prices(
         self,
+        analysis: ma_analysis.Analysis,
         interval: mp.intervals.RowInterval | None,
         period_parameters: dict,
     ) -> pd.DataFrame | pd.Series:
-        prices = super()._get_initial_prices(interval, period_parameters)
+        prices = super()._set_initial_prices(analysis, interval, period_parameters)
         self._labels = list(prices.columns)
         return prices
 
@@ -1697,8 +1740,15 @@ class PctChgMult(PctChg):
         return super()._gui_box_contents + [self._icon_row]
 
 
-class TrendsGuiBase(ChartOHLC):
+class ChartOHLCCase(ChartOHLC):
+    """Base class for"""  # TODO WRITE CLASS DOCSTRING
+
+    # TODO HERERE REFACTOR BASE COMMON Case Functionality.
+
+
+class TrendsGuiBase(ChartOHLCCase):
     """GUI to display and interact with trend analysis over OHLC Chart.
+    # TODO REVISE CLASS DOC following refactoring
 
     Parameters
     ----------
@@ -1765,62 +1815,13 @@ class TrendsGuiBase(ChartOHLC):
         handling, at a gui level, of clicking a mark representing the start
         of a trend. NB Alternatively a handler can be passed within
         `chart_kwargs` with the key 'click_case_handler'.
-
-    -- Horrible Hack --
-
-    This class current incorporates at least one horrible hack.
-
-    The trend movements must be based on the same data as the chart.
-    However, the initial chart data is requested within the `BasePrice`
-    subclass' contribution to the constructor. This happens shortly before
-    the chart is created by the `_create_chart` method as defined on the
-    `Base` class and which isn't intended to be extended. So, how to get
-    access to the chart data between these two points in order to be able
-    to evaluate the Movements and pass them to the chart class along with
-    its data? Yup, extend the `_create_chart` method.
-
-    The `BasePrice` class exists not so much to be able to get the initial
-    price data, but to be able to make subsequent calls to get data at
-    different intervals. This behaviour is not required for this
-    `TrendsGuiBase` class which is intended to house a chart based on
-    static data. However, as the OHLC class inherits from `BasePrice`,
-    so must this `TrendsGuiBase` class.
-
-    I suspect the preferable approach to all this would be to lose the
-    inheritance and instead go with a pick-n-mix composition
-    implementation. Could define components as isolated classes, the
-    constructor of each making requirements in terms of attibutes or
-    methods of other components that it requires in order to work. Classes
-    could include the likes of:
-        Prices
-            To administer all things prices, requesting and updating the
-            chart to reflect the changes. Would only be required by GUIs
-            that provide for updating / changing the data. The interval
-            selector buttons would either be included to this component
-            or defined as its own dedicated component.
-
-        Selector
-            To select periods.
-
-        Crosshairs
-            To administer crosshairs.
-
-        TabsControl
-            UI to create crosshairs and undertake analysis.
-
-        DataSlider
-            To scross through plot dates.
-
-    Before diving in would need to have a look at the current
-    implementation and have a think about how to best implement a
-    compositional approach.
     """
 
     _HAS_INTERVAL_SELECTOR = False
 
     def __init__(
         self,
-        analysis: analysis.Analysis,
+        analysis: ma_analysis.Analysis,
         interval: mp.intervals.RowInterval,
         trend_cls: type[TrendsProto],
         trend_kwargs: dict,
@@ -1832,10 +1833,17 @@ class TrendsGuiBase(ChartOHLC):
         chart_kwargs: dict | None = None,
         **kwargs,
     ):
-        self.movements: MovementsChartProto  # set by _create_chart
-        self.trends: TrendsProto  # set by _create_chart
-        self._trends_cls = trend_cls
-        self._trends_kwargs = trend_kwargs
+        data = self._set_initial_prices(analysis, interval, kwargs).copy()
+        if isinstance(data.index, pd.IntervalIndex):
+            data.index = data.index.left
+            if data.index.tz is not None:
+                data.index = data.index.tz_localize(None)
+        self.trends = trend_cls(data, interval, **trend_kwargs)
+        self.movements = self.trends.get_movements()
+        if chart_kwargs is None:
+            chart_kwargs = {}
+        chart_kwargs.setdefault("movements", self.movements)  # TODO to cases?
+
         self._narrow_view = narrow_view
         self._wide_view = wide_view
         chart_kwargs = {} if chart_kwargs is None else chart_kwargs
@@ -1852,26 +1860,6 @@ class TrendsGuiBase(ChartOHLC):
     @property
     def _chart_title(self) -> str:
         return self._analysis.symbol + " Trend Analysis"
-
-    def _create_chart(
-        self, data: pd.DataFrame | pd.Series, title: str | None, **kwargs
-    ) -> charts.Base:
-        """Create chart.
-
-        Notes
-        -----
-        This is a horrible hack, see the Notes section of the class doc.
-        """
-        data_moves = data.copy()
-        if isinstance(data_moves.index, pd.IntervalIndex):
-            data_moves.index = data_moves.index.left
-            if data_moves.index.tz is not None:
-                data_moves.index = data_moves.index.tz_localize(None)
-        interval = self._initial_price_params["interval"]
-        self.trends = self._trends_cls(data_moves, interval, **self._trends_kwargs)
-        self.movements = self.trends.get_movements()
-        kwargs.setdefault("movements", self.movements)
-        return super()._create_chart(data, title, **kwargs)
 
     @property
     def _icon_row_top_handlers(self) -> list[Callable]:
