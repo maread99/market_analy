@@ -31,9 +31,10 @@ from __future__ import annotations
 
 from abc import ABCMeta, abstractmethod
 from collections import defaultdict
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from copy import copy, deepcopy
-from functools import lru_cache, cached_property
+import enum
+from functools import lru_cache, cached_property, partialmethod
 import typing
 from typing import Any, Literal
 
@@ -64,6 +65,19 @@ TOOLTIP_STYLE = {
     "border-width": "1px",
 }
 
+# pre-defined groups against which to add extra marks
+Groups = enum.Enum("Groups", "CASE TRENDLINE SCATTERS")
+
+# type aliases
+AddedMarkKeys = typing.Union[
+    str,
+    Literal[
+        Groups.CASE,
+        Groups.TRENDLINE,
+        Groups.SCATTERS,
+    ],
+]
+AddedMarks = dict[AddedMarkKeys, list[bq.Mark]]
 AxesKwargs = dict[ubq.ScaleKeys, dict[str, Any]]
 
 
@@ -173,6 +187,10 @@ class Base(metaclass=ABCMeta):
             Subclass will need to extend if mark has an axis, other than
             'x' and 'y', that requires presentation updates.
 
+        _add_marks(self):
+            Subclass can override to add extra marks at initalisation.
+            Method should use `add_marks` to add extra marks.
+
     Subclasses should NOT override or extend the following methods:
 
         _create_chart()
@@ -200,6 +218,9 @@ class Base(metaclass=ABCMeta):
     title: str (settable property)
         Chart title
 
+    added_marks:
+        Extra marks that have been added to the chart, by group.
+
     added_marks_groups
         Names of groups of added marks.
 
@@ -222,13 +243,10 @@ class Base(metaclass=ABCMeta):
     add_marks():
         Add extra marks to the chart.
 
-    added_marks():
-        Get extra marks that have been added to the chart.
-
     remove_added_marks():
         Remove a group of extra marks
 
-    remove_all_added_marks():
+    remove_added_marks_all():
         Remove extra marks in all groups.
 
     The following private Mixin Methods are made available to subclasses to
@@ -283,9 +301,10 @@ class Base(metaclass=ABCMeta):
         self.figure: bq.Figure
 
         # set by add_marks and remove_marks
-        self._added_marks: defaultdict[str, list[bq.Mark]] = defaultdict(list)
+        self._added_marks: AddedMarks = defaultdict(list)
 
         self._create_chart()
+        self._add_marks()
         self.title = title
         self.update_presentation()
 
@@ -574,13 +593,23 @@ class Base(metaclass=ABCMeta):
         Notes
         -----
         Extend on subclass to pass through any additional kwargs. Can
-        also pass through +title_style+ to override default value.
+        also pass through `title_style` to override default value.
         """
         kwargs.setdefault("marks", [self.mark])
         kwargs.setdefault("axes", self.axes)
         kwargs.setdefault("background_style", {"fill": "#222222"})
         kwargs.setdefault("title_style", CHART_TITLE_STYLE)
         return bq.Figure(**kwargs)
+
+    def _add_marks(self):
+        """Add extra marks to the figure.
+
+        Notes
+        -----
+        Override on subclass to add extra marks at initalisation.
+        `add_marks` should be used to add extra marks.
+        """
+        return
 
     # TITLE
     @property
@@ -653,7 +682,9 @@ class Base(metaclass=ABCMeta):
         if title:
             self.title = title
 
-    def add_marks(self, marks: list[bq.Mark], group: str, under: bool = False):
+    def add_marks(
+        self, marks: list[bq.Mark], group: AddedMarkKeys, under: bool = False
+    ):
         """Add marks to the chart.
 
         Parameters
@@ -675,13 +706,9 @@ class Base(metaclass=ABCMeta):
         else:
             self.figure.marks = [m for m in self.figure.marks] + marks
 
-    def added_marks(self, group: str) -> list[bq.Mark]:
+    @property
+    def added_marks(self) -> AddedMarks:
         """Marks that have been added to the chart.
-
-        Parameters
-        ----------
-        group
-            Name of group of marks to return.
 
         See Also
         --------
@@ -689,14 +716,14 @@ class Base(metaclass=ABCMeta):
         added_marks_groups : Names of groups of added marks.
         remove_added_marks : Remove from the chart all marks in a group.
         """
-        return self._added_marks[group]
+        return self._added_marks
 
     @property
-    def added_marks_groups(self) -> list[str]:
+    def added_marks_groups(self) -> list[AddedMarkKeys]:
         """Names of groups of added marks."""
         return list(self._added_marks.keys())
 
-    def remove_added_marks(self, group: str):
+    def remove_added_marks(self, group: AddedMarkKeys):
         """Remove all marks in `group`."""
         marks = self._added_marks[group]
         for m in marks:
@@ -704,10 +731,32 @@ class Base(metaclass=ABCMeta):
         self.figure.marks = [m for m in self.figure.marks if m not in marks]
         del self._added_marks[group]
 
-    def remove_all_added_marks(self):
+    def remove_added_marks_all(self):
         """Remove all added marks."""
         for group in self.added_marks_groups:
             self.remove_added_marks(group)
+
+    def _set_added_marks_visibility(
+        self, visible: bool, groups: AddedMarkKeys | Sequence[AddedMarkKeys]
+    ):
+        """Set added marks visibility by group."""
+        if not isinstance(groups, Sequence):
+            groups = [groups]
+        for group in groups:
+            marks = self.added_marks[group]
+            for m in marks:
+                m.visible = visible
+
+    def _set_added_marks_visibility_all(self, visible: bool):
+        """Set visibility of all added marks."""
+        for marks in self.added_marks.values():
+            for m in marks:
+                m.visible = visible
+
+    hide_added_marks = partialmethod(_set_added_marks_visibility, False)
+    show_added_marks = partialmethod(_set_added_marks_visibility, True)
+    hide_added_marks_all = partialmethod(_set_added_marks_visibility_all, False)
+    show_added_marks_all = partialmethod(_set_added_marks_visibility_all, True)
 
     def close(self):
         """Close all chart widgets."""
@@ -719,7 +768,7 @@ class Base(metaclass=ABCMeta):
 
     def delete(self):
         """Delete all chart widgets."""
-        self.remove_all_added_marks()
+        self.remove_added_marks_all()
         self.close()
         for _ in range(len(self._widgets)):
             del self._widgets[0]
@@ -2156,7 +2205,232 @@ class PctChgBarMult(_PctChgBarBase):
         self._cycle_legend()
 
 
-class OHLCTrends(OHLC):
+class OHLCCaseBase(OHLC):
+    """Analysis over OHLC for single financial instrument.
+
+    Base class to overlay a OHLC chart with marks representing analysis.
+    Analysis can comprise multiple 'cases', where a case could represent,
+    for example, a trend or a position. Base provides for displaying all
+    classes collectively or focusing on a single 'current' case and
+    navigating forwards or backwards between consecutive cases.
+
+    # TODO WRITE UP ANY PARAMETERS
+    Parameters
+    ----------
+    As for OHLC base class and additionally:
+    """
+
+    def __init__(
+        self,
+        prices: pd.DataFrame,
+        cases: CasesChartProto,
+        title: str,
+        visible_x_ticks: pd.Interval | None = None,
+        max_ticks: int | None = None,
+        log_scale: bool = True,
+        display: bool = False,
+        click_case_handler: Callable | None = None,
+    ):
+        self._client_click_case_handler = click_case_handler
+        self.cases = cases
+        self._current_case: CaseProto | None = None
+        super().__init__(prices, title, visible_x_ticks, max_ticks, log_scale, display)
+
+    # TODO HERERE WORKING,
+    # Create CaseProto, CasesChartProto, possibly CasesProto??
+    # what's the difference between CasesChartProto and CasesProto?
+
+    def create_scatter(
+        self,
+        x: pd.DatetimeIndex,
+        y: pd.Series,
+        color: str,
+        marker: str,
+        hover_handler: Callable | None,
+        click_handler: Callable | None = None,
+        *,
+        opacities: list[int] = [1],
+    ) -> bq.Scatter:
+        """Convenience method to create a scatter mark.
+
+        Parameters
+        ----------
+        x
+            `pd.DatetimeIndex` representing x values of scatter points.
+
+        y
+            y values of scatter points.
+
+        color
+            Scatter point color, for example "skyblue".
+
+        marker
+            Scatter point marker, for example "circle".
+
+        hover_handler
+            Callback to call if a scatter point is hovered over.
+
+        click_handler
+            Callback to call if a scatter point is LMB clicked.
+
+        opacities
+            Scatter opacities. Length of int of length equal or less than
+            `x`. Each index represents opacity of scatter point at
+            corresponding index of `x`. If length is less than that length
+            of x then pattern will repeat, e.g. passing as [1] will result
+            in all points being fully opaque.
+        """
+        mark = bq.Scatter(
+            scales=self.scales,
+            colors=[color],
+            x=x,
+            y=y,
+            marker=marker,
+            opacities=opacities,
+            tooltip=w.HTML(value="<p>placeholder</p>"),
+            tooltip_style=TOOLTIP_STYLE,
+        )
+        if hover_handler is not None:
+            mark.on_hover(hover_handler)
+        if click_handler is not None:
+            mark.on_element_click(click_handler)
+        return mark
+
+    def _add_scatter(
+        self,
+        x: pd.DatetimeIndex,
+        y: pd.Series,
+        color: str,
+        marker: str,
+        hover_handler: Callable | None,
+        click_handler: Callable | None = None,
+        *,
+        opacities=[1],
+        group: str | Literal[Groups.SCATTERS] = Groups.SCATTERS,
+    ) -> bq.Scatter:
+        """Add a scatter mark to a `group`."""
+        mark = self.create_scatter(
+            x, y, color, marker, hover_handler, click_handler, opacities=opacities
+        )
+        self.add_marks([mark], group)
+        return mark
+
+    def hide_scatters(self):
+        """Hide marks added to `Groups.SCATTERS`"""
+        self.hide_added_marks(Groups.SCATTERS)
+
+    def show_scatters(self):
+        """Show marks added to `Groups.SCATTERS`."""
+        self.show_added_marks(Groups.SCATTERS)
+
+    @property
+    def current_case(self) -> CaseProto | None:
+        """Last selected case."""
+        return self._current_case
+
+    def _handler_click_case(self, mark: bq.Scatter, event: dict):
+        """Handler for clicking a scatter representing a case."""
+        # TODO HERERE, will need to be mark_to_case...
+        self._current_case = self.cases.mark_to_move(mark, event)
+        self.cases.handler_click_trend(self, mark, event)
+        if self._client_click_case_handler is not None:
+            self._client_click_case_handler(mark, event)
+
+    def reset_marks(self, reset_current_case: bool = True):
+        """Reset marks.
+
+        Removes any marks for current case. Makes all other added marks
+        visible.
+
+        Parameters
+        ----------
+        reset_current_case
+            If True (default), sets current_case to None.
+        """
+        if Groups.CASE in self.added_marks_groups:
+            self.remove_added_marks(Groups.CASE)
+        self.show_added_marks_all()
+        if reset_current_case:
+            self._current_case = None
+
+    def _click_case(self, index: int, scatter_index: int = 0):
+        """Simulate clicking an element of scatter representing cases.
+
+        Subclass should override or pass through args as necessary.
+
+        Parameters
+        ----------
+        index
+            Index of scatter point to be clicked within the `bq.Scatter`
+            mark represented by `scatter_index`.
+
+        scatter_index
+            Index of `bq.Scatter` mark, within the added marks under
+            `Groups.SCATTERS`, which represents cases. This will be the
+            scatter with the points that can be clicked to select a
+            specific case.
+        """
+        event = {"data": {"index": index}}
+        scatter = self.added_marks[Groups.SCATTERS][scatter_index]
+        self._handler_click_case(scatter, event)
+
+    def select_case(self, case: CaseProto):
+        """Select a specific case.
+
+        Subclass can override as required to select a spedific case.
+        """
+        i = self.cases.get_index(case)
+        self._click_case(i)
+
+    def get_next_case(self) -> CaseProto:
+        """Get case that follows the currently selected case.
+
+        If no case is currently selected then returns first case.
+        """
+        case = self.current_case
+        # TODO CasesProto will need to provide for get_index...
+        i = 0 if case is None else self.cases.get_index(case) + 1
+        # TODO CasesProto will need to provide for cases.cases attr...
+        if i == len(self.cases.moves):  # TODO needs to go to cases
+            return case  # current case is last case
+        return self.cases.moves[i]  # TODO needs to go to cases
+
+    def select_next_case(self):
+        """Select case that follows the currently selected case.
+
+        If no case is currently selected then selects first case.
+        """
+        case = self.get_next_case()
+        if case is self.current_case:
+            return  # current case if last case and already selected
+        self.select_case(case)
+
+    def get_previous_case(self) -> CaseProto:
+        """Get case immediately prior to the currently selected case.
+
+        If no case is currently selected then returns last case.
+        """
+        case = self.current_case
+        if case is not None:
+            i = self.cases.get_index(case) - 1
+            if i == -1:
+                return case  # current case is first case
+        else:
+            i = -1
+        return self.cases.moves[i]  # TODO needs to go from moves to cases
+
+    def select_previous_case(self):
+        """Select case prior to the currently selected cae.
+
+        If no case is currently selected then selects last case.
+        """
+        case = self.get_previous_case()
+        if case is self.current_case:
+            return  # current case if first case and already selected
+        self.select_case(case)
+
+
+class OHLCTrends(OHLCCaseBase):
     """OHLC and Trend analysis for single financial instrument.
 
     OHLC chart with trend overlay. Trend dislayed as coloured line where
@@ -2175,6 +2449,7 @@ class OHLCTrends(OHLC):
     Handlers on `movements`, as defined on `MovementsChartProto`, will be
     enabled.
 
+    # TODO REVISE PARAMETERS
     Parameters
     ----------
     As for OHLC base class and additionally:
@@ -2183,7 +2458,7 @@ class OHLCTrends(OHLC):
         Movements representing trends over period to be charted. Must
         be passed.
 
-    click_trend_handler
+    click_case_handler
         Any client-defined handler to be additionally called when user
         clicks on any scatter point representing a trend start. Should have
         signature:
@@ -2208,21 +2483,22 @@ class OHLCTrends(OHLC):
         log_scale: bool = True,
         display: bool = False,
         movements: MovementsChartProto | None = None,
-        click_trend_handler: Callable | None = None,
+        click_case_handler: Callable | None = None,
         inc_conf_marks: bool = True,
     ):
         if movements is None:
             raise ValueError("'movements' is a required argument.")
-        self._widgets_temp: list[w.Widget] = []  # used by hold temporary widgets
-        self._client_click_trend_handler = click_trend_handler
         self._inc_conf_marks = inc_conf_marks
-        self.movements = movements
-
-        self._current_move: MovementProto | None = None
-        self.mark_trend: bq.FlexLine  # set by _create_mark
-        self.mark_scatters: list[bq.Scatter] = []  # set by _create_mark
-
-        super().__init__(prices, title, visible_x_ticks, max_ticks, log_scale, display)
+        super().__init__(
+            prices,
+            movements,
+            title,
+            visible_x_ticks,
+            max_ticks,
+            log_scale,
+            display,
+            click_case_handler,
+        )
 
         if max_ticks is not None or visible_x_ticks is not None:
             self.update_trend_mark()
@@ -2235,162 +2511,100 @@ class OHLCTrends(OHLC):
         # high, ends of declines (that do not conincide with a subsequent trend
         # start) as day low, otherwise as day close.
         y = self.prices.close.copy()
-        subset = self.movements.starts_adv
+        subset = self.cases.starts_adv
         y[subset] = self.prices.low[subset]
-        subset = self.movements.starts_dec
+        subset = self.cases.starts_dec
         y[subset] = self.prices.high[subset]
-        subset = self.movements.ends_adv_solo
+        subset = self.cases.ends_adv_solo
         y[subset] = self.prices.high[subset]
-        subset = self.movements.ends_dec_solo
+        subset = self.cases.ends_dec_solo
         y[subset] = self.prices.low[subset]
         return y
 
     @cached_property
     def _cols_trend(self) -> list[str]:
         """color data for all points on trend line."""
-        return [self.COLOR_MAP[t] for t in self.movements.trend.values]
+        return [self.COLOR_MAP[t] for t in self.cases.trend.values]
 
     def _create_scales(self) -> dict[ubq.ScaleKeys, bq.Scale]:
         scales = super()._create_scales()
         scales["width"] = bq.LinearScale()
         return scales
 
-    def create_scatter(
-        self,
-        x: pd.DatetimeIndex,
-        y: pd.Series,
-        color: str,
-        marker: str,
-        hover_handler: Callable | None,
-        click_handler: Callable | None = None,
-    ) -> bq.Scatter:
-        """Convenience method to create a scatter mark.
-
-        Parameters
-        ----------
-        x
-            `pd.DatetimeIndex` representing x values of scatter points.
-
-        y
-            y values of scatter points.
-
-        color
-            Scatter point color, for example "skyblue".
-
-        marker
-            Scatter point marker, for example "circle".
-
-        hover_handler
-            Callback to call if a scatter point is hovered over.
-
-        click_handler
-            Callback to call if a scatter point is LMB clicked.
-        """
-        mark = bq.Scatter(
-            scales=self.scales,
-            colors=[color],
-            x=x,
-            y=y,
-            marker=marker,
-            opacities=[0.65],
-            tooltip=w.HTML(value="<p>placeholder</p>"),
-            tooltip_style=TOOLTIP_STYLE,
-        )
-        if hover_handler is not None:
-            mark.on_hover(hover_handler)
-        if click_handler is not None:
-            mark.on_element_click(click_handler)
-        return mark
-
-    def _add_scatter(
-        self,
-        x: pd.DatetimeIndex,
-        y: pd.Series,
-        color: str,
-        marker: str,
-        hover_handler: Callable | None,
-        click_handler: Callable | None = None,
-    ) -> bq.Scatter:
-        """Add a scatter mark to `self.mark_scatters`."""
-        mark = self.create_scatter(x, y, color, marker, hover_handler, click_handler)
-        self.mark_scatters.append(mark)
-        return mark
+    create_scatter = partialmethod(OHLCCaseBase.create_scatter, opacities=[0.65])
+    _add_scatter = partialmethod(OHLCCaseBase._add_scatter, opacities=[0.65])
 
     def hide_scatters(self):
-        """Hide scatter marks.
+        """Hide scatter marks for all trends.
 
-        Hides scatter marks denoting movements' starts, ends and, if
+        Hide scatter marks denoting movements' starts, ends and, if
         applicable, bars when movements' starts and ends were confirmed.
         """
-        for m in self.mark_scatters:
-            m.visible = False
+        return super().hide_scatters()
 
     def show_scatters(self):
-        """Show scatter marks.
+        """show scatter marks for all trends.
 
         Shows scatter marks denoting movements' starts, ends and, if
         applicable, bars when movements' starts and ends were confirmed.
         """
-        for m in self.mark_scatters:
-            m.visible = True
+        return super().show_scatters()
 
     @property
-    def current_move(self) -> MovementProto | None:
-        """Last selected movement."""
-        return self._current_move
-
-    def _handler_click_trend(self, mark: bq.Scatter, event: dict):
-        """Handler for clicking a scatter representing start of a trend."""
-        self._current_move = self.movements.mark_to_move(mark, event)
-        self.movements.handler_click_trend(self, mark, event)
-        if self._client_click_trend_handler is not None:
-            self._client_click_trend_handler(mark, event)
+    def current_case(self) -> MovementProto | None:
+        """Last selected case."""
+        return super().current_case
 
     def _create_mark(self, **_) -> bq.OHLC:
-        """Create all marks.
+        opacities = [0.7] * len(self.prices)
+        return super()._create_mark(opacities=opacities)
 
-        Retains OHLC as principle mark, creating via subclass.
+    def _add_marks(self, **_):
+        """Add initial extra marks.
 
-        Adds FlexLine mark to represent trend.
+        Adds FlexLine mark to represent trend (to `Groups.TRENDLINE`).
 
-        Adds Scatter marks to represent, for each trend:
-            Start (triangle-up/triangle-down for adv/dec).
-            End (cross) only if does not coincide with subsequent
-                trend start.
-        If `inc_conf_marks` passed as True (default) to constructor then
-        will also iadd scattern marks to represent, for each trend:
-            Conf Start (circle)
-            Conf End (square).
+        Adds Scatter marks to `Groups.SCATTERS`.
+            To represent, for each trend:
+                Start (triangle-up/triangle-down for adv/dec).
+                End (cross) only if does not coincide with subsequent
+                    trend start.
+
+            If `inc_conf_marks` passed as True (default) to constructor
+            then also adds scatter marks to represent, for each trend:
+                Conf Start (circle)
+                Conf End (square).
         """
-        self.mark_trend = bq.FlexLine(
+        trend_line = bq.FlexLine(
             scales=self.scales,
             colors=self._cols_trend,
             x=self._x_data,
             y=self._y_trend,
             stroke_width=2,
         )
+        self.add_marks([trend_line], Groups.TRENDLINE)
 
-        movements = self.movements
+        movements = self.cases
 
         # scatter for starts of advancing trends
         subset = movements.starts_adv
-        self._mark_scatter_starts_adv = self._add_scatter(
+        self._add_scatter(
             subset,
             self._y_trend[subset],
             COL_ADV,
             "triangle-up",
             movements.handler_hover_start,
-            self._handler_click_trend,
+            self._handler_click_case,
         )
         # scatter for starts of declining trends
         subset = movements.starts_dec
-        self._mark_scatter_starts_dec = self._add_scatter(
+        self._add_scatter(
             subset,
             self._y_trend[subset],
             COL_DEC,
             "triangle-down",
             movements.handler_hover_start,
-            self._handler_click_trend,
+            self._handler_click_case,
         )
         # scatters for ends of trends, only if do not coincide with subsequent trend start
         handler = movements.handler_hover_end
@@ -2433,12 +2647,9 @@ class OHLCTrends(OHLC):
                 handler,
             )
 
-        opacities = [0.7] * len(self.prices)
-        return super()._create_mark(opacities=opacities)
-
-    def _create_figure(self, **_) -> bq.Figure:
-        marks = [self.mark, self.mark_trend] + self.mark_scatters
-        return super()._create_figure(marks=marks)
+    @property
+    def mark_trend(self) -> bq.FlexLine:
+        return self.added_marks[Groups.TRENDLINE][0]
 
     def update_trend_mark(self, *_):
         """Update trend mark to reflect plotted x ticks.
@@ -2485,72 +2696,8 @@ class OHLCTrends(OHLC):
             self.figure.marks[:index] + [self.mark_trend] + self.figure.marks[index:]
         )
 
-    def reset_marks(self, reset_current_move: bool = True):
-        """Reset marks.
-
-        Removes all added marks. Makes all other marks visible.
-
-        Parameters
-        ----------
-        reset_current_move
-            If True (default), sets current_move to None.
-        """
-        self.remove_all_added_marks()
-        self.show_scatters()
-        if reset_current_move:
-            self._current_move = None
-
-    def close(self):
-        """Close all chart widgets."""
-        for marks in self._added_marks.values():
-            for m in marks:
-                m.close()
-        super().close()
-
-    def delete(self):
-        """Delete all chart widgets."""
-        self.remove_all_added_marks()
-        super().delete()
-
-    def _click_starts_adv(self, index: int):
-        """Simulate clicking an element of scatter representing advances starts."""
-        event = {"data": {"index": index}}
-        self._handler_click_trend(self._mark_scatter_starts_adv, event)
-
-    def _click_starts_dec(self, index: int):
-        """Simulate clicking an element of scatter representing declines starts."""
-        event = {"data": {"index": index}}
-        self._handler_click_trend(self._mark_scatter_starts_dec, event)
-
-    def show_next_move(self):
-        """Select movement that follows the currently selected movement.
-
-        If no movement is currently selected then selects first movement.
-        """
-        move = self.current_move
-        i = 0 if move is None else self.movements.get_index(move) + 1
-        if i == len(self.movements.moves):
-            return  # current movement is last movement
-
-        next_move = self.movements.moves[i]
-        i_ = 0 if move is None else self.movements.get_index(next_move, direction=True)
-        f = self._click_starts_adv if next_move.is_adv else self._click_starts_dec
-        f(i_)
-
-    def show_previous_move(self):
-        """Select movement prior to the currently selected movement.
-
-        If no movement is currently selected then selects last movement.
-        """
-        move = self.current_move
-        if move is not None:
-            i = self.movements.get_index(move) - 1
-            if i == -1:
-                return  # current movement is first movement
-        else:
-            i = -1
-
-        prev_move = self.movements.moves[i]
-        i_ = 0 if move is None else self.movements.get_index(prev_move, direction=True)
-        f = self._click_starts_adv if prev_move.is_adv else self._click_starts_dec
-        f(i_)
+    def select_case(self, case: MovementProto):
+        """Select a specific case."""
+        i = self.cases.get_index(case, direction=True)
+        scatter_index = 0 if case.is_adv else 1
+        self._click_case(i, scatter_index)
