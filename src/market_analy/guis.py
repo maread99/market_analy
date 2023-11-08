@@ -1282,7 +1282,7 @@ class ChartMultLine(BasePrice):
 
     def __init__(
         self,
-        analysis: analysis.Compare,
+        analysis: ma_analysis.Compare,
         interval: mp.intervals.RowInterval | None = None,
         rebase_on_zoom: bool = True,
         max_ticks: int | None = None,
@@ -1740,15 +1740,164 @@ class PctChgMult(PctChg):
         return super()._gui_box_contents + [self._icon_row]
 
 
-class ChartOHLCCase(ChartOHLC):
-    """Base class for"""  # TODO WRITE CLASS DOCSTRING
+class ChartOHLCCaseBase(ChartOHLC):
+    """Base for analysis over OHLC for single financial instrument.
 
-    # TODO HERERE REFACTOR BASE COMMON Case Functionality.
+    Base class to create a gui with an OHLC chart with overlaid analysis.
+    Analysis can comprise multiple 'cases', where a case could represent,
+    for example, a trend or a position. gui provides user controls to
+    display all classes collectively or focus on a single 'current' case
+    and to navigate forwards or backwards between consecutive cases.
+
+    Parameters
+    ----------
+    As base class, except:
+
+    cases
+        Cases of analysis to be displayed.
+
+    narrow_view
+        When displaying a case in 'narrow' view, the number of bars
+        that should be shown before the bar representing the case's start
+        and after the bar representing the case's conclusion.
+
+    wide_view
+        When displaying a case in 'wide' view, the number of bars
+        that should be shown before the bar representing the case's start
+        and after the bar representing the case's conclusion.
+    """
+
+    def __init__(
+        self,
+        analysis: ma_analysis.Analysis,
+        interval: mp.intervals.RowInterval,
+        cases: CasesProto,  # TODO AS REQUIRED?, or should this be CasesChartProto?
+        max_ticks: int | None = None,
+        log_scale: bool = True,
+        display: bool = True,
+        narrow_view: int = 10,
+        wide_view: int = 10,
+        chart_kwargs: dict | None = None,
+        **kwargs,
+    ):
+        self.cases = cases
+        self._narrow_view = narrow_view
+        self._wide_view = wide_view
+        if chart_kwargs is None:
+            chart_kwargs = {}
+        chart_kwargs.setdefault("cases", self.cases)
+        chart_kwargs.setdefault("click_case_handler", self._gui_click_case_handler)
+        super().__init__(
+            analysis, interval, max_ticks, log_scale, display, chart_kwargs, **kwargs
+        )
+
+    @property
+    def current_case(self) -> CaseProto | None:
+        """Currently selected case.
+
+        None if no case has been selected.
+        """
+        return self.chart.current_case
+
+    def _gui_click_case_handler(self, mark: bq.Scatter, event: dict):
+        """Gui level handler for clicking marker representing trend start.
+
+        Subclass should define if required
+        """
+
+    def _show_all_but_handler(self, but: vu.IconBut, event: str, data: dict):
+        if but.is_light:
+            self.chart.hide_cases()  # TODO chart must meet the ChartCaseProto to include hide_cases
+            but.darken()
+            return
+
+        if self.current_case is not None:
+            self.chart.reset_marks()  # TODO chart must meet the ChartCaseProto to include reset_marks
+            self.cases_controls_container.darken_single_case()
+        else:
+            self.chart.show_cases()  # TODO chart must meet the ChartCaseProto to include show_cases
+        but.lighten()
+
+    def _select_next_case_handler(self, but: vu.IconBut, event: str, data: dict):
+        if but.is_dark:
+            return
+        self.chart.select_next_case()
+
+    def _select_prev_case_handler(self, but: vu.IconBut, event: str, data: dict):
+        if but.is_dark:
+            return
+        self.chart.select_previous_case()
+
+    def _set_slider_to_current_case(self, bars: int):
+        """Set slider to focus on currently selected case.
+
+        Parameters
+        ----------
+        bars
+            Number of bars to view prior to case start and following
+            case's conclusion.
+        """
+        if self.current_case is None:
+            return
+        index = (
+            self.cases.data.index
+        )  # TODO meeting CasesProto?, will need data attr...
+
+        start = max(index.get_loc(self.current_case._start) - bars, 0)
+        end = self.current_case._end
+        if end is None:
+            stop = len(index) - 1
+        else:
+            stop = min(index.get_loc(end) + bars, len(index) - 1)
+        self.date_slider.interval = pd.Interval(index[start], index[stop], "both")
+
+    def _narrow_view_handler(self, but: vu.IconBut, event: str, data: dict):
+        if but.is_dark:
+            return
+        self._set_slider_to_current_case(self._narrow_view)
+
+    def _wide_view_handler(self, but: vu.IconBut, event: str, data: dict):
+        if but.is_dark:
+            return
+        self._set_slider_to_current_case(self._wide_view)
+
+    def _create_cases_controls_container(self) -> v.Layout:
+        controls = gui_parts.TrendControls()
+        controls.but_show_all.on_event("click", self._show_all_but_handler)
+        controls.but_next.on_event("click", self._select_next_case_handler)
+        controls.but_prev.on_event("click", self._select_prev_case_handler)
+        controls.but_narrow.on_event("click", self._narrow_view_handler)
+        controls.but_wide.on_event("click", self._wide_view_handler)
+        return controls
+
+    def _create_controls_container(self) -> v.Layout:
+        self._tabs_control_container = v.Layout(
+            children=[self.tabs_control], class_="d-flex justify-end mr-2"
+        )
+        self.cases_controls_container = self._create_cases_controls_container()
+        return v.Layout(
+            children=[self._tabs_control_container, self.cases_controls_container],
+            class_="d-flex align-center justify-center",
+        )
+
+    def _create_gui_parts(self):
+        super()._create_gui_parts()
+        self._controls_container = self._create_controls_container()
+
+    @property
+    def _gui_box_contents(self) -> list[w.Widget]:
+        contents = [
+            self._icon_row_top,
+            self.chart.figure,
+            self.date_slider,
+            self._controls_container,
+            self.html_output,
+        ]
+        return contents
 
 
-class TrendsGuiBase(ChartOHLCCase):
+class TrendsGuiBase(ChartOHLCCaseBase):
     """GUI to display and interact with trend analysis over OHLC Chart.
-    # TODO REVISE CLASS DOC following refactoring
 
     Parameters
     ----------
@@ -1839,17 +1988,19 @@ class TrendsGuiBase(ChartOHLCCase):
             if data.index.tz is not None:
                 data.index = data.index.tz_localize(None)
         self.trends = trend_cls(data, interval, **trend_kwargs)
-        self.movements = self.trends.get_movements()
-        if chart_kwargs is None:
-            chart_kwargs = {}
-        chart_kwargs.setdefault("movements", self.movements)  # TODO to cases?
+        cases = self.trends.get_movements()
 
-        self._narrow_view = narrow_view
-        self._wide_view = wide_view
-        chart_kwargs = {} if chart_kwargs is None else chart_kwargs
-        chart_kwargs.setdefault("click_case_handler", self._gui_click_case_handler)
         super().__init__(
-            analysis, interval, max_ticks, log_scale, display, chart_kwargs, **kwargs
+            analysis,
+            interval,
+            cases,
+            max_ticks,
+            log_scale,
+            display,
+            narrow_view,
+            wide_view,
+            chart_kwargs,
+            **kwargs,
         )
         self._rulers: list = []
 
@@ -1865,58 +2016,15 @@ class TrendsGuiBase(ChartOHLCCase):
     def _icon_row_top_handlers(self) -> list[Callable]:
         return [self._max_x_ticks, self._resize_chart, self.close]
 
-    def _show_all_but_handler(self, but: vu.IconBut, event: str, data: dict):
-        if but.is_light:
-            self.chart.hide_scatters()
-            but.darken()
-            return
+    @property
+    def current_case(self) -> MovementProto | None:
+        """Current selected case"""
+        return super().current_case
 
-        if self.current_move is not None:
-            self.chart.reset_marks()
-            self.trends_controls_container.darken_single_case()
-        else:
-            self.chart.show_scatters()
-        but.lighten()
-
-    def _show_next_move_handler(self, but: vu.IconBut, event: str, data: dict):
-        if but.is_dark:
-            return
-        self.chart.select_next_case()
-
-    def _show_prev_move_handler(self, but: vu.IconBut, event: str, data: dict):
-        if but.is_dark:
-            return
-        self.chart.select_previous_case()
-
-    def _set_slider_to_current_move(self, bars: int):
-        """Set slider to focus on currently selected movement.
-
-        Parameters
-        ----------
-        bars
-            Number of bars to view prior to movement start and following
-            movement's confirmed end.
-        """
-        if self.current_move is None:
-            return
-        index = self.movements.data.index
-        start = max(index.get_loc(self.current_move.start) - bars, 0)
-        end = self.current_move.end_conf
-        if end is None:
-            stop = len(index) - 1
-        else:
-            stop = min(index.get_loc(end) + bars, len(index) - 1)
-        self.date_slider.interval = pd.Interval(index[start], index[stop], "both")
-
-    def _narrow_view_handler(self, but: vu.IconBut, event: str, data: dict):
-        if but.is_dark:
-            return
-        self._set_slider_to_current_move(self._narrow_view)
-
-    def _wide_view_handler(self, but: vu.IconBut, event: str, data: dict):
-        if but.is_dark:
-            return
-        self._set_slider_to_current_move(self._wide_view)
+    def _create_date_slider(self, **kwargs):
+        ds = super()._create_date_slider(**kwargs)
+        ds.slider.observe(self.chart.update_trend_mark, ["index"])
+        return ds
 
     def _close_rulers(self):
         for ruler in self._rulers:
@@ -1928,11 +2036,11 @@ class TrendsGuiBase(ChartOHLCCase):
         ohlc_mark = next(m for m in self.chart.figure.marks if isinstance(m, bq.OHLC))
         self._rulers.append(
             HFixedRule(
-                level=self.current_move.start_px,
+                level=self.current_case.start_px,
                 scales=self.chart.scales,
                 figure=self.chart.figure,
-                start=self.current_move.start.asm8,
-                length=self.current_move.params["prd"],
+                start=self.current_case.start.asm8,
+                length=self.current_case.params["prd"],
                 color="yellow",
                 draggable=True,
                 ordinal_values=list(ohlc_mark.x),
@@ -1946,61 +2054,12 @@ class TrendsGuiBase(ChartOHLCCase):
         f = self._add_rulers if but.is_light else self._close_rulers
         f()
         # chain handlers...
-        self.trends_controls_container.but_ruler_handler(but, event, data)
+        self.cases_controls_container.but_ruler_handler(but, event, data)
 
-    def _create_trends_controls_container(self) -> v.Layout:
-        controls = gui_parts.TrendControls()
-        controls.but_show_all.on_event("click", self._show_all_but_handler)
-        controls.but_next.on_event("click", self._show_next_move_handler)
-        controls.but_prev.on_event("click", self._show_prev_move_handler)
-        controls.but_narrow.on_event("click", self._narrow_view_handler)
-        controls.but_wide.on_event("click", self._wide_view_handler)
+    def _create_cases_controls_container(self) -> v.Layout:
+        controls = super()._create_cases_controls_container()
         controls.but_ruler.on_event("click", self._ruler_handler)
         return controls
-
-    def _create_controls_container(self) -> v.Layout:
-        self._tabs_control_container = v.Layout(
-            children=[self.tabs_control], class_="d-flex justify-end mr-2"
-        )
-        self.trends_controls_container = self._create_trends_controls_container()
-        return v.Layout(
-            children=[self._tabs_control_container, self.trends_controls_container],
-            class_="d-flex align-center justify-center",
-        )
-
-    def _create_gui_parts(self):
-        super()._create_gui_parts()
-        self._controls_container = self._create_controls_container()
-
-    @property
-    def _gui_box_contents(self) -> list[w.Widget]:
-        contents = [
-            self._icon_row_top,
-            self.chart.figure,
-            self.date_slider,
-            self._controls_container,
-            self.html_output,
-        ]
-        return contents
-
-    def _create_date_slider(self, **kwargs):
-        ds = super()._create_date_slider(**kwargs)
-        ds.slider.observe(self.chart.update_trend_mark, ["index"])
-        return ds
-
-    @property
-    def current_move(self) -> MovementProto | None:
-        """Currently selected Movement.
-
-        None if no movement has been selected.
-        """
-        return self.chart.current_case
-
-    def _gui_click_case_handler(self, mark: bq.Scatter, event: dict):
-        """Gui level handler for clicking marker representing trend start.
-
-        Subclass should define if required
-        """
 
     @contextmanager
     def _handler_disabled(self):

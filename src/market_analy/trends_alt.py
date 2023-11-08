@@ -528,7 +528,7 @@ class Movements(MovementsBase, MovementsChartProto):
         if move.eel is not None:
             fl(move.eel, color, "dotted", "End Establishment Line")
 
-        chart.hide_scatters()
+        chart.hide_cases()
         chart.add_marks(marks, group)
 
 
@@ -1669,7 +1669,7 @@ class TrendsGui(TrendsGuiBase):
             wide_view=prd * 3,
             **kwargs,
         )
-        self.movements: Movements
+        self.cases: Movements
         self.trends: Trends
 
     def _gui_click_case_handler(self, mark: bq.Scatter, event: dict):
@@ -1678,8 +1678,8 @@ class TrendsGui(TrendsGuiBase):
         Lightens 'show all scatters' button to indicate option available.
         Displays tooltip to html output.
         """
-        self.trends_controls_container.lighten_single_case()
-        self.trends_controls_container.but_show_all.darken()
-        move = self.movements.mark_to_move(mark, event)
-        html = self.movements.get_move_html(move)
+        self.cases_controls_container.lighten_single_case()
+        self.cases_controls_container.but_show_all.darken()
+        move = self.cases.mark_to_move(mark, event)
+        html = self.cases.get_move_html(move)
         self.html_output.display(html)

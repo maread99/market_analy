@@ -2205,8 +2205,13 @@ class PctChgBarMult(_PctChgBarBase):
         self._cycle_legend()
 
 
+# TODO HERERE WORKING,
+# Create CaseProto, CasesChartProto, possibly CasesProto??
+# what's the difference between CasesChartProto and CasesProto?
+# WHY are there handlers on the Movements class? Is that really the
+#  place for them?
 class OHLCCaseBase(OHLC):
-    """Analysis over OHLC for single financial instrument.
+    """Base for analysis over OHLC for single financial instrument.
 
     Base class to overlay a OHLC chart with marks representing analysis.
     Analysis can comprise multiple 'cases', where a case could represent,
@@ -2214,10 +2219,17 @@ class OHLCCaseBase(OHLC):
     classes collectively or focusing on a single 'current' case and
     navigating forwards or backwards between consecutive cases.
 
-    # TODO WRITE UP ANY PARAMETERS
     Parameters
     ----------
-    As for OHLC base class and additionally:
+    As for OHLC class, except:
+
+    cases
+        Analysis cases to be displayed on the chart.
+
+    click_case_handler
+        Client-defined handler to be called when user clicks on a mark
+        representing a specific case. Should have signature:
+            f(mark: bq.Scatter, event: dict)
     """
 
     def __init__(
@@ -2235,10 +2247,6 @@ class OHLCCaseBase(OHLC):
         self.cases = cases
         self._current_case: CaseProto | None = None
         super().__init__(prices, title, visible_x_ticks, max_ticks, log_scale, display)
-
-    # TODO HERERE WORKING,
-    # Create CaseProto, CasesChartProto, possibly CasesProto??
-    # what's the difference between CasesChartProto and CasesProto?
 
     def create_scatter(
         self,
@@ -2315,12 +2323,18 @@ class OHLCCaseBase(OHLC):
         self.add_marks([mark], group)
         return mark
 
-    def hide_scatters(self):
-        """Hide marks added to `Groups.SCATTERS`"""
+    def hide_cases(self):
+        """Hide marks identifying cases.
+
+        Subclass should extend / override as requried.
+        """
         self.hide_added_marks(Groups.SCATTERS)
 
-    def show_scatters(self):
-        """Show marks added to `Groups.SCATTERS`."""
+    def show_cases(self):
+        """Show marks identifying cases.
+
+        Subclass should extend / override as requried.
+        """
         self.show_added_marks(Groups.SCATTERS)
 
     @property
@@ -2330,7 +2344,7 @@ class OHLCCaseBase(OHLC):
 
     def _handler_click_case(self, mark: bq.Scatter, event: dict):
         """Handler for clicking a scatter representing a case."""
-        # TODO HERERE, will need to be mark_to_case...
+        # TODO, For CasesProto (or CasesChartProto) will need to be mark_to_case...
         self._current_case = self.cases.mark_to_move(mark, event)
         self.cases.handler_click_trend(self, mark, event)
         if self._client_click_case_handler is not None:
@@ -2449,12 +2463,11 @@ class OHLCTrends(OHLCCaseBase):
     Handlers on `movements`, as defined on `MovementsChartProto`, will be
     enabled.
 
-    # TODO REVISE PARAMETERS
     Parameters
     ----------
-    As for OHLC base class and additionally:
+    As for OHLCCaseBase, except:
 
-    movements
+    cases
         Movements representing trends over period to be charted. Must
         be passed.
 
@@ -2465,7 +2478,7 @@ class OHLCTrends(OHLCCaseBase):
             f(mark: bq.Scatter, event: dict)
 
         NB handler will be called after any handlers defined on
-        `movements`.
+        `cases`.
 
     inc_conf_marks
         Whether to include scatter marks indicating the bar / price at
@@ -2482,16 +2495,17 @@ class OHLCTrends(OHLCCaseBase):
         max_ticks: int | None = None,
         log_scale: bool = True,
         display: bool = False,
-        movements: MovementsChartProto | None = None,
+        cases: MovementsChartProto
+        | None = None,  # TODO MovementsChartProto as required?
         click_case_handler: Callable | None = None,
         inc_conf_marks: bool = True,
     ):
-        if movements is None:
-            raise ValueError("'movements' is a required argument.")
+        if cases is None:
+            raise ValueError("'cases' is a required argument.")
         self._inc_conf_marks = inc_conf_marks
         super().__init__(
             prices,
-            movements,
+            cases,
             title,
             visible_x_ticks,
             max_ticks,
@@ -2534,21 +2548,21 @@ class OHLCTrends(OHLCCaseBase):
     create_scatter = partialmethod(OHLCCaseBase.create_scatter, opacities=[0.65])
     _add_scatter = partialmethod(OHLCCaseBase._add_scatter, opacities=[0.65])
 
-    def hide_scatters(self):
+    def hide_cases(self):
         """Hide scatter marks for all trends.
 
         Hide scatter marks denoting movements' starts, ends and, if
         applicable, bars when movements' starts and ends were confirmed.
         """
-        return super().hide_scatters()
+        return super().hide_cases()
 
-    def show_scatters(self):
+    def show_cases(self):
         """show scatter marks for all trends.
 
         Shows scatter marks denoting movements' starts, ends and, if
         applicable, bars when movements' starts and ends were confirmed.
         """
-        return super().show_scatters()
+        return super().show_cases()
 
     @property
     def current_case(self) -> MovementProto | None:
