@@ -16,6 +16,7 @@ if typing.TYPE_CHECKING:
     from market_analy.charts import OHLCTrends
 
 
+# TODO believe will have to refactor back common functionality to CaseProto
 @dataclass(frozen=True)
 class MovementProto(typing.Protocol):
     """Protocol of minimum requirements to define a trend Movement.
@@ -115,7 +116,18 @@ class MovementProto(typing.Protocol):
         """Trend direction. 1 for advance, -1 for decline."""
         return 1 if self.is_adv else -1
 
+    @property
+    def _start(self) -> pd.Timestamp:
+        """Bar when case considered to start."""
+        return self.start
 
+    @property
+    def _end(self) -> pd.Timestamp:
+        """Bar when case considered to have concluded."""
+        return self.end_conf
+
+
+# TODO believe will have to refactor back common functionality to CasesChartProto
 @dataclass
 class MovementsChartProto(typing.Protocol):
     """Protocol for 'movements' param of `charts.OHLCTrends`.

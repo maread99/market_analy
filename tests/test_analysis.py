@@ -1108,7 +1108,7 @@ class TestAnalysis:
 
         gui = f(interval, trend_kwargs, **kwargs, display=False)
         movements = analy.movements("1D", trend_kwargs, **kwargs)
-        for gm, m in zip(gui.movements.moves, movements.moves):
+        for gm, m in zip(gui.cases.moves, movements.moves):
             assert gm == m
 
         prd = trend_kwargs["prd"]
@@ -1173,13 +1173,13 @@ class TestAnalysis:
         one_day = pd.Timedelta(1, "D")
         assert gui.chart.plotted_interval == pd.Interval(start, end + one_day, "left")
 
-        controls = gui.trends_controls_container
+        controls = gui.cases_controls_container
         # verify initial gui config as expected
         assert controls.is_dark_single_case
         assert controls.but_show_all.is_light
         assert not gui._html_output._html.value
         assert gui.chart.current_case is None
-        gui.current_move is None
+        gui.current_case is None
 
         GROUP_CASE = charts.Groups.CASE
 
@@ -1195,7 +1195,7 @@ class TestAnalysis:
                 in gui._html_output._html.value
             )
             assert not any([s.visible for s in scats])
-            assert gui.chart.current_case == move == gui.current_move
+            assert gui.chart.current_case == move == gui.current_case
 
             # verify trend marks
             trend_marks = gui.chart.added_marks[GROUP_CASE]
@@ -1257,13 +1257,13 @@ class TestAnalysis:
 
         # verify marks for various single trend and control buttons to progress through trends
         gui.chart.select_case(gui.chart.cases.advances[0])
-        assert_trend_reflects_move(gui.movements.moves[1])
+        assert_trend_reflects_move(gui.cases.moves[1])
         controls.but_next.fire_event("click", None)
-        assert_trend_reflects_move(gui.movements.moves[2])
+        assert_trend_reflects_move(gui.cases.moves[2])
         controls.but_next.fire_event("click", None)
         controls.but_next.fire_event("click", None)
         controls.but_prev.fire_event("click", None)
-        move = gui.movements.moves[3]
+        move = gui.cases.moves[3]
         assert_trend_reflects_move(move)
 
         # verify wide zoom on trend
@@ -1388,7 +1388,7 @@ class TestAnalysis:
         assert GROUP_CASE not in gui.chart.added_marks_groups
         assert all([s.visible for s in scats])
         assert gui.chart.current_case is None
-        assert gui.current_move is None
+        assert gui.current_case is None
 
 
 class TestCompare:
