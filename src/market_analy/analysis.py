@@ -103,11 +103,11 @@ from market_analy.utils.mkt_prices_utils import (
 from market_analy.utils.pandas_utils import rebase_to_row
 
 if TYPE_CHECKING:
-    from .trends.movements_base import MovementsBase
+    from .trends.movements import MovementsSupportChartAnaly
     from .trends import TrendsProto
 
-from .trends.guis import TrendsGuiBase
-from .trends.analy import Trends, TrendsGui
+from .trends.guis import TrendsGui, TrendsGuiBase
+from .trends.analy import Trends
 
 Date = Union[str, datetime, None]
 Calendar = Union[str, ExchangeCalendar]
@@ -952,7 +952,7 @@ class Analysis(Base):
         trend_kwargs: dict,
         trend_cls: type[TrendsProto] = Trends,
         **kwargs,
-    ) -> MovementsBase:
+    ) -> MovementsSupportChartAnaly:
         """Evaluate trends over a given period.
 
         Parameters
@@ -997,10 +997,11 @@ class Analysis(Base):
     ) -> TrendsGuiBase:
         """Visualise trends on an OHLC chart.
 
+        # TODO REVISE DOC
         Underlying trends data can be accessed via the following attributes
         of the returned object:
             movements: Movements (will confrom with
-            `movements_base.MovementsChartProto`).
+            `movements.MovementsChartProto`).
 
             trends: Instance of trends class responsible for evaluating
             movement (will confrom with `trends_base.TrendsProto`).

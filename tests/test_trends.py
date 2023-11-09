@@ -8,7 +8,7 @@ import pandas as pd
 import pytest
 
 from market_analy.trends import analy as analy_trends
-
+from market_analy.trends.movements import Movement
 
 # NOTE: testing of `analy.Trends` is LIMITED. See Notes section of
 # `analy.Trends` regarding the need for a more comprehensive test suite.
@@ -51,7 +51,7 @@ def data_dji_15T(path_res, xnys) -> abc.Iterator[pd.DataFrame]:
     yield data
 
 
-def assert_moves_as_saved(path: pathlib.Path, moves: list[analy_trends.Movement]):
+def assert_moves_as_saved(path: pathlib.Path, moves: list[Movement]):
     file = open(path, "rb")
     for m in moves:
         try:

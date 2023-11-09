@@ -9,17 +9,18 @@ from functools import cached_property, partialmethod
 import bqplot as bq
 import pandas as pd
 
+from ..cases import CaseSupportsChartAnaly
 from ..charts import Groups, OHLCCaseBase
 from ..config import COL_ADV, COL_DEC
 from ..utils import bq_utils as ubq
-from .movements_base import MovementBase, MovementsSupportChartAnaly
+from .movements import MovementBase, MovementsSupportChartAnaly
 
 
 class OHLCTrends(OHLCCaseBase):
     """OHLC and Trend analysis for single financial instrument.
 
     OHLC chart with trend overlay. Trend dislayed as coloured line where
-    green indicates a rising trend, red indicates a falling trend and
+    green indicates a rising trend, red indicates a  falling trend and
     yellow indicates no trend (consolidation).
 
     For each movement described by `movements` a scatter mark denotes:
@@ -285,8 +286,9 @@ class OHLCTrends(OHLCCaseBase):
             self.figure.marks[:index] + [self.mark_trend] + self.figure.marks[index:]
         )
 
-    def select_case(self, case: MovementBase):
+    def select_case(self, case: CaseSupportsChartAnaly):
         """Select a specific case."""
+        case = typing.cast(MovementBase, case)
         i = self.cases.get_index_for_direction(case)
         scatter_index = 0 if case.is_adv else 1
         self._click_case(i, scatter_index)
