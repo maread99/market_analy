@@ -51,8 +51,14 @@ import market_analy.utils.pandas_utils as upd
 from market_analy.utils.dict_utils import set_kwargs_from_dflt
 
 if typing.TYPE_CHECKING:
-    from market_analy.movements_base import MovementProto, MovementsChartProto
+    from market_analy.movements_base import MovementBase, MovementsSupportChartAnaly
 from market_analy.config import COL_ADV, COL_DEC
+
+from .cases import (
+    CaseSupportsChartAnaly,
+    CasesSupportsChartAnaly,
+    ChartSupportsCasesGui,
+)
 
 
 COLOR_CHART_TEXT = "lightyellow"
@@ -2205,12 +2211,7 @@ class PctChgBarMult(_PctChgBarBase):
         self._cycle_legend()
 
 
-# TODO HERERE WORKING,
-# Create CaseProto, CasesChartProto, possibly CasesProto??
-# what's the difference between CasesChartProto and CasesProto?
-# WHY are there handlers on the Movements class? Is that really the
-#  place for them?
-class OHLCCaseBase(OHLC):
+class OHLCCaseBase(OHLC, ChartSupportsCasesGui):
     """Base for analysis over OHLC for single financial instrument.
 
     Base class to overlay a OHLC chart with marks representing analysis.
@@ -2235,7 +2236,7 @@ class OHLCCaseBase(OHLC):
     def __init__(
         self,
         prices: pd.DataFrame,
-        cases: CasesChartProto,
+        cases: CasesSupportsChartAnaly,
         title: str,
         visible_x_ticks: pd.Interval | None = None,
         max_ticks: int | None = None,
@@ -2245,7 +2246,7 @@ class OHLCCaseBase(OHLC):
     ):
         self._client_click_case_handler = click_case_handler
         self.cases = cases
-        self._current_case: CaseProto | None = None
+        self._current_case: CaseSupportsChartAnaly | None = None
         super().__init__(prices, title, visible_x_ticks, max_ticks, log_scale, display)
 
     def create_scatter(
@@ -2338,15 +2339,14 @@ class OHLCCaseBase(OHLC):
         self.show_added_marks(Groups.SCATTERS)
 
     @property
-    def current_case(self) -> CaseProto | None:
+    def current_case(self) -> CaseSupportsChartAnaly | None:
         """Last selected case."""
         return self._current_case
 
     def _handler_click_case(self, mark: bq.Scatter, event: dict):
         """Handler for clicking a scatter representing a case."""
-        # TODO, For CasesProto (or CasesChartProto) will need to be mark_to_case...
-        self._current_case = self.cases.mark_to_move(mark, event)
-        self.cases.handler_click_trend(self, mark, event)
+        self._current_case = self.cases.event_to_case(mark, event)
+        self.cases.handler_click_case(self, mark, event)
         if self._client_click_case_handler is not None:
             self._client_click_case_handler(mark, event)
 
@@ -2388,7 +2388,7 @@ class OHLCCaseBase(OHLC):
         scatter = self.added_marks[Groups.SCATTERS][scatter_index]
         self._handler_click_case(scatter, event)
 
-    def select_case(self, case: CaseProto):
+    def select_case(self, case: CaseSupportsChartAnaly):
         """Select a specific case.
 
         Subclass can override as required to select a spedific case.
@@ -2396,18 +2396,18 @@ class OHLCCaseBase(OHLC):
         i = self.cases.get_index(case)
         self._click_case(i)
 
-    def get_next_case(self) -> CaseProto:
+    def get_next_case(self) -> CaseSupportsChartAnaly:
         """Get case that follows the currently selected case.
 
         If no case is currently selected then returns first case.
         """
         case = self.current_case
-        # TODO CasesProto will need to provide for get_index...
         i = 0 if case is None else self.cases.get_index(case) + 1
-        # TODO CasesProto will need to provide for cases.cases attr...
-        if i == len(self.cases.moves):  # TODO needs to go to cases
+        if i == len(self.cases.cases):
+            if typing.TYPE_CHECKING:
+                assert case is not None
             return case  # current case is last case
-        return self.cases.moves[i]  # TODO needs to go to cases
+        return self.cases.cases[i]
 
     def select_next_case(self):
         """Select case that follows the currently selected case.
@@ -2419,7 +2419,7 @@ class OHLCCaseBase(OHLC):
             return  # current case if last case and already selected
         self.select_case(case)
 
-    def get_previous_case(self) -> CaseProto:
+    def get_previous_case(self) -> CaseSupportsChartAnaly:
         """Get case immediately prior to the currently selected case.
 
         If no case is currently selected then returns last case.
@@ -2431,7 +2431,7 @@ class OHLCCaseBase(OHLC):
                 return case  # current case is first case
         else:
             i = -1
-        return self.cases.moves[i]  # TODO needs to go from moves to cases
+        return self.cases.cases[i]
 
     def select_previous_case(self):
         """Select case prior to the currently selected cae.
@@ -2495,8 +2495,7 @@ class OHLCTrends(OHLCCaseBase):
         max_ticks: int | None = None,
         log_scale: bool = True,
         display: bool = False,
-        cases: MovementsChartProto
-        | None = None,  # TODO MovementsChartProto as required?
+        cases: MovementsSupportChartAnaly | None = None,
         click_case_handler: Callable | None = None,
         inc_conf_marks: bool = True,
     ):
@@ -2513,6 +2512,8 @@ class OHLCTrends(OHLCCaseBase):
             display,
             click_case_handler,
         )
+
+        self.cases: MovementsSupportChartAnaly
 
         if max_ticks is not None or visible_x_ticks is not None:
             self.update_trend_mark()
@@ -2565,9 +2566,12 @@ class OHLCTrends(OHLCCaseBase):
         return super().show_cases()
 
     @property
-    def current_case(self) -> MovementProto | None:
+    def current_case(self) -> MovementBase | None:
         """Last selected case."""
-        return super().current_case
+        case = super().current_case
+        if typing.TYPE_CHECKING:
+            assert isinstance(case, MovementBase)
+        return case
 
     def _create_mark(self, **_) -> bq.OHLC:
         opacities = [0.7] * len(self.prices)
@@ -2710,8 +2714,8 @@ class OHLCTrends(OHLCCaseBase):
             self.figure.marks[:index] + [self.mark_trend] + self.figure.marks[index:]
         )
 
-    def select_case(self, case: MovementProto):
+    def select_case(self, case: MovementBase):
         """Select a specific case."""
-        i = self.cases.get_index(case, direction=True)
+        i = self.cases.get_index_for_direction(case)
         scatter_index = 0 if case.is_adv else 1
         self._click_case(i, scatter_index)

@@ -23,6 +23,7 @@ Classes to evaluate and store trends:
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 import functools
 import operator
@@ -43,12 +44,10 @@ from market_analy.formatters import (
     formatter_float,
 )
 from market_analy.guis import TrendsGuiBase
-from market_analy.movements_base import (
-    MovementProto,
-    MovementsBase,
-    MovementsChartProto,
-)
+from market_analy.movements_base import MovementBase, MovementsBase
 from market_analy.utils import bq_utils as ubq
+
+from .cases import CasesSupportsChartAnaly
 
 if typing.TYPE_CHECKING:
     from market_analy.analysis import Analysis
@@ -67,11 +66,11 @@ class TrendParams(typing.TypedDict):
     min_bars: int
 
 
-@dataclass(frozen=True)
-class Movement(MovementProto):
+@dataclass(frozen=True, eq=False)
+class Movement(MovementBase):
     """Advance or decline identified by `Trends`.
 
-    Attributes (in addition to those provided via `MovementProto`)
+    Attributes (in addition to those provided via `MovementBase`)
     ----------
     params
         Parameters passed to `Trends`
@@ -103,23 +102,6 @@ class Movement(MovementProto):
     line_limit: pd.Series
     by_break: bool | None
 
-    # NOTE no idea why this is necessary, but it is. Perhaps to do with
-    # inheriting from Protocol? Subclassing a Dataclass?
-    def __eq__(self, other):
-        return super().__eq__(other)
-
-    def __lt__(self, other):
-        return super().__lt__(other)
-
-    def __le__(self, other):
-        return super().__le__(other)
-
-    def __gt__(self, other):
-        return super().__gt__(other)
-
-    def __ge__(self, other):
-        return super().__ge__(other)
-
     @property
     def open(self) -> bool:
         """Movement has not ended."""
@@ -138,19 +120,19 @@ class Movement(MovementProto):
     @property
     def conf_chg(self) -> float | None:
         """Absolute change between start and end confirmations."""
-        return None if self.open else self.end_conf_px - self.start_conf_px  # type: ignore
+        return None if self.open else self.end_conf_px - self.start_conf_px
 
     @property
     def conf_chg_pct(self) -> float | None:
         """Percentage change between start and end confirmations."""
-        return None if self.open else self.conf_chg / self.start_conf_px  # type: ignore
+        return None if self.open else self.conf_chg / self.start_conf_px
 
 
-@dataclass
-class Movements(MovementsBase, MovementsChartProto):
+@dataclass(frozen=True)
+class Movements(MovementsBase, CasesSupportsChartAnaly):
     """Movements identified over an analysis period by `Trends`."""
 
-    moves: list[Movement]
+    cases: Sequence[Movement]
 
     MARKER_MAP: typing.ClassVar = {
         "cross": "End",
@@ -158,43 +140,44 @@ class Movements(MovementsBase, MovementsChartProto):
         "square": "End conf",
     }
 
-    def mark_to_move(self, mark: bq.Scatter, event: dict) -> Movement:
+    def event_to_case(self, mark: bq.Scatter, event: dict) -> Movement:
         # Only for type checker to know move is a Movement as defined on this module.
-        move = super().mark_to_move(mark, event)
-        assert isinstance(move, Movement)
-        return move
+        case = super().event_to_case(mark, event)
+        if typing.TYPE_CHECKING:
+            assert isinstance(case, Movement)
+        return case
 
     @staticmethod
-    def get_move_html(move: Movement) -> str:
+    def get_move_html(case: Movement) -> str:
         """Return html to describe a movement."""
-        color = "crimson" if move.is_dec else "limegreen"
+        color = "crimson" if case.is_dec else "limegreen"
         style = tooltip_html_style(color=color, line_height=1.3)
-        s = f"<p {style}>Start: " + formatter_datetime(move.start)
-        s += f"<br>Start px: {formatter_float(move.start_px)}"
-        s += f"<br>End: {'None' if move.open else formatter_datetime(move.end)}"
-        s += f"<br>Chg: {formatter_percent(move.chg_pct)}"
-        by = "None" if move.open else ("break" if move.by_break else "limit")
+        s = f"<p {style}>Start: " + formatter_datetime(case.start)
+        s += f"<br>Start px: {formatter_float(case.start_px)}"
+        s += f"<br>End: {'None' if case.open else formatter_datetime(case.end)}"
+        s += f"<br>Chg: {formatter_percent(case.chg_pct)}"
+        by = "None" if case.open else ("break" if case.by_break else "limit")
         s += f"<br>By: {by}"
-        s += f"<br>Duration: {move.duration}"
-        s += f"<br>Start conf: {formatter_datetime(move.start_conf)}"
-        end_conf = "None" if move.open else formatter_datetime(move.end_conf)
+        s += f"<br>Duration: {case.duration}"
+        s += f"<br>Start conf: {formatter_datetime(case.start_conf)}"
+        end_conf = "None" if case.open else formatter_datetime(case.end_conf)
         s += f"<br>End conf: {end_conf}"
 
         s += "<br>Conf chg: "
-        if move.open:
+        if case.open:
             s += "None"
         else:
-            chg_color = "crimson" if move.conf_chg_pct < 0 else "limegreen"  # type: ignore
+            chg_color = "crimson" if case.conf_chg_pct < 0 else "limegreen"  # type: ignore
             chg_style = tooltip_html_style(color=chg_color, line_height=1.3)
-            s += f"<span {chg_style}>{formatter_percent(move.conf_chg_pct)}</span>"
+            s += f"<span {chg_style}>{formatter_percent(case.conf_chg_pct)}</span>"
 
         s += "</p"
         return s
 
     def handler_hover_start(self, mark: bq.marks.Scatter, event: dict):
         """Handler for hovering on mark representing a movement start."""
-        move = self.mark_to_move(mark, event)
-        mark.tooltip.value = self.get_move_html(move)
+        case = self.event_to_case(mark, event)
+        mark.tooltip.value = self.get_move_html(case)
 
     def _handler_not_start(self, mark: bq.Scatter, event: dict):
         """Handler to hover over any scatter mark not representing a movement start.
@@ -220,7 +203,7 @@ class Movements(MovementsBase, MovementsChartProto):
         """Handler for hovering on mark representing when movement end confirmed."""
         self._handler_not_start(mark, event)
 
-    def handler_click_trend(self, chart: OHLCTrends, mark: bq.Scatter, event: dict):
+    def handler_click_case(self, chart: OHLCTrends, mark: bq.Scatter, event: dict):
         """Handler for clicking mark representing a movement start.
 
         Removes all existing scatters from figure.
@@ -228,7 +211,7 @@ class Movements(MovementsBase, MovementsChartProto):
         Adds scatters and lines for the single trend represented by the
         clicked scatter point.
         """
-        move = self.mark_to_move(mark, event)
+        case = self.event_to_case(mark, event)
         color = mark.colors[0]
 
         marks = []
@@ -255,25 +238,25 @@ class Movements(MovementsBase, MovementsChartProto):
         if group in chart.added_marks_groups:
             chart.remove_added_marks(group)
 
-        if move.closed:
+        if case.closed:
             style = tooltip_html_style(color=color)
             s = f"<p {style}>Conf chg: "
-            chg_color = COL_DEC if move.conf_chg_pct < 0 else COL_ADV  # type: ignore
+            chg_color = COL_DEC if case.conf_chg_pct < 0 else COL_ADV  # type: ignore
             chg_style = tooltip_html_style(color=chg_color)
-            s += f"<span {chg_style}>{formatter_percent(move.conf_chg_pct)}</span></p>"
+            s += f"<span {chg_style}>{formatter_percent(case.conf_chg_pct)}</span></p>"
 
-            if move.is_adv:
+            if case.is_adv:
                 color_area = (
-                    COL_ADV if move.start_conf_px < move.end_conf_px else COL_DEC
+                    COL_ADV if case.start_conf_px < case.end_conf_px else COL_DEC
                 )
             else:
                 color_area = (
-                    COL_ADV if move.start_conf_px > move.end_conf_px else COL_DEC
+                    COL_ADV if case.start_conf_px > case.end_conf_px else COL_DEC
                 )
 
             mark_chg = bq.Lines(
-                x=[[move.start_conf, move.end_conf]] * 2,
-                y=[[move.start_conf_px] * 2, [move.end_conf_px] * 2],
+                x=[[case.start_conf, case.end_conf]] * 2,
+                y=[[case.start_conf_px] * 2, [case.end_conf_px] * 2],
                 scales=chart.scales,
                 opacities=[0],
                 fill="between",
@@ -285,21 +268,21 @@ class Movements(MovementsBase, MovementsChartProto):
             chart.add_marks([mark_chg], group, under=True)
 
         def handler_start(mark: bq.Scatter, event: dict):
-            mark.tooltip.value = self.get_move_html(move)
+            mark.tooltip.value = self.get_move_html(case)
 
-        f([move.start], [move.start_px], color, mark.marker, handler_start)
+        f([case.start], [case.start_px], color, mark.marker, handler_start)
 
         handler = self._handler_not_start
-        f([move.start_conf], [move.start_conf_px], color, "circle", handler)
-        if move.closed:
-            f([move.end], [move.end_px], color, "cross", handler)
-            f([move.end_conf], [move.end_conf_px], color, "square", handler)
+        f([case.start_conf], [case.start_conf_px], color, "circle", handler)
+        if case.closed:
+            f([case.end], [case.end_px], color, "cross", handler)
+            f([case.end_conf], [case.end_conf_px], color, "square", handler)
 
         color_break, color_limit = "white", "slategray"
-        if not move.by_break:
+        if not case.by_break:
             color_break, color_limit = color_limit, color_break
-        fl(move.line_break, color_break, "dashed", "Break line")
-        fl(move.line_limit, color_limit, "dashed", "Limit line")
+        fl(case.line_break, color_break, "dashed", "Break line")
+        fl(case.line_limit, color_limit, "dashed", "Limit line")
 
         chart.hide_cases()
         chart.add_marks(marks, group)
@@ -806,7 +789,7 @@ class Trends:
                 assert prev_move.end <= move.start
             prev_move = move
 
-        return Movements(moves, self.data, self.interval)
+        return Movements(tuple(moves), self.data, self.interval)
 
 
 class TrendsGui(TrendsGuiBase):
@@ -861,23 +844,33 @@ class TrendsGui(TrendsGuiBase):
         """
         self.cases_controls_container.lighten_single_case()
         self.cases_controls_container.but_show_all.darken()
-        move = self.cases.mark_to_move(mark, event)
+        move = self.cases.event_to_case(mark, event)
         html = self.cases.get_move_html(move)
         self.html_output.display(html)
 
+    @property
+    def current_case(self) -> Movement | None:
+        """Current selected case"""
+        # method included to update type to Movement class as defined on this module
+        case = super().current_case
+        if typing.TYPE_CHECKING:
+            assert isinstance(case, Movement)
+        return case
+
     def _add_rulers(self):
         self._close_rulers()  # close any existing
-        move = self.current_case
-        is_adv = move.is_adv
+        case = self.current_case
+        assert case is not None
+        is_adv = case.is_adv
 
         ohlc_mark = next(m for m in self.chart.figure.marks if isinstance(m, bq.OHLC))
 
         fctrs = self.trends.fctrs_pos_break if is_adv else self.trends.fctrs_neg_break
         self._rulers.append(
             market_analy.utils.bq_utils.TrendRule(
-                x=move.start.asm8,
-                y=move.start_px,
-                length=move.params["prd"],
+                x=case.start.asm8,
+                y=case.start_px,
+                length=case.params["prd"],
                 factors=fctrs,
                 scales=self.chart.scales,
                 ordinal_values=list(ohlc_mark.x),
@@ -889,12 +882,12 @@ class TrendsGui(TrendsGuiBase):
         )
 
         fctrs = self.trends.fctrs_pos_limit if is_adv else self.trends.fctrs_neg_limit
-        idx = -move.params["prd"]
+        idx = -case.params["prd"]
         self._rulers.append(
             market_analy.utils.bq_utils.TrendRule(
-                x=move.line_limit.index[idx].asm8,
-                y=move.line_limit.iloc[idx],
-                length=move.params["prd"],
+                x=case.line_limit.index[idx].asm8,
+                y=case.line_limit.iloc[idx],
+                length=case.params["prd"],
                 factors=fctrs,
                 scales=self.chart.scales,
                 ordinal_values=list(ohlc_mark.x),

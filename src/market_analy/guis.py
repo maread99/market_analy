@@ -73,8 +73,11 @@ import market_analy.utils.ipyvuetify_utils as vu
 import market_analy.utils.ipywidgets_utils as wu
 import market_analy.utils.pandas_utils as upd
 
+from .cases import CasesSupportsChartAnaly, CaseSupportsChartAnaly
+
 if TYPE_CHECKING:
-    from market_analy.movements_base import MovementProto, MovementsChartProto
+    from .trends import Movement as Movement
+    from .trends_alt import Movement as MovementAlt
 
 # CONSTANTS
 HIGHLIGHT_COLOR = "lightyellow"
@@ -93,7 +96,7 @@ class Base(metaclass=ABCMeta):
 
     **Abstact Properties**
 
-        ChartCls -> type[charts.Base]:
+        ChartCls:
             charts module class, for example charts.Line.
 
         SelectorCls -> type[Selector] | None:
@@ -195,7 +198,7 @@ class Base(metaclass=ABCMeta):
         """
         self.chart = self._create_chart(data, title=title, **kwargs)
         # Attributes set by --_create_gui--.
-        # NB Further attributes will be set by subclass via _create_gui_parts
+        # NB Furthertype[charts.Base] attributes will be set by subclass via _create_gui_parts
         self._widgets: list[w.Widget]
         self.slctr: Selector
         self._gui: w.Box
@@ -207,7 +210,7 @@ class Base(metaclass=ABCMeta):
 
     @property
     @abstractmethod
-    def ChartCls(self) -> type[charts.Base]:
+    def ChartCls(self):
         """A class of charts module. For example, charts.Line
 
         Notes
@@ -1262,7 +1265,7 @@ class ChartLine(BasePrice):
     """GUI to display and interact with a Line Chart."""
 
     @property
-    def ChartCls(self) -> type[charts.Base]:
+    def ChartCls(self) -> type[charts.Line]:
         return charts.Line
 
     @property
@@ -1327,7 +1330,7 @@ class ChartMultLine(BasePrice):
         super().__init__(analysis, interval, max_ticks, log_scale, display, **kwargs)
 
     @property
-    def ChartCls(self) -> type[charts.Base]:
+    def ChartCls(self) -> type[charts.MultLine]:
         return charts.MultLine
 
     @property
@@ -1548,7 +1551,7 @@ class ChartOHLC(BasePrice):
     """
 
     @property
-    def ChartCls(self) -> type[charts.Base]:
+    def ChartCls(self) -> type[charts.OHLC]:
         return charts.OHLC
 
     @property
@@ -1671,7 +1674,7 @@ class PctChg(BaseVariableDates):
         super().__init__(data, title, display, max_ticks, direction=direction)
 
     @property
-    def ChartCls(self) -> type[charts.Base]:
+    def ChartCls(self) -> type[charts.PctChgBar]:
         return charts.PctChgBar
 
     @property
@@ -1716,7 +1719,7 @@ class PctChgMult(PctChg):
     """
 
     @property
-    def ChartCls(self) -> type[charts.Base]:
+    def ChartCls(self) -> type[charts.PctChgBarMult]:
         return charts.PctChgBarMult
 
     def _create_icon_row(self):
@@ -1771,7 +1774,7 @@ class ChartOHLCCaseBase(ChartOHLC):
         self,
         analysis: ma_analysis.Analysis,
         interval: mp.intervals.RowInterval,
-        cases: CasesProto,  # TODO AS REQUIRED?, or should this be CasesChartProto?
+        cases: CasesSupportsChartAnaly,
         max_ticks: int | None = None,
         log_scale: bool = True,
         display: bool = True,
@@ -1792,7 +1795,11 @@ class ChartOHLCCaseBase(ChartOHLC):
         )
 
     @property
-    def current_case(self) -> CaseProto | None:
+    def ChartCls(self) -> type[charts.OHLCCaseBase]:
+        return charts.OHLCCaseBase
+
+    @property
+    def current_case(self) -> CaseSupportsChartAnaly | None:
         """Currently selected case.
 
         None if no case has been selected.
@@ -1807,15 +1814,15 @@ class ChartOHLCCaseBase(ChartOHLC):
 
     def _show_all_but_handler(self, but: vu.IconBut, event: str, data: dict):
         if but.is_light:
-            self.chart.hide_cases()  # TODO chart must meet the ChartCaseProto to include hide_cases
+            self.chart.hide_cases()
             but.darken()
             return
 
         if self.current_case is not None:
-            self.chart.reset_marks()  # TODO chart must meet the ChartCaseProto to include reset_marks
+            self.chart.reset_marks()
             self.cases_controls_container.darken_single_case()
         else:
-            self.chart.show_cases()  # TODO chart must meet the ChartCaseProto to include show_cases
+            self.chart.show_cases()
         but.lighten()
 
     def _select_next_case_handler(self, but: vu.IconBut, event: str, data: dict):
@@ -1839,10 +1846,7 @@ class ChartOHLCCaseBase(ChartOHLC):
         """
         if self.current_case is None:
             return
-        index = (
-            self.cases.data.index
-        )  # TODO meeting CasesProto?, will need data attr...
-
+        index = self.cases.data.index
         start = max(index.get_loc(self.current_case._start) - bars, 0)
         end = self.current_case._end
         if end is None:
@@ -2005,7 +2009,7 @@ class TrendsGuiBase(ChartOHLCCaseBase):
         self._rulers: list = []
 
     @property
-    def ChartCls(self) -> type[charts.Base]:
+    def ChartCls(self) -> type[charts.OHLCTrends]:
         return charts.OHLCTrends
 
     @property
@@ -2017,9 +2021,12 @@ class TrendsGuiBase(ChartOHLCCaseBase):
         return [self._max_x_ticks, self._resize_chart, self.close]
 
     @property
-    def current_case(self) -> MovementProto | None:
+    def current_case(self) -> Movement | MovementAlt | None:
         """Current selected case"""
-        return super().current_case
+        case = super().current_case
+        if TYPE_CHECKING:
+            assert isinstance(case, (Movement, MovementAlt))
+        return case
 
     def _create_date_slider(self, **kwargs):
         ds = super()._create_date_slider(**kwargs)
@@ -2034,13 +2041,15 @@ class TrendsGuiBase(ChartOHLCCaseBase):
     def _add_rulers(self):
         self._close_rulers()  # close any existing
         ohlc_mark = next(m for m in self.chart.figure.marks if isinstance(m, bq.OHLC))
+        case = self.current_case
+        assert case is not None
         self._rulers.append(
             HFixedRule(
-                level=self.current_case.start_px,
+                level=case.start_px,
                 scales=self.chart.scales,
                 figure=self.chart.figure,
-                start=self.current_case.start.asm8,
-                length=self.current_case.params["prd"],
+                start=case.start.asm8,
+                length=case.params["prd"],
                 color="yellow",
                 draggable=True,
                 ordinal_values=list(ohlc_mark.x),

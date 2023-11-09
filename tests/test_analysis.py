@@ -1091,7 +1091,7 @@ class TestAnalysis:
         movements = analy.movements("1D", trend_kwargs, **trend_period_kwargs)
         path = path_res / "azn_1D_prd60.dat"
         file = open(path, "rb")
-        for m in movements.moves:
+        for m in movements.cases:
             try:
                 loaded = pickle.load(file)
             except EOFError:
@@ -1108,7 +1108,7 @@ class TestAnalysis:
 
         gui = f(interval, trend_kwargs, **kwargs, display=False)
         movements = analy.movements("1D", trend_kwargs, **kwargs)
-        for gm, m in zip(gui.cases.moves, movements.moves):
+        for gm, m in zip(gui.cases.cases, movements.cases):
             assert gm == m
 
         prd = trend_kwargs["prd"]
@@ -1257,13 +1257,13 @@ class TestAnalysis:
 
         # verify marks for various single trend and control buttons to progress through trends
         gui.chart.select_case(gui.chart.cases.advances[0])
-        assert_trend_reflects_move(gui.cases.moves[1])
+        assert_trend_reflects_move(gui.cases.cases[1])
         controls.but_next.fire_event("click", None)
-        assert_trend_reflects_move(gui.cases.moves[2])
+        assert_trend_reflects_move(gui.cases.cases[2])
         controls.but_next.fire_event("click", None)
         controls.but_next.fire_event("click", None)
         controls.but_prev.fire_event("click", None)
-        move = gui.cases.moves[3]
+        move = gui.cases.cases[3]
         assert_trend_reflects_move(move)
 
         # verify wide zoom on trend
@@ -1358,7 +1358,7 @@ class TestAnalysis:
         but.fire_event("click", None)
         controls.but_wide.fire_event("click", None)  # make sure can see all on plot
 
-        move = movements.moves[2]
+        move = movements.cases[2]
         assert limit_rule not in gui._rulers and break_rule not in gui._rulers
 
         assert not but.is_light and not but.is_dark
