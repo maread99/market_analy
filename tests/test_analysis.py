@@ -20,7 +20,8 @@ from pandas.testing import assert_series_equal, assert_frame_equal, assert_index
 import pytest
 
 from market_analy import analysis, guis, charts
-from market_analy.trends import analy as analy_trends
+from market_analy.trends.movements import Movement
+from market_analy.trends.guis import TrendsGui
 from market_analy.utils import UTC
 from market_analy.utils import bq_utils as bqu
 
@@ -1105,7 +1106,7 @@ class TestAnalysis:
         f = analy.trends_chart
         interval = "1D"
         kwargs = trend_period_kwargs
-        verify_app(f, analy_trends.TrendsGui, interval, trend_kwargs, **kwargs)
+        verify_app(f, TrendsGui, interval, trend_kwargs, **kwargs)
 
         gui = f(interval, trend_kwargs, **kwargs, display=False)
         movements = analy.movements("1D", trend_kwargs, **kwargs)
@@ -1188,7 +1189,7 @@ class TestAnalysis:
             assert not controls.is_dark_single_case
             assert not controls.but_show_all.is_light
 
-        def assert_trend_reflects_move(move: analy_trends.Movement):
+        def assert_trend_reflects_move(move: Movement):
             # verify gui as requried
             verify_controls_reflect_single_trend()
             assert (
@@ -1298,7 +1299,7 @@ class TestAnalysis:
         assert len(gui._rulers) == 2
 
         # verify break_rule
-        def verify_break_rule(rule: bqu.TrendRule, move: analy_trends.Movement):
+        def verify_break_rule(rule: bqu.TrendRule, move: Movement):
             for c in rule.components:
                 assert c.visible
                 assert c in gui.chart.figure.marks
@@ -1323,7 +1324,7 @@ class TestAnalysis:
         verify_break_rule(break_rule, move)
 
         # verify limit_rule
-        def verify_limit_rule(rule: bqu.TrendRule, move: analy_trends.Movement):
+        def verify_limit_rule(rule: bqu.TrendRule, move: Movement):
             for c in rule.components:
                 assert c.visible
                 assert c in gui.chart.figure.marks
