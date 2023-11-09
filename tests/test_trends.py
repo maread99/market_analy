@@ -79,7 +79,7 @@ def test_dji_1D_prd60(path_res, data_dji_1D):
         ext_limit=0.02,
     ).get_movements()
     path = path_res / "dji_1D_prd60.dat"
-    assert_moves_as_saved(path, moves.moves)
+    assert_moves_as_saved(path, moves.cases)
 
 
 def test_dji_1D_prd15(path_res, data_dji_1D):
@@ -99,7 +99,7 @@ def test_dji_1D_prd15(path_res, data_dji_1D):
         ext_limit=0.01,
     ).get_movements()
     path = path_res / "dji_1D_prd15.dat"
-    assert_moves_as_saved(path, moves.moves)
+    assert_moves_as_saved(path, moves.cases)
 
 
 def test_dji_1D_prd15_minbars10(path_res, data_dji_1D):
@@ -120,7 +120,7 @@ def test_dji_1D_prd15_minbars10(path_res, data_dji_1D):
         min_bars=10,
     ).get_movements()
     path = path_res / "dji_1D_prd15_minbars10.dat"
-    assert_moves_as_saved(path, moves.moves)
+    assert_moves_as_saved(path, moves.cases)
 
 
 def test_dji_15T_prd15_minbars10(path_res, data_dji_15T):
@@ -141,4 +141,4 @@ def test_dji_15T_prd15_minbars10(path_res, data_dji_15T):
         min_bars=10,
     ).get_movements()
     path = path_res / "dji_15T_prd15_minbars10.dat"
-    assert_moves_as_saved(path, moves.moves)
+    assert_moves_as_saved(path, moves.cases)

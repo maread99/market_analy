@@ -2,23 +2,22 @@
 
 from __future__ import annotations
 
+from abc import ABC, abstractmethod
+from collections.abc import Sequence
 from dataclasses import dataclass
 from functools import cached_property
 import typing
 
 import bqplot as bq
-import numpy as np
 import pandas as pd
 
 from market_analy.config import COL_ADV
 
-if typing.TYPE_CHECKING:
-    from market_analy.charts import OHLCTrends
+from .cases import CaseBase, CaseSupportsChartAnaly, CasesBase, CasesSupportsChartAnaly
 
 
-# TODO believe will have to refactor back common functionality to CaseProto
-@dataclass(frozen=True)
-class MovementProto(typing.Protocol):
+@dataclass(frozen=True, eq=False)
+class MovementBase(CaseBase, ABC, CaseSupportsChartAnaly):
     """Protocol of minimum requirements to define a trend Movement.
 
     Attributes
@@ -66,40 +65,11 @@ class MovementProto(typing.Protocol):
     end_conf_px: float | None
     duration: int
 
-    def __eq__(self, other):
-        if not isinstance(self, type(other)):
-            return False
-        for name in self.__dataclass_fields__.keys():
-            v, v_other = getattr(self, name), getattr(other, name)
-            if isinstance(v, pd.Series):
-                try:
-                    pd.testing.assert_series_equal(v, v_other)
-                except AssertionError:
-                    return False
-            elif isinstance(v, np.ndarray):
-                try:
-                    assert (v == v_other).all()
-                except AssertionError:
-                    return False
-            elif v != v_other:
-                return False
-        return True
-
-    def __lt__(self, other):
-        return self.start < other.start
-
-    def __le__(self, other):
-        return self.start <= other.start
-
-    def __gt__(self, other):
-        return self.start > other.start
-
-    def __ge__(self, other):
-        return self.start >= other.start
-
     @property
+    @abstractmethod
     def open(self) -> bool:
         """Movement has not ended."""
+        ...
 
     @property
     def closed(self) -> bool:
@@ -122,21 +92,19 @@ class MovementProto(typing.Protocol):
         return self.start
 
     @property
-    def _end(self) -> pd.Timestamp:
+    def _end(self) -> pd.Timestamp | None:
         """Bar when case considered to have concluded."""
         return self.end_conf
 
 
-# TODO believe will have to refactor back common functionality to CasesChartProto
 @dataclass
-class MovementsChartProto(typing.Protocol):
-    """Protocol for 'movements' param of `charts.OHLCTrends`.
+class MovementsSupportChartAnaly(CasesSupportsChartAnaly, typing.Protocol):
+    """Subprotocol for movements classes to display on a chart.
 
     Attributes
     ----------
-    moves
-        Ordered list of all movements identified in `data`, where each
-        movement confirms with `MovementProto`.
+    cases
+        Ordered list of all movements identified in `data`.
 
     data
         OHLC data in which `moves` identified.
@@ -145,17 +113,29 @@ class MovementsChartProto(typing.Protocol):
         Period represented by each row of `data`.
     """
 
-    moves: list[MovementProto]
+    cases: Sequence[MovementBase]
     data: pd.DataFrame
     interval: pd.Timedelta | pd.DateOffset
 
     @property
+    def advances(self) -> tuple[MovementBase, ...]:
+        """Movements that represent advances."""
+        ...
+
+    @property
+    def declines(self) -> tuple[MovementBase, ...]:
+        """Movements that represent declines."""
+        ...
+
+    @property
     def starts_adv(self) -> pd.DatetimeIndex:
         """Start bars of advances."""
+        ...
 
     @property
     def starts_dec(self) -> pd.DatetimeIndex:
         """Start bars of declines."""
+        ...
 
     @property
     def ends_adv_solo(self) -> pd.DatetimeIndex:
@@ -164,6 +144,7 @@ class MovementsChartProto(typing.Protocol):
         Bars of end of advances that do not coincide with the start bar
         of a subsequent movement (advance or decline).
         """
+        ...
 
     @property
     def ends_dec_solo(self) -> pd.DatetimeIndex:
@@ -172,59 +153,63 @@ class MovementsChartProto(typing.Protocol):
         Bars of end of declines that do not coincide with the start bar
         of a subsequent movement (advance or decline).
         """
+        ...
 
     @property
     def starts_conf_adv(self) -> pd.DatetimeIndex:
         """Bars of advances when movement start confirmed."""
+        ...
 
     @property
     def starts_conf_dec(self) -> pd.DatetimeIndex:
         """Bars of declines when movement start confirmed."""
+        ...
 
     @property
     def starts_conf_adv_px(self) -> list[float]:
         """Prices when advance movements confirmed."""
+        ...
 
     @property
     def starts_conf_dec_px(self) -> list[float]:
         """Prices when decline movements confirmed."""
+        ...
 
     @property
     def ends_conf_adv(self) -> pd.DatetimeIndex:
         """Bars of advances when movement end confirmed."""
+        ...
 
     @property
     def ends_conf_dec(self) -> pd.DatetimeIndex:
         """Bars of declines when movement end confirmed."""
+        ...
 
     @property
     def ends_conf_adv_px(self) -> list[float]:
         """Prices when end of advance movements confirmed."""
+        ...
 
     @property
     def ends_conf_dec_px(self) -> list[float]:
         """Prices when end of decline movements confirmed."""
+        ...
 
     def handler_hover_start(self, mark: bq.Scatter, event: dict):
         """Handler for hovering on mark representing a movement start."""
+        ...
 
     def handler_hover_end(self, mark: bq.Scatter, event: dict):
         """Handler for hovering over mark representing a movement end."""
+        ...
 
     def handler_hover_conf_start(self, mark: bq.Scatter, event: dict):
         """Handler for hovering over mark representing when movement start confirmed."""
+        ...
 
     def handler_hover_conf_end(self, mark: bq.Scatter, event: dict):
         """Handler for hovering over mark representing when movement end confirmed."""
-
-    def handler_click_trend(self, chart: OHLCTrends, mark: bq.Scatter, event: dict):
-        """Handler for clicking on mark representing a movement start."""
-
-    def mark_to_move(self, mark: bq.Scatter, event: dict):
-        """Get movement corresonding to a mark representing a trend start.
-
-        Parameters as those passed to an event handler.
-        """
+        ...
 
     @property
     def trend(self) -> pd.Series:
@@ -236,41 +221,48 @@ class MovementsChartProto(typing.Protocol):
             0 consolidation
             -1 decline
         """
+        ...
+
+    def get_index_for_direction(self, case: MovementBase) -> int:
+        """Get index position of a case in `advances` or `declines`"""
+        ...
 
 
-@dataclass
-class MovementsBase:
+@dataclass(frozen=True)
+class MovementsBase(CasesBase):
     """Movements identified over an analysis period.
 
-    Fulfills `MovementsChartProto` with exception of handlers which should
-    be added by the subclass if it is intended that instances will be
-    passed to the 'movements' parameter of `charts.OHLCTrends`.
+    Fulfills `MovementsSupportChartAnaly` with exception of handlers which
+    should be added by the subclass if it is intended that analysis will
+    be charted.
 
     Attributes
     ----------
-    moves
+    cases
         Ordered list of all movements identified in `data`.
 
     data
-        OHLC data in which `moves` identified.
+        OHLC data in which `cases` identified.
 
     interval
         Period represented by each row of `data`.
     """
 
-    moves: list[MovementProto]
+    cases: Sequence[MovementBase]
     data: pd.DataFrame
     interval: pd.Timedelta | pd.DateOffset
 
     @cached_property
-    def advances(self) -> list[MovementProto]:
+    def advances(self) -> tuple[MovementBase, ...]:
         """Movements that represent advances."""
-        return [move for move in self.moves if move.is_adv]
+        lst = [move for move in self.cases if move.is_adv]
+        return tuple(lst)
 
     @cached_property
-    def declines(self) -> list[MovementProto]:
+    def declines(self) -> tuple[MovementBase, ...]:
         """Movements that represent declines."""
-        return [move for move in self.moves if move.is_dec]
+        lst = [move for move in self.cases if move.is_dec]
+        return tuple(lst)
 
     @property
     def starts_adv(self) -> pd.DatetimeIndex:
@@ -343,12 +335,12 @@ class MovementsBase:
     @property
     def starts(self) -> pd.DatetimeIndex:
         """Start bar of all movements."""
-        return pd.DatetimeIndex([move.start for move in self.moves])
+        return pd.DatetimeIndex([move.start for move in self.cases])
 
     @property
     def ends(self) -> pd.DatetimeIndex:
         """End bar of all movements."""
-        return pd.DatetimeIndex([move.end for move in self.moves if move.closed])
+        return pd.DatetimeIndex([move.end for move in self.cases if move.closed])
 
     @property
     def ends_adv_solo(self) -> pd.DatetimeIndex:
@@ -379,39 +371,21 @@ class MovementsBase:
             -1 decline
         """
         srs = pd.Series(0, index=self.data.index)
-        for move in self.moves:
+        for move in self.cases:
             stop = None if move.open else move.end - self.interval
             srs[move.start : stop] += move.trend
         return srs
 
-    def get_index(self, move: MovementProto, direction: bool = False) -> int | None:
-        """Get index position of a movement.
+    def get_index_for_direction(self, case: MovementBase) -> int:
+        """Get index position of a case in `advances` or `declines`"""
+        seq = self.advances if case.is_adv else self.declines
+        return seq.index(case)
 
-        None if `move` not in `self.moves`.
-
-        Parameters
-        ----------
-        move
-            Movement to query
-
-        direction
-            False: return index of `move` in `.moves`
-
-            True: return index of `move` in either `.advances` or
-            `.declines`.
-        """
-        is_adv = move.is_adv
-        seq = (self.advances if is_adv else self.declines) if direction else self.moves
-        for i, m in enumerate(seq):
-            if m == move:
-                return i
-        return None
-
-    def mark_to_move(self, mark: bq.Scatter, event: dict) -> MovementProto:
-        """Get movement corresonding to a mark representing a trend start.
+    def event_to_case(self, mark: bq.Scatter, event: dict) -> MovementBase:
+        """Get case corresonding to an event for mark representing a case.
 
         Parameters as those passed to an event handler.
         """
         i = event["data"]["index"]
-        move = self.advances[i] if mark.colors[0] == COL_ADV else self.declines[i]
-        return move
+        case = self.advances[i] if mark.colors[0] == COL_ADV else self.declines[i]
+        return case

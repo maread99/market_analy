@@ -53,7 +53,7 @@ def test_dji_1D(path_res, data_dji_1D_alt):
 
     path = path_res / "dji_1D.dat"
     file = open(path, "rb")
-    for move in moves.moves:
+    for move in moves.cases:
         try:
             loaded = pickle.load(file)
         except EOFError:

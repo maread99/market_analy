@@ -8,7 +8,7 @@ import market_prices as mp
 import pandas as pd
 
 if typing.TYPE_CHECKING:
-    from market_analy.movements_base import MovementsChartProto
+    from market_analy.movements_base import MovementsSupportChartAnaly
 
 
 class TrendsProto(typing.Protocol):
@@ -17,5 +17,5 @@ class TrendsProto(typing.Protocol):
     data: pd.DataFrame
     interval: mp.intervals.RowInterval
 
-    def get_movements(self) -> MovementsChartProto:
+    def get_movements(self) -> MovementsSupportChartAnaly:
         """Evaluate all movements over `data`."""
