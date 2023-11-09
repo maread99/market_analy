@@ -1,4 +1,4 @@
-"""Tests for the `market_analysis.utils.mkt_price_utils` module."""
+"""Tests for the `market_analy.utils.mkt_price_utils` module."""
 
 import pandas as pd
 

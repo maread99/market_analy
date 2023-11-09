@@ -84,28 +84,30 @@ from __future__ import annotations
 
 from abc import ABCMeta
 from collections.abc import Callable, Sequence
-from typing import Union, Literal, Any, TYPE_CHECKING
 from datetime import datetime
+from typing import TYPE_CHECKING, Any, Literal, Union
 
-from exchange_calendars import ExchangeCalendar
 import market_prices as mp
 import matplotlib as mpl
 import pandas as pd
+from exchange_calendars import ExchangeCalendar
 from pandas.io.formats.style import Styler
 
 from market_analy import guis
 from market_analy.formatters import FORMATTERS, formatter_percent
-from market_analy.utils.pandas_utils import rebase_to_row
 from market_analy.utils.mkt_prices_utils import (
-    request_daily_prices,
     period_string,
     range_string,
+    request_daily_prices,
 )
+from market_analy.utils.pandas_utils import rebase_to_row
 
 if TYPE_CHECKING:
-    from market_analy.movements_base import MovementsBase
-    from market_analy.trends_base import TrendsProto
-from market_analy import trends
+    from .trends.movements_base import MovementsBase
+    from .trends import TrendsProto
+
+from .trends.guis import TrendsGuiBase
+from .trends.analy import Trends, TrendsGui
 
 Date = Union[str, datetime, None]
 Calendar = Union[str, ExchangeCalendar]
@@ -948,7 +950,7 @@ class Analysis(Base):
         self,
         interval: mp.intervals.RowInterval,
         trend_kwargs: dict,
-        trend_cls: type[TrendsProto] = trends.Trends,
+        trend_cls: type[TrendsProto] = Trends,
         **kwargs,
     ) -> MovementsBase:
         """Evaluate trends over a given period.
@@ -987,12 +989,12 @@ class Analysis(Base):
         self,
         interval: mp.intervals.RowInterval,
         trend_kwargs: dict,
-        gui_cls: type[guis.TrendsGuiBase] = trends.TrendsGui,
+        gui_cls: type[TrendsGuiBase] = TrendsGui,
         max_ticks: int | None = None,
         log_scale: bool = True,
         display: bool = True,
         **kwargs,
-    ) -> guis.TrendsGuiBase:
+    ) -> TrendsGuiBase:
         """Visualise trends on an OHLC chart.
 
         Underlying trends data can be accessed via the following attributes
@@ -1013,16 +1015,16 @@ class Analysis(Base):
             Kwargs to pass to the `gui_cls`. Do not include 'analysis' or
             'interval'.
 
-            For the default `gui_cls` (`trends.TrendsGui`) the kwargs are
+            For the default `gui_cls` (`TrendsGui`) the kwargs are
             'prd', 'ext_break', 'ext_limit' and 'min_bars'. See
             documentation for associated trends class with
             `help(trends.Trends.__doc__)`.
 
         gui_cls
             Class to use to create gui to visualise evaluated trends. Must
-            be a subclass of `guis.TrendsGuiBase`.
+            be a subclass of `TrendsGuiBase`.
 
-            Default is `trends.TrendsGui`.
+            Default is `TrendsGui`.
 
         max_ticks
             Maximum number of bars (x-axis ticks) that will shown by

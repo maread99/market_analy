@@ -6,7 +6,7 @@ import pickle
 import pandas as pd
 import pytest
 
-from market_analy import trends_alt
+from market_analy.trends import analy_alt as analy_alt_trends
 
 
 # NOTE: testing of `trends_akt.Trends` is LIMITED. See Notes section of
@@ -40,7 +40,7 @@ def test_dji_1D(path_res, data_dji_1D_alt):
 
     Stored movements confirmed as required by inspection.
     """
-    moves = trends_alt.Trends(
+    moves = analy_alt_trends.Trends(
         data=data_dji_1D_alt,
         interval="1D",
         prd=10,

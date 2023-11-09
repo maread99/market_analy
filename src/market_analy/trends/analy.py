@@ -23,31 +23,28 @@ Classes to evaluate and store trends:
 
 from __future__ import annotations
 
-from collections.abc import Sequence
-from dataclasses import dataclass
 import functools
 import operator
 import typing
+from collections.abc import Sequence
+from dataclasses import dataclass
 
 import bqplot as bq
 import ipywidgets as w
-import market_analy
 import market_prices as mp
 import numpy as np
 import pandas as pd
 
-from market_analy.charts import OHLCTrends, tooltip_html_style, TOOLTIP_STYLE, Groups
-from market_analy.config import COL_ADV, COL_DEC
-from market_analy.formatters import (
-    formatter_percent,
-    formatter_datetime,
-    formatter_float,
-)
-from market_analy.guis import TrendsGuiBase
-from market_analy.movements_base import MovementBase, MovementsBase
-from market_analy.utils import bq_utils as ubq
+import market_analy
 
-from .cases import CasesSupportsChartAnaly
+from ..cases import CasesSupportsChartAnaly
+from ..charts import TOOLTIP_STYLE, Groups, tooltip_html_style
+from ..config import COL_ADV, COL_DEC
+from ..formatters import formatter_datetime, formatter_float, formatter_percent
+from ..utils import bq_utils as ubq
+from .charts import OHLCTrends
+from .guis import TrendsGuiBase
+from .movements_base import MovementBase, MovementsBase
 
 if typing.TYPE_CHECKING:
     from market_analy.analysis import Analysis

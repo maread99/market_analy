@@ -53,7 +53,7 @@ from __future__ import annotations
 from abc import ABCMeta, abstractmethod
 from collections.abc import Callable
 from contextlib import contextmanager
-from typing import Literal, TYPE_CHECKING
+from typing import Literal
 
 import bqplot as bq
 from bqplot.interacts import Selector
@@ -66,18 +66,13 @@ from market_prices.intervals import TDInterval, PTInterval, to_ptinterval, ONE_D
 import pandas as pd
 
 from market_analy import charts, gui_parts, analysis as ma_analysis
-from market_analy.trends_base import TrendsProto
-from market_analy.utils.bq_utils import Crosshairs, FastIntervalSelectorDD, HFixedRule
+from market_analy.utils.bq_utils import Crosshairs, FastIntervalSelectorDD
 from market_analy.utils.dict_utils import set_kwargs_from_dflt
 import market_analy.utils.ipyvuetify_utils as vu
 import market_analy.utils.ipywidgets_utils as wu
 import market_analy.utils.pandas_utils as upd
 
 from .cases import CasesSupportsChartAnaly, CaseSupportsChartAnaly
-
-if TYPE_CHECKING:
-    from .trends import Movement as Movement
-    from .trends_alt import Movement as MovementAlt
 
 # CONSTANTS
 HIGHLIGHT_COLOR = "lightyellow"
@@ -1898,203 +1893,3 @@ class ChartOHLCCaseBase(ChartOHLC):
             self.html_output,
         ]
         return contents
-
-
-class TrendsGuiBase(ChartOHLCCaseBase):
-    """GUI to display and interact with trend analysis over OHLC Chart.
-
-    Parameters
-    ----------
-    analysis
-        Analysis instance representing instrument to be plotted.
-
-    interval
-        Interval covered by one bar (i.e. one x-axis tick). As 'interval`
-        parameter described by `help(analysis.prices.get)`.
-
-    trend_cls
-        Class to use to analyse trends. Must conform with
-        `trends_base.TrendsProto`, for example, `trends.Trends`.
-
-    trend_kwargs
-        Arguments to pass to `trend_cls`. Do not include `data` or
-        `interval`.
-
-    max_ticks
-        Maximum number of bars (x-axis ticks) that will shown by default
-        (client can choose to show more via slider). None for no limit.
-
-    log_scale
-        True to plot prices against a log scale. False to plot prices
-        against a linear scale.
-
-    display
-        True to display created GUI.
-
-    narrow_view
-        When displaying a movement in 'narrow' view, the number of bars
-        that should be shown before the bar representing the movement's
-        start and after the bar representing the movement's confirmed end.
-
-    wide_view
-        When displaying a movement in 'wide' view, the number of bars that
-        should be shown before the bar representing the movement's start
-        and after the bar representing the movement's confirmed end.
-
-    chart_kwargs
-        Any kwargs to pass on to the chart class.
-
-    **kwargs
-        Period for which to plot prices. Passed as period parameters as
-        described by market-prices documentation for 'PricesCls.get'
-        method where 'PricesCls' is the class that was passed to
-        'PricesCls' parameter of `mkt_anlaysis.Analysis` to intantiate
-        `analysis` (for example, documenation for
-        'market_prices.PricesYahoo.get').
-
-    Notes
-    -----
-    -- Subclass Implementation --
-
-    This base class can be subclassed, including for the purposes of:
-
-        Passing through the required `trend_cls` and concreting in its own
-        constructor arguments passed on to this base as `trend_kwargs`.
-
-        Concrete constructor arguments such as `narrow_view`, `wide_view`
-        etc.
-
-        Defining the `_gui_click_case_handler` method to customise the
-        handling, at a gui level, of clicking a mark representing the start
-        of a trend. NB Alternatively a handler can be passed within
-        `chart_kwargs` with the key 'click_case_handler'.
-    """
-
-    _HAS_INTERVAL_SELECTOR = False
-
-    def __init__(
-        self,
-        analysis: ma_analysis.Analysis,
-        interval: mp.intervals.RowInterval,
-        trend_cls: type[TrendsProto],
-        trend_kwargs: dict,
-        max_ticks: int | None = None,
-        log_scale: bool = True,
-        display: bool = True,
-        narrow_view: int = 10,
-        wide_view: int = 10,
-        chart_kwargs: dict | None = None,
-        **kwargs,
-    ):
-        data = self._set_initial_prices(analysis, interval, kwargs).copy()
-        if isinstance(data.index, pd.IntervalIndex):
-            data.index = data.index.left
-            if data.index.tz is not None:
-                data.index = data.index.tz_localize(None)
-        self.trends = trend_cls(data, interval, **trend_kwargs)
-        cases = self.trends.get_movements()
-
-        super().__init__(
-            analysis,
-            interval,
-            cases,
-            max_ticks,
-            log_scale,
-            display,
-            narrow_view,
-            wide_view,
-            chart_kwargs,
-            **kwargs,
-        )
-        self._rulers: list = []
-
-    @property
-    def ChartCls(self) -> type[charts.OHLCTrends]:
-        return charts.OHLCTrends
-
-    @property
-    def _chart_title(self) -> str:
-        return self._analysis.symbol + " Trend Analysis"
-
-    @property
-    def _icon_row_top_handlers(self) -> list[Callable]:
-        return [self._max_x_ticks, self._resize_chart, self.close]
-
-    @property
-    def current_case(self) -> Movement | MovementAlt | None:
-        """Current selected case"""
-        case = super().current_case
-        if TYPE_CHECKING:
-            assert isinstance(case, (Movement, MovementAlt))
-        return case
-
-    def _create_date_slider(self, **kwargs):
-        ds = super()._create_date_slider(**kwargs)
-        ds.slider.observe(self.chart.update_trend_mark, ["index"])
-        return ds
-
-    def _close_rulers(self):
-        for ruler in self._rulers:
-            ruler.close()
-        self._rulers = []
-
-    def _add_rulers(self):
-        self._close_rulers()  # close any existing
-        ohlc_mark = next(m for m in self.chart.figure.marks if isinstance(m, bq.OHLC))
-        case = self.current_case
-        assert case is not None
-        self._rulers.append(
-            HFixedRule(
-                level=case.start_px,
-                scales=self.chart.scales,
-                figure=self.chart.figure,
-                start=case.start.asm8,
-                length=case.params["prd"],
-                color="yellow",
-                draggable=True,
-                ordinal_values=list(ohlc_mark.x),
-                stroke_width=5,
-            )
-        )
-
-    def _ruler_handler(self, but: vu.IconBut, event: str, data: dict):
-        if but.is_dark:
-            return
-        f = self._add_rulers if but.is_light else self._close_rulers
-        f()
-        # chain handlers...
-        self.cases_controls_container.but_ruler_handler(but, event, data)
-
-    def _create_cases_controls_container(self) -> v.Layout:
-        controls = super()._create_cases_controls_container()
-        controls.but_ruler.on_event("click", self._ruler_handler)
-        return controls
-
-    @contextmanager
-    def _handler_disabled(self):
-        """Undertake an operation within context of disabled handler.
-
-        Undertake an operation with context of slider's handlers being
-        disabled.
-
-        Notes
-        -----
-        Messily overrides method defined on `BaseVariableDates` subclass to
-        include the additional `self.chart.update_trend_mark` handler.
-        """
-        self._slider.unobserve(self._set_chart_x_ticks_to_slider, ["index"])
-        self._slider.unobserve(self.chart.update_trend_mark, ["index"])
-        yield
-        self._slider.observe(self._set_chart_x_ticks_to_slider, ["index"])
-        self._slider.observe(self.chart.update_trend_mark, ["index"])
-
-    def _max_x_ticks(self):
-        """Show data for all plottable x-ticks (bars).
-
-        Notes
-        -----
-        Overrides inherited method to ensure trend mark is also updated.
-        """
-        self.chart.reset_x_ticks()
-        self._set_slider_limits_to_all_plottable_x_ticks()
-        self.chart.update_trend_mark()

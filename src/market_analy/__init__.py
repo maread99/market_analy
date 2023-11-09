@@ -35,7 +35,7 @@ from importlib.metadata import version
 
 try:
     # get version from installed package
-    __version__ = version("market_analysis")
+    __version__ = version("market_analy")
 except ImportError:
     pass
 

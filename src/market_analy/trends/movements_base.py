@@ -2,18 +2,17 @@
 
 from __future__ import annotations
 
+import typing
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from dataclasses import dataclass
 from functools import cached_property
-import typing
 
 import bqplot as bq
 import pandas as pd
 
-from market_analy.config import COL_ADV
-
-from .cases import CaseBase, CaseSupportsChartAnaly, CasesBase, CasesSupportsChartAnaly
+from ..cases import CaseBase, CasesBase, CasesSupportsChartAnaly, CaseSupportsChartAnaly
+from ..config import COL_ADV
 
 
 @dataclass(frozen=True, eq=False)
