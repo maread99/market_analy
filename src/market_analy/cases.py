@@ -56,8 +56,9 @@ import bqplot as bq
 import numpy as np
 import pandas as pd
 
+# TODO should be able to lose this when lose the handlers...
 if typing.TYPE_CHECKING:
-    from market_analy.charts import OHLCTrends
+    from .trends.charts import OHLCTrends
 
 
 class CaseSupportsChartAnaly(typing.Protocol):

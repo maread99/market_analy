@@ -1,4 +1,7 @@
-"""Protocols and base classes to evaluate trends."""
+"""Constructor module for trends subpackage.
+
+Protocols and base classes to evaluate trends.
+"""
 
 from __future__ import annotations
 
@@ -7,8 +10,12 @@ import typing
 import market_prices as mp
 import pandas as pd
 
+# necessary for unpickling test resources. When picked analy was here
+# ... i.e. at market_analy.trend. Also serves to provide legacy access.
+from .analy import Movement, Movements, Trends, TrendsGui  # noqa: F401
+
 if typing.TYPE_CHECKING:
-    from market_analy.movements_base import MovementsSupportChartAnaly
+    from .movements_base import MovementsSupportChartAnaly
 
 
 class TrendsProto(typing.Protocol):

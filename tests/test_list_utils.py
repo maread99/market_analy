@@ -1,4 +1,4 @@
-"""Tests for the `market_analysis.utils.list_utils` module."""
+"""Tests for the `market_analy.utils.list_utils` module."""
 
 import pytest
 

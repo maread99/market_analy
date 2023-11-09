@@ -1,4 +1,4 @@
-"""Tests for trends.py module"""
+"""Tests for trends.analy.py module"""
 
 from collections import abc
 import pathlib
@@ -7,11 +7,11 @@ import pickle
 import pandas as pd
 import pytest
 
-from market_analy import trends
+from market_analy.trends import analy as analy_trends
 
 
-# NOTE: testing of `trends.Trends` is LIMITED. See Notes section of
-# `trends.Trends` regarding the need for a more comprehensive test suite.
+# NOTE: testing of `analy.Trends` is LIMITED. See Notes section of
+# `analy.Trends` regarding the need for a more comprehensive test suite.
 
 
 @pytest.fixture
@@ -51,7 +51,7 @@ def data_dji_15T(path_res, xnys) -> abc.Iterator[pd.DataFrame]:
     yield data
 
 
-def assert_moves_as_saved(path: pathlib.Path, moves: list[trends.Movement]):
+def assert_moves_as_saved(path: pathlib.Path, moves: list[analy_trends.Movement]):
     file = open(path, "rb")
     for m in moves:
         try:
@@ -71,7 +71,7 @@ def test_dji_1D_prd60(path_res, data_dji_1D):
 
     Stored movements confirmed as required by inspection.
     """
-    moves = trends.Trends(
+    moves = analy_trends.Trends(
         data=data_dji_1D,
         interval="1D",
         prd=60,
@@ -91,7 +91,7 @@ def test_dji_1D_prd15(path_res, data_dji_1D):
 
     Stored movements confirmed as required by inspection.
     """
-    moves = trends.Trends(
+    moves = analy_trends.Trends(
         data=data_dji_1D,
         interval="1D",
         prd=15,
@@ -111,7 +111,7 @@ def test_dji_1D_prd15_minbars10(path_res, data_dji_1D):
 
     Stored movements confirmed as required by inspection.
     """
-    moves = trends.Trends(
+    moves = analy_trends.Trends(
         data=data_dji_1D,
         interval="1D",
         prd=15,
@@ -132,7 +132,7 @@ def test_dji_15T_prd15_minbars10(path_res, data_dji_15T):
 
     Stored movements confirmed as required by inspection.
     """
-    moves = trends.Trends(
+    moves = analy_trends.Trends(
         data=data_dji_15T,
         interval="15T",
         prd=15,
