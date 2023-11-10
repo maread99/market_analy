@@ -14,7 +14,7 @@ import pandas as pd
 
 import market_analy
 
-from ..guis import ChartOHLCCaseBase
+from ..guis import GuiOHLCCaseBase
 from ..utils import ipyvuetify_utils as vu
 from ..utils.bq_utils import HFixedRule
 from . import charts
@@ -26,7 +26,7 @@ if typing.TYPE_CHECKING:
     from .movements import Movement, MovementAlt, Movements, MovementsAlt
 
 
-class TrendsGuiBase(ChartOHLCCaseBase):
+class TrendsGuiBase(GuiOHLCCaseBase):
     """GUI to display and interact with trend analysis over OHLC Chart.
 
     Parameters

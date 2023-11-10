@@ -587,7 +587,7 @@ class TestAnalysis:
         f = analy.chg_every_interval
 
         pp = {"start": "2022-01-01", "years": 1}
-        verify_app(f, guis.PctChg, "10D", chart=True, **pp)
+        verify_app(f, guis.GuiPctChg, "10D", chart=True, **pp)
 
         gui = analy.chg_every_interval("10d", chart=True, _display=False, **pp)
         assert gui.chart.title == "Change over prior 10d.   Period: 1Y from 2022-01-01"
@@ -833,12 +833,12 @@ class TestAnalysis:
     def test_plot_line(self, analy, intraday_pp):
         """Verify can create line plot gui."""
         f = analy.plot
-        verify_app(f, guis.ChartLine, **intraday_pp, chart_type="line")
+        verify_app(f, guis.GuiLine, **intraday_pp, chart_type="line")
 
     def test_plot_ohlc(self, analy, intraday_pp):
         """Verifies various aspects of gui beahviour for ohlc plots."""
         f = analy.plot
-        verify_app(f, guis.ChartOHLC, **intraday_pp)
+        verify_app(f, guis.GuiOHLC, **intraday_pp)
 
         gui = analy.plot(**intraday_pp, display=False)
         labels = [label for label, pt in gui._interval_selector.options]
@@ -1928,7 +1928,7 @@ class TestCompare:
         f = analy.chg_every_interval
 
         pp = {"start": "2022-01-01", "years": 1}
-        verify_app(f, guis.PctChg, "10d", chart=True, **pp)
+        verify_app(f, guis.GuiPctChg, "10d", chart=True, **pp)
 
         gui = analy.chg_every_interval("10d", chart=True, **pp, _display=False)
         assert gui.chart.title == "Change over prior 10d.   Period: 1Y from 2022-01-01"
@@ -2425,7 +2425,7 @@ class TestCompare:
     def test_plot_mult(self, analy, intraday_pp, tz):
         """Verifies various aspects of gui beahviour for multiple line plots."""
         f = analy.plot
-        verify_app(f, guis.ChartMultLine, **intraday_pp)
+        verify_app(f, guis.GuiMultLine, **intraday_pp)
 
         gui = analy.plot(**intraday_pp, display=False)
 

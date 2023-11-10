@@ -416,7 +416,7 @@ class Base(metaclass=ABCMeta):
         OHLCV over a period.
     """
 
-    PctChgBarCls = guis.PctChg
+    PctChgBarCls = guis.GuiPctChg
 
     def __init__(self, prices: mp.PricesBase):
         """`analysis.Base` constructor.
@@ -808,7 +808,7 @@ class Analysis(Base):
         max_ticks: int | None = None,
         log_scale: bool = True,
         **kwargs,
-    ) -> guis.ChartOHLC | guis.ChartLine | mpl.artist.Artist:
+    ) -> guis.GuiOHLC | guis.GuiLine | mpl.artist.Artist:
         """Chart prices over specified period.
 
         Parameters
@@ -841,7 +841,7 @@ class Analysis(Base):
         """
         if engine == "bqplot":
             kwargs["interval"] = interval
-            Cls = guis.ChartOHLC if chart_type == "candle" else guis.ChartLine
+            Cls = guis.GuiOHLC if chart_type == "candle" else guis.GuiLine
             return Cls(self, log_scale=log_scale, max_ticks=max_ticks, **kwargs)
         else:
             interval = "1d" if interval is None else interval
@@ -997,14 +997,12 @@ class Analysis(Base):
     ) -> TrendsGuiBase:
         """Visualise trends on an OHLC chart.
 
-        # TODO REVISE DOC
         Underlying trends data can be accessed via the following attributes
         of the returned object:
-            movements: Movements (will confrom with
-            `movements.MovementsChartProto`).
+            cases: Movements
 
             trends: Instance of trends class responsible for evaluating
-            movement (will confrom with `trends_base.TrendsProto`).
+            movement.
 
         Parameters
         ----------
@@ -1093,7 +1091,7 @@ class Compare(Base):
         Maximum change, over specific price data, for multiple instruments.
     """
 
-    PctChgBarCls = guis.PctChgMult
+    PctChgBarCls = guis.GuiPctChgMult
 
     @staticmethod
     def max_chg_compare(
@@ -1215,7 +1213,7 @@ class Compare(Base):
         max_ticks: int | None = None,
         log_scale: bool = True,
         **kwargs,
-    ) -> guis.ChartMultLine | mpl.artist.Artist:
+    ) -> guis.GuiMultLine | mpl.artist.Artist:
         """Chart rebased close prices over specified period.
 
         Parameters
@@ -1248,7 +1246,7 @@ class Compare(Base):
             'composite' or 'lose_single_symbol'.
         """
         if engine == "bqplot":
-            return guis.ChartMultLine(
+            return guis.GuiMultLine(
                 self, interval, rebase_on_zoom, max_ticks, log_scale, **kwargs
             )
         else:
