@@ -109,6 +109,12 @@ class ChartSupportsCasesGui(typing.Protocol):
     def select_previous_case(self):
         ...
 
+    def update_trend_mark(self):
+        ...
+
+    def reset_x_ticks(self):
+        ...
+
 
 class CaseBase(ABC):
     """Base for classes defining a case.

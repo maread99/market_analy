@@ -1893,3 +1893,38 @@ class GuiOHLCCaseBase(GuiOHLC):
             self.html_output,
         ]
         return contents
+
+    def _create_date_slider(self, **kwargs):
+        ds = super()._create_date_slider(**kwargs)
+        ds.slider.observe(self.chart.update_trend_mark, ["index"])
+        return ds
+
+    @contextmanager
+    def _handler_disabled(self):
+        """Undertake an operation within context of disabled handler.
+
+        Undertake an operation with context of slider's handlers being
+        disabled.
+
+        Notes
+        -----
+        Messily overrides method defined on `BaseVariableDates` subclass to
+        include the additional `self.chart.update_trend_mark` handler.
+        """
+        self._slider.unobserve(self._set_chart_x_ticks_to_slider, ["index"])
+        self._slider.unobserve(self.chart.update_trend_mark, ["index"])
+        yield
+        self._slider.observe(self._set_chart_x_ticks_to_slider, ["index"])
+        self._slider.observe(self.chart.update_trend_mark, ["index"])
+
+    def _max_x_ticks(self):
+        """Show data for all plottable x-ticks (bars).
+
+        Notes
+        -----
+        Overrides inherited method to ensure any added marks are also
+        updated.
+        """
+        self.chart.reset_x_ticks()
+        self._set_slider_limits_to_all_plottable_x_ticks()
+        self.chart.update_trend_mark()
