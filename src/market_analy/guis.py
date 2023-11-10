@@ -1763,6 +1763,17 @@ class GuiOHLCCaseBase(GuiOHLC):
         When displaying a case in 'wide' view, the number of bars
         that should be shown before the bar representing the case's start
         and after the bar representing the case's conclusion.
+
+    Notes
+    -----
+    Subclass implementation
+    -----------------------
+    In addition to base clases implementation requirements, subclasses can
+    optionally extend or override the following methods as required:
+        _gui_handler_click_case
+            Gui level handler for clicking a specific case. Alternatively
+            a handler can be passed within `chart_kwargs` with the key
+            'handler_click_case'.
     """
 
     def __init__(
@@ -1795,17 +1806,26 @@ class GuiOHLCCaseBase(GuiOHLC):
 
     @property
     def current_case(self) -> CaseSupportsChartAnaly | None:
-        """Currently selected case.
+        """Current selected case.
 
-        None if no case has been selected.
+        None if no case is currently selected.
         """
         return self.chart.current_case
 
-    def _gui_handler_click_case(self, mark: bq.Scatter, event: dict):
-        """Gui level handler for clicking marker representing trend start.
+    def _gui_handler_click_case(
+        self, case: CaseSupportsChartAnaly, mark: bq.Scatter, event: dict
+    ):
+        """Gui level handler for clicking a specific case.
 
-        Subclass should define if required
+        Lightens 'show all scatters' button to indicate option available.
+        Displays tooltip to html output.
+
+        Subclass can extend or override as required.
         """
+        self.cases_controls_container.lighten_single_case()
+        self.cases_controls_container.but_show_all.darken()
+        html = self.cases.get_case_html(case)
+        self.html_output.display(html)
 
     def _show_all_but_handler(self, but: vu.IconBut, event: str, data: dict):
         if but.is_light:
@@ -1831,7 +1851,7 @@ class GuiOHLCCaseBase(GuiOHLC):
         self.chart.select_previous_case()
 
     def _set_slider_to_current_case(self, bars: int):
-        """Set slider to focus on currently selected case.
+        """Set slider to focus on current selected case.
 
         Parameters
         ----------
@@ -1861,7 +1881,7 @@ class GuiOHLCCaseBase(GuiOHLC):
         self._set_slider_to_current_case(self._wide_view)
 
     def _create_cases_controls_container(self) -> v.Layout:
-        controls = gui_parts.TrendControls()
+        controls = gui_parts.CaseControls()
         controls.but_show_all.on_event("click", self._show_all_but_handler)
         controls.but_next.on_event("click", self._select_next_case_handler)
         controls.but_prev.on_event("click", self._select_prev_case_handler)

@@ -65,6 +65,17 @@ class CasesSupportsChartAnaly(typing.Protocol):
     cases: Sequence[CaseSupportsChartAnaly]
     data: pd.DataFrame
 
+    def __iter__(self) -> typing.Iterator[CaseSupportsChartAnaly]:
+        return iter(self.cases)
+
+    def __len__(self) -> int:
+        return len(self.cases)
+
+    def __getitem__(
+        self, key: int | slice
+    ) -> CaseSupportsChartAnaly | Sequence[CaseSupportsChartAnaly]:
+        return self.cases[key]
+
     def event_to_case(self, mark: bq.Scatter, event: dict) -> CaseSupportsChartAnaly:
         """Get case corresonding to an event for mark representing a case.
 
@@ -205,18 +216,7 @@ class CasesBase(ABC, CasesSupportsChartAnaly):
     cases: Sequence[CaseSupportsChartAnaly]
     data: pd.DataFrame
 
-    def __iter__(self) -> typing.Iterator[CaseSupportsChartAnaly]:
-        return iter(self.cases)
-
-    def __len__(self) -> int:
-        return len(self.cases)
-
-    def __getitem__(
-        self, key: int | slice
-    ) -> CaseSupportsChartAnaly | Sequence[CaseSupportsChartAnaly]:
-        return self.cases[key]
-
-    def event_to_case(self, mark: bq.Scatter, event: dict):
+    def event_to_case(self, mark: bq.Scatter, event: dict) -> CaseSupportsChartAnaly:
         """Get case corresonding to an event for mark representing a case.
 
         Parameters as those passed to event handler on clicking a point of

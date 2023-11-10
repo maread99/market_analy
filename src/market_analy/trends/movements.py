@@ -321,7 +321,7 @@ class MovementsSupportChartAnaly(CasesSupportsChartAnaly, typing.Protocol):
         Ordered sequence of all movements identified in `data`.
 
     data
-        OHLC data in which `moves` identified.
+        OHLC data in which `cases` identified.
 
     interval
         Period represented by each row of `data`.
