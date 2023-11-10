@@ -14,6 +14,7 @@ import pandas as pd
 import market_analy
 
 from ..guis import GuiOHLCCaseBase
+from ..gui_parts import TrendControls
 from ..utils import ipyvuetify_utils as vu
 from ..utils.bq_utils import HFixedRule
 from . import charts
@@ -88,11 +89,6 @@ class TrendsGuiBase(GuiOHLCCaseBase):
 
         Concrete constructor arguments such as `narrow_view`, `wide_view`
         etc.
-
-        Defining the `_gui_handler_click_case` method to customise the
-        handling, at a gui level, of clicking a mark representing the start
-        of a trend. NB Alternatively a handler can be passed within
-        `chart_kwargs` with the key 'hander_click_case'.
     """
 
     _HAS_INTERVAL_SELECTOR = False
@@ -149,6 +145,8 @@ class TrendsGuiBase(GuiOHLCCaseBase):
     def current_case(self) -> Movement | MovementAlt | None:
         """Current selected case"""
         case = super().current_case
+        if case is None:
+            return None
         if typing.TYPE_CHECKING:
             assert isinstance(case, (Movement, MovementAlt))
         return case
@@ -186,7 +184,12 @@ class TrendsGuiBase(GuiOHLCCaseBase):
         self.cases_controls_container.but_ruler_handler(but, event, data)
 
     def _create_cases_controls_container(self) -> v.Layout:
-        controls = super()._create_cases_controls_container()
+        controls = TrendControls()
+        controls.but_show_all.on_event("click", self._show_all_but_handler)
+        controls.but_next.on_event("click", self._select_next_case_handler)
+        controls.but_prev.on_event("click", self._select_prev_case_handler)
+        controls.but_narrow.on_event("click", self._narrow_view_handler)
+        controls.but_wide.on_event("click", self._wide_view_handler)
         controls.but_ruler.on_event("click", self._ruler_handler)
         return controls
 
@@ -235,27 +238,6 @@ class TrendsGui(TrendsGuiBase):
         )
         self.cases: Movements
         self.trends: Trends
-
-    def _gui_handler_click_case(self, mark: bq.Scatter, event: dict):
-        """Gui level handler for clicking a mark representing a trend start.
-
-        Lightens 'show all scatters' button to indicate option available.
-        Displays tooltip to html output.
-        """
-        self.cases_controls_container.lighten_single_case()
-        self.cases_controls_container.but_show_all.darken()
-        move = self.cases.event_to_case(mark, event)
-        html = self.cases.get_case_html(move)
-        self.html_output.display(html)
-
-    @property
-    def current_case(self) -> Movement | None:
-        """Current selected case"""
-        # method included to update type to Movement class as defined on this module
-        case = super().current_case
-        if typing.TYPE_CHECKING:
-            assert isinstance(case, Movement)
-        return case
 
     def _add_rulers(self):
         self._close_rulers()  # close any existing
@@ -351,15 +333,3 @@ class TrendsAltGui(TrendsGuiBase):
         )
         self.cases: MovementsAlt
         self.trends: TrendsAlt
-
-    def _gui_handler_click_case(self, mark: bq.Scatter, event: dict):
-        """Gui level handler for clicking a mark representing a trend start.
-
-        Lightens 'show all scatters' button to indicate option available.
-        Displays tooltip to html output.
-        """
-        self.cases_controls_container.lighten_single_case()
-        self.cases_controls_container.but_show_all.darken()
-        move = self.cases.event_to_case(mark, event)
-        html = self.cases.get_case_html(move)
-        self.html_output.display(html)

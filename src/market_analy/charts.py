@@ -67,16 +67,40 @@ TOOLTIP_STYLE = {
     "border-width": "1px",
 }
 
+
 # pre-defined groups against which to add extra marks
-Groups = enum.Enum("Groups", "CASE TRENDLINE SCATTERS")
+class Groups(enum.Enum):
+    CASE = enum.auto()  # tempoary marks representing the current selected case.
+    PERSIST = enum.auto()  # marks that should always be visible.
+    # scatter marks where each point of each scatter represents a specific case.
+    CASES_SCATTERS = enum.auto()
+    # marks where each mark represents a specific case. All cases represented.
+    CASES_OTHER_0 = enum.auto()
+    CASES_OTHER_1 = enum.auto()
+    CASES_OTHER_2 = enum.auto()
+
+
+CASES_OTHER = set(
+    (
+        Groups.CASES_OTHER_0,
+        Groups.CASES_OTHER_1,
+        Groups.CASES_OTHER_2,
+    )
+)
+
+# Groups representing multiple cases
+CASES_GROUPS = set([Groups.CASES_SCATTERS]) | CASES_OTHER
 
 # type aliases
 AddedMarkKeys = typing.Union[
     str,
     Literal[
         Groups.CASE,
-        Groups.TRENDLINE,
-        Groups.SCATTERS,
+        Groups.PERSIST,
+        Groups.CASES_SCATTERS,
+        Groups.CASES_OTHER_0,
+        Groups.CASES_OTHER_1,
+        Groups.CASES_OTHER_2,
     ],
 ]
 AddedMarks = dict[AddedMarkKeys, list[bq.Mark]]
@@ -720,11 +744,6 @@ class Base(metaclass=ABCMeta):
         """
         return self._added_marks
 
-    @property
-    def added_marks_groups(self) -> list[AddedMarkKeys]:
-        """Names of groups of added marks."""
-        return list(self._added_marks.keys())
-
     def remove_added_marks(self, group: AddedMarkKeys):
         """Remove all marks in `group`."""
         marks = self._added_marks[group]
@@ -735,8 +754,17 @@ class Base(metaclass=ABCMeta):
 
     def remove_added_marks_all(self):
         """Remove all added marks."""
-        for group in self.added_marks_groups:
+        for group in self.added_marks:
             self.remove_added_marks(group)
+
+    def opacate_added_marks(self, groups: AddedMarkKeys | Sequence[AddedMarkKeys]):
+        """Make added marks fully opaque by group."""
+        if not isinstance(groups, Sequence):
+            groups = [groups]
+        for group in groups:
+            marks = self.added_marks[group]
+            for m in marks:
+                m.opacities = [1.0]
 
     def _set_added_marks_visibility(
         self, visible: bool, groups: AddedMarkKeys | Sequence[AddedMarkKeys]
@@ -749,16 +777,24 @@ class Base(metaclass=ABCMeta):
             for m in marks:
                 m.visible = visible
 
-    def _set_added_marks_visibility_all(self, visible: bool):
-        """Set visibility of all added marks."""
+    hide_added_marks = partialmethod(_set_added_marks_visibility, False)
+
+    def show_added_marks(self, groups: AddedMarkKeys | Sequence[AddedMarkKeys]):
+        """Show added marks, by group"""
+        self._set_added_marks_visibility(True, groups)
+        self.opacate_added_marks(groups)
+
+    def hide_added_marks_all(self):
+        """Make all added marks invisible."""
         for marks in self.added_marks.values():
             for m in marks:
-                m.visible = visible
+                m.visible = False
 
-    hide_added_marks = partialmethod(_set_added_marks_visibility, False)
-    show_added_marks = partialmethod(_set_added_marks_visibility, True)
-    hide_added_marks_all = partialmethod(_set_added_marks_visibility_all, False)
-    show_added_marks_all = partialmethod(_set_added_marks_visibility_all, True)
+    def show_added_marks_all(self):
+        for marks in self.added_marks.values():
+            for m in marks:
+                m.visible = True
+                m.opacities = [1.0]
 
     def close(self):
         """Close all chart widgets."""
@@ -2218,18 +2254,27 @@ class OHLCCaseBase(OHLC, ChartSupportsCasesGui):
 
     Subclass Implementation
     -----------------------
-    The following methods should be implemented by the subclass:
-        handler_click_case
-            Handler for when user selects a case by way of clicking on the
-            point of a scatter that represents that case. Should have
-            signature:
-                f(mark: bq.Scatter, event: dict)
+    The following methods have a default implemntation which a subclass can
+    extend or override as required.
 
-    Note: Could have enforced this via making this class an ABC, although
-    seemed somewhat overkill for a single method.
+        focus_case
+            Focus on a given `case`.
 
-    The following methods should be optionally implemented by the subclass
-    as requried:
+        handle_new_case
+            Handler for when a new case has been selected.
+
+        add_case_marks
+            Add marks for a specific case.
+
+        reset_marks
+            Reset added marks to show all cases.
+
+        select_case
+            Select a specific case.
+
+    The following methods can be optionally implemented by the subclass
+    if requried:
+
         update_trend_mark
             Update added marks to reflect the plotted data in order to
             avoid unwanted artefacts.
@@ -2242,14 +2287,15 @@ class OHLCCaseBase(OHLC, ChartSupportsCasesGui):
         Analysis cases to be displayed on the chart.
 
     handler_click_case
-        Client-defined handler to be called when user clicks on a point
-        representing a specific case. Should have signature:
-            f(mark: bq.Scatter, event: dict)
+        Client-defined handler to be called when a new case is selected
+        after having clicked a specific case.
+        Should have signature:
+            f(case: CaseSupportsChartAnaly, mark: bq.Scatter, event: dict):
 
-        NOTE this is not the same as the 'handler_click_case' method. On
-        an event being triggered the 'handler_click_case' method as defined
-        on the subclass will be executed first, followed by any passed here
-        as `handler_click_case`.
+        NOTE this is not the same as the 'handle_new_case' method. On
+        an event being triggered the 'handle_new_case' method as defined
+        on the subclass will be executed first, followed by
+        `handler_click_case` if passed.
     """
 
     def __init__(
@@ -2263,7 +2309,7 @@ class OHLCCaseBase(OHLC, ChartSupportsCasesGui):
         display: bool = False,
         handler_click_case: Callable | None = None,
     ):
-        self._client_handler_click_case = handler_click_case
+        self._client_handler_new_case = handler_click_case
         self.cases = cases
         self._current_case: CaseSupportsChartAnaly | None = None
         super().__init__(prices, title, visible_x_ticks, max_ticks, log_scale, display)
@@ -2273,9 +2319,9 @@ class OHLCCaseBase(OHLC, ChartSupportsCasesGui):
 
     def create_scatter(
         self,
-        x: pd.DatetimeIndex,
-        y: pd.Series,
-        color: str,
+        x: pd.DatetimeIndex | list[pd.Timestamp],
+        y: pd.Series | list[float],
+        colors: str | list[str],
         marker: str,
         hover_handler: Callable | None,
         click_handler: Callable | None = None,
@@ -2287,13 +2333,21 @@ class OHLCCaseBase(OHLC, ChartSupportsCasesGui):
         Parameters
         ----------
         x
-            `pd.DatetimeIndex` representing x values of scatter points.
+            `pd.DatetimeIndex` or list of pd.Timestamp` representing x
+            values of scatter points.
 
         y
             y values of scatter points.
 
-        color
-            Scatter point color, for example "skyblue".
+        colors
+            Scatter point color or colors.
+
+            Pass as str to apply same color to all points, for exmaple
+            "skyblue".
+
+            Pass as list[str] to apply different colors to each point.
+            If length of list is shorter than length of `x` then colors in
+            list will be repeatedly cycled through.
 
         marker
             Scatter point marker, for example "circle".
@@ -2311,9 +2365,11 @@ class OHLCCaseBase(OHLC, ChartSupportsCasesGui):
             of x then pattern will repeat, e.g. passing as [1] will result
             in all points being fully opaque.
         """
+        if isinstance(colors, str):
+            colors = [colors]
         mark = bq.Scatter(
             scales=self.scales,
-            colors=[color],
+            colors=colors,
             x=x,
             y=y,
             marker=marker,
@@ -2327,57 +2383,152 @@ class OHLCCaseBase(OHLC, ChartSupportsCasesGui):
             mark.on_element_click(click_handler)
         return mark
 
+    def _create_mark(self, **_) -> bq.OHLC:
+        # dampen OHLC mark being overlaid which cases analysis
+        opacities = [0.7] * len(self.prices)
+        return super()._create_mark(opacities=opacities)
+
     def _add_scatter(
         self,
-        x: pd.DatetimeIndex,
-        y: pd.Series,
-        color: str,
+        x: pd.DatetimeIndex | list[pd.Timestamp],
+        y: pd.Series | list[float],
+        colors: str | list[str],
         marker: str,
         hover_handler: Callable | None,
         click_handler: Callable | None = None,
         *,
         opacities=[1],
-        group: str | Literal[Groups.SCATTERS] = Groups.SCATTERS,
+        group: str | Literal[Groups.CASES_SCATTERS] = Groups.CASES_SCATTERS,
     ) -> bq.Scatter:
         """Add a scatter mark to a `group`."""
         mark = self.create_scatter(
-            x, y, color, marker, hover_handler, click_handler, opacities=opacities
+            x, y, colors, marker, hover_handler, click_handler, opacities=opacities
         )
         self.add_marks([mark], group)
         return mark
 
     def hide_cases(self):
-        """Hide marks identifying cases.
+        """Hide marks identifying multiple cases.
 
-        Subclass should extend / override as requried.
+        Subclass can extend / override as required.
         """
-        self.hide_added_marks(Groups.SCATTERS)
+        added_groups = set(self.added_marks.keys())
+        for group in CASES_GROUPS & added_groups:
+            self.hide_added_marks(group)
 
     def show_cases(self):
-        """Show marks identifying cases.
+        """Show marks identifying multiple cases.
 
-        Subclass should extend / override as requried.
+        Subclass can extend / override as required.
         """
-        self.show_added_marks(Groups.SCATTERS)
+        added_groups = set(self.added_marks.keys())
+        for group in CASES_GROUPS & added_groups:
+            self.show_added_marks(group)
 
     @property
     def current_case(self) -> CaseSupportsChartAnaly | None:
-        """Last selected case."""
+        """Current selected case."""
         return self._current_case
 
-    def handler_click_case(self, mark: bq.Scatter, event: dict):
-        """Handler for clicking scatter point representing a case.
+    def remove_case_marks(self):
+        """Remove any marks added under `Groups.CASE`."""
+        if Groups.CASE in self.added_marks:
+            self.remove_added_marks(Groups.CASE)
 
-        Subclass should implement as required.
+    @staticmethod
+    def show_only_one_scatter_point(index: int, scatter: bq.Scatter):
+        """Show only the point of a given `scatter` at a given `index`."""
+        arr = np.array([1 if i == index else 0 for i in range(len(scatter.x))])
+        scatter.opacities = arr
+
+    def show_only_one_cases_scatter_point(
+        self, index: int, exclude_scatters: list[int] | None = None
+    ):
+        """Show only one point of each scatter added to CASES_SCATTERS.
+
+        Has no effect if no marks are added under CASE_SCATTERS.
+
+        Parameters
+        ----------
+        index
+            Index of scatter point to show.
+
+        exclude_scatters
+            Any indices of scatter marks under CASES_SCATTERS that should
+            be excluded. Visibility of all points of these scatter marks
+            will not be altered.
         """
-        raise NotImplementedError("Implement 'handler_click_case' method on subclass.")
+        for i, scatter in enumerate(
+            self.added_marks.get(Groups.CASES_SCATTERS, list())
+        ):
+            if exclude_scatters is not None and i in exclude_scatters:
+                continue
+            self.show_only_one_scatter_point(index, scatter)
+
+    def show_only_one_other_mark(self, index: int, group: AddedMarkKeys):
+        """Show only one mark in a group of added marks.
+
+        Parameters
+        ----------
+        index
+            Index of mark to show.
+
+        group
+            Group of added marks from which to show one mark.
+        """
+        marks = self.added_marks[group]
+        arr = np.array([1 if i == index else 0 for i in range(len(marks))])
+        for mark, opacity in zip(marks, arr):
+            mark.opacities = [opacity]
+
+    def show_only_one_cases_other_mark(self, index: int):
+        """Show only one mark in each of marks added under CASES_OTHERS_*.
+
+        Has no effect if no marks are added under CASE_OTHERS.
+
+        Parameters
+        ----------
+        index
+            Index of mark(s) to show.
+        """
+        groups = set(self.added_marks.keys()) & CASES_OTHER
+        for group in groups:
+            self.show_only_one_other_mark(index, group)
+
+    def _add_case_marks(self, case: CaseSupportsChartAnaly):
+        """Add marks for a specific case.
+
+        Subclass can implement to add marks under the default
+        implementation of `focus_current_case`.
+        """
+        pass
+
+    def focus_case(self, case: CaseSupportsChartAnaly):
+        """Focus on a give `case`.
+
+        Subclass can override this default implementation.
+        """
+        self.remove_case_marks()
+        idx = self.cases.get_index(case)
+        self.show_only_one_cases_scatter_point(idx)
+        self.show_only_one_cases_other_mark(idx)
+        self._add_case_marks(case)
+
+    def handle_new_case(
+        self, case: CaseSupportsChartAnaly, mark: bq.Scatter, event: dict
+    ):
+        """Handles new case having been selected.
+
+        Subclass can extend or override as required.
+        """
+        self.focus_case(case)
 
     def _handler_click_case(self, mark: bq.Scatter, event: dict):
         """Handler for clicking a scatter representing a case."""
-        self._current_case = self.cases.event_to_case(mark, event)
-        self.handler_click_case(mark, event)
-        if self._client_handler_click_case is not None:
-            self._client_handler_click_case(mark, event)
+        self._current_case = case = self.cases.event_to_case(mark, event)
+        self.handle_new_case(case, mark, event)
+        if self._client_handler_new_case is not None:
+            self._client_handler_new_case(case, mark, event)
 
     def update_trend_mark(self, *_, **__):
         """Update trend mark to reflect plotted x ticks.
@@ -2410,27 +2561,20 @@ class OHLCCaseBase(OHLC, ChartSupportsCasesGui):
         """
         pass
 
-    def reset_marks(self, reset_current_case: bool = True):
-        """Reset marks.
+    def reset_marks(self):
+        """Reset added marks to show all cases.
 
         Removes any marks for current case. Makes all other added marks
         visible.
-
-        Parameters
-        ----------
-        reset_current_case
-            If True (default), sets current_case to None.
         """
-        if Groups.CASE in self.added_marks_groups:
-            self.remove_added_marks(Groups.CASE)
+        self.remove_case_marks()
         self.show_added_marks_all()
-        if reset_current_case:
-            self._current_case = None
+        self._current_case = None
 
-    def _click_case(self, index: int, scatter_index: int = 0):
+    def _simulate_click_case(self, index: int, scatter_index: int = 0):
         """Simulate clicking an element of scatter representing cases.
 
-        Subclass should override or pass through args as necessary.
+        Subclass can override or pass through args as required.
 
         Parameters
         ----------
@@ -2440,24 +2584,31 @@ class OHLCCaseBase(OHLC, ChartSupportsCasesGui):
 
         scatter_index
             Index of `bq.Scatter` mark, within the added marks under
-            `Groups.SCATTERS`, which represents cases. This will be the
-            scatter with the points that can be clicked to select a
+            `Groups.CASES_SCATTERS`, which represents cases. This will be
+            the scatter with the points that can be clicked to select a
             specific case.
         """
         event = {"data": {"index": index}}
-        scatter = self.added_marks[Groups.SCATTERS][scatter_index]
+        scatter = self.added_marks[Groups.CASES_SCATTERS][scatter_index]
         self._handler_click_case(scatter, event)
 
     def select_case(self, case: CaseSupportsChartAnaly):
         """Select a specific case.
 
+        Notes
+        -----
+        This default implementation ASSUMES that the scatter mark
+        representing a case is the first scatter mark added to
+        Groups.CASES_SCATTERS and that this scatter mark represents all
+        cases in the same order as `self.cases`.
+
         Subclass can override as required to select a spedific case.
         """
         i = self.cases.get_index(case)
-        self._click_case(i)
+        self._simulate_click_case(i)
 
     def get_next_case(self) -> CaseSupportsChartAnaly:
-        """Get case that follows the currently selected case.
+        """Get case that follows the current selected case.
 
         If no case is currently selected then returns first case.
         """
@@ -2470,7 +2621,7 @@ class OHLCCaseBase(OHLC, ChartSupportsCasesGui):
         return self.cases.cases[i]
 
     def select_next_case(self):
-        """Select case that follows the currently selected case.
+        """Select case that follows the current selected case.
 
         If no case is currently selected then selects first case.
         """
@@ -2480,7 +2631,7 @@ class OHLCCaseBase(OHLC, ChartSupportsCasesGui):
         self.select_case(case)
 
     def get_previous_case(self) -> CaseSupportsChartAnaly:
-        """Get case immediately prior to the currently selected case.
+        """Get case immediately prior to the current selected case.
 
         If no case is currently selected then returns last case.
         """
@@ -2494,7 +2645,7 @@ class OHLCCaseBase(OHLC, ChartSupportsCasesGui):
         return self.cases.cases[i]
 
     def select_previous_case(self):
-        """Select case prior to the currently selected cae.
+        """Select case prior to the current selected cae.
 
         If no case is currently selected then selects last case.
         """

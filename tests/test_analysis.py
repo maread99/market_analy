@@ -1118,7 +1118,7 @@ class TestAnalysis:
         ext_limit = trend_kwargs["ext_limit"]
 
         # verify scatter marks
-        scats = gui.chart.added_marks[charts.Groups.SCATTERS]
+        scats = gui.chart.added_marks[charts.Groups.CASES_SCATTERS]
         assert len(scats) == 8
         for s in scats:
             assert isinstance(s, bq.Scatter)
@@ -1387,7 +1387,7 @@ class TestAnalysis:
         controls.but_show_all.fire_event("click", None)
         assert controls.is_dark_single_case
         assert controls.but_show_all.is_light
-        assert GROUP_CASE not in gui.chart.added_marks_groups
+        assert GROUP_CASE not in gui.chart.added_marks
         assert all([s.visible for s in scats])
         assert gui.chart.current_case is None
         assert gui.current_case is None

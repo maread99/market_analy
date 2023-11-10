@@ -46,7 +46,7 @@ class TrendsChart(OHLCCaseBase):
         Any client-defined handler to be additionally called when user
         clicks on any scatter point representing a trend start. Should have
         signature:
-            f(mark: bq.Scatter, event: dict)
+            f(case: Movement, mark: bq.Scatter, event: dict)
 
         NB handler will be called after any handlers defined on this class.
 
@@ -139,22 +139,18 @@ class TrendsChart(OHLCCaseBase):
 
     @property
     def current_case(self) -> MovementBase | None:
-        """Last selected case."""
+        """Currently selected case."""
         case = super().current_case
         if typing.TYPE_CHECKING:
             assert isinstance(case, MovementBase)
         return case
 
-    def _create_mark(self, **_) -> bq.OHLC:
-        opacities = [0.7] * len(self.prices)
-        return super()._create_mark(opacities=opacities)
-
     def _add_marks(self, **_):
         """Add initial extra marks.
 
-        Adds FlexLine mark to represent trend (to `Groups.TRENDLINE`).
+        Adds FlexLine mark to represent trend (to `Groups.PERSIST`).
 
-        Adds Scatter marks to `Groups.SCATTERS`.
+        Adds Scatter marks to `Groups.CASES_SCATTERS`.
             To represent, for each trend:
                 Start (triangle-up/triangle-down for adv/dec).
                 End (cross) only if does not coincide with subsequent
@@ -172,7 +168,7 @@ class TrendsChart(OHLCCaseBase):
             y=self._y_trend,
             stroke_width=2,
         )
-        self.add_marks([trend_line], Groups.TRENDLINE)
+        self.add_marks([trend_line], Groups.PERSIST)
 
         cases = self.cases
 
@@ -239,7 +235,7 @@ class TrendsChart(OHLCCaseBase):
 
     @property
     def mark_trend(self) -> bq.FlexLine:
-        return self.added_marks[Groups.TRENDLINE][0]
+        return self.added_marks[Groups.PERSIST][0]
 
     def update_trend_mark(self, *_):
         """Update trend mark to reflect plotted x ticks.
@@ -280,7 +276,7 @@ class TrendsChart(OHLCCaseBase):
         case = typing.cast(MovementBase, case)
         i = self.cases.get_index_for_direction(case)
         scatter_index = 0 if case.is_adv else 1
-        self._click_case(i, scatter_index)
+        self._simulate_click_case(i, scatter_index)
 
     # HANDLERS
     def handler_hover_start(self, mark: bq.marks.Scatter, event: dict):
@@ -330,21 +326,16 @@ class TrendsChart(OHLCCaseBase):
 
     def _get_marks_to_add_on_case_selection(
         self, case: Movement | MovementAlt, mark: bq.Scatter
-    ) -> list[bq.Mark]:
+    ) -> list[bq.Scatter]:
         color = mark.colors[0]
         marks = []
 
         def f(*args):
             marks.append(self.create_scatter(*args))
 
-        def fl(data: pd.Series, color_: str, line_style: str, desc: str) -> bq.Lines:
-            line = self._create_line(data, color_, line_style, desc)
-            marks.append(line)
-            return line
-
         group = Groups.CASE
         # remove any existing marks for a selected movement.
-        if group in self.added_marks_groups:
+        if group in self.added_marks:
             self.remove_added_marks(group)
 
         if case.closed:
@@ -392,15 +383,17 @@ class TrendsChart(OHLCCaseBase):
 
         return marks
 
-    def handler_click_case(self, mark: bq.Scatter, event: dict):
-        """Handler for clicking mark representing a movement start.
+    # TODO TIDY THE HANDLERS USING THE METHODS PROVIDED BY THE NEW BASE IMPLEMENTATION
+    def handle_new_case(
+        self, case: CaseSupportsChartAnaly, mark: bq.Scatter, event: dict
+    ):
+        """Handles new case having been selected.
 
         Removes all existing scatters from figure.
 
         Adds scatters and lines for the single trend represented by the
         clicked scatter point.
         """
-        case = self.cases.event_to_case(mark, event)
         case = typing.cast(Movement, case)
         marks = self._get_marks_to_add_on_case_selection(case, mark)
 
@@ -426,17 +419,17 @@ class TrendsAltChart(TrendsChart):
     trends evaluted by the `trends.analy.TrendsAlt` class.
     """
 
-    def handler_click_case(self, mark: bq.Scatter, event: dict):
-        """Handler for clicking mark representing a movement start.
+    def handle_new_case(
+        self, case: CaseSupportsChartAnaly, mark: bq.Scatter, event: dict
+    ):
+        """Handles new case having been selected.
 
         Removes all existing scatters from figure.
 
         Adds scatters and lines for the single trend represented by the
         clicked scatter point.
         """
-        case = self.cases.event_to_case(mark, event)
         case = typing.cast(MovementAlt, case)
-
         marks = self._get_marks_to_add_on_case_selection(case, mark)
         color = mark.colors[0]
 
