@@ -90,10 +90,10 @@ class TrendsGuiBase(ChartOHLCCaseBase):
         Concrete constructor arguments such as `narrow_view`, `wide_view`
         etc.
 
-        Defining the `_gui_click_case_handler` method to customise the
+        Defining the `_gui_handler_click_case` method to customise the
         handling, at a gui level, of clicking a mark representing the start
         of a trend. NB Alternatively a handler can be passed within
-        `chart_kwargs` with the key 'click_case_handler'.
+        `chart_kwargs` with the key 'hander_click_case'.
     """
 
     _HAS_INTERVAL_SELECTOR = False
@@ -135,8 +135,8 @@ class TrendsGuiBase(ChartOHLCCaseBase):
         self._rulers: list = []
 
     @property
-    def ChartCls(self) -> type[charts.OHLCTrends]:
-        return charts.OHLCTrends
+    def ChartCls(self) -> type[charts.TrendsChart]:
+        return charts.TrendsChart
 
     @property
     def _chart_title(self) -> str:
@@ -271,7 +271,7 @@ class TrendsGui(TrendsGuiBase):
         self.cases: Movements
         self.trends: Trends
 
-    def _gui_click_case_handler(self, mark: bq.Scatter, event: dict):
+    def _gui_handler_click_case(self, mark: bq.Scatter, event: dict):
         """Gui level handler for clicking a mark representing a trend start.
 
         Lightens 'show all scatters' button to indicate option available.
@@ -280,7 +280,7 @@ class TrendsGui(TrendsGuiBase):
         self.cases_controls_container.lighten_single_case()
         self.cases_controls_container.but_show_all.darken()
         move = self.cases.event_to_case(mark, event)
-        html = self.cases.get_move_html(move)
+        html = self.cases.get_case_html(move)
         self.html_output.display(html)
 
     @property
@@ -345,6 +345,10 @@ class TrendsAltGui(TrendsGuiBase):
     All other parameters as base class `TrendsGuiBase`.
     """
 
+    @property
+    def ChartCls(self) -> type[charts.TrendsAltChart]:
+        return charts.TrendsAltChart
+
     def __init__(
         self,
         analysis: ma_analysis.Analysis,
@@ -383,7 +387,7 @@ class TrendsAltGui(TrendsGuiBase):
         self.cases: MovementsAlt
         self.trends: TrendsAlt
 
-    def _gui_click_case_handler(self, mark: bq.Scatter, event: dict):
+    def _gui_handler_click_case(self, mark: bq.Scatter, event: dict):
         """Gui level handler for clicking a mark representing a trend start.
 
         Lightens 'show all scatters' button to indicate option available.
@@ -392,5 +396,5 @@ class TrendsAltGui(TrendsGuiBase):
         self.cases_controls_container.lighten_single_case()
         self.cases_controls_container.but_show_all.darken()
         move = self.cases.event_to_case(mark, event)
-        html = self.cases.get_move_html(move)
+        html = self.cases.get_case_html(move)
         self.html_output.display(html)

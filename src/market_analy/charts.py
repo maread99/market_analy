@@ -2216,6 +2216,18 @@ class OHLCCaseBase(OHLC, ChartSupportsCasesGui):
     classes collectively or focusing on a single 'current' case and
     navigating forwards or backwards between consecutive cases.
 
+    Subclass Implementation
+    -----------------------
+    The following methods should be implemented by the subclass:
+        handler_click_case
+            Handler for when user selects a case by way of clicking on the
+            point of a scatter that represents that case. Should have
+            signature:
+                f(mark: bq.Scatter, event: dict)
+
+    Note: Could have enforced this via making this class an ABC, although
+    seemed somewhat overkill for a single method.
+
     Parameters
     ----------
     As for OHLC class, except:
@@ -2223,10 +2235,15 @@ class OHLCCaseBase(OHLC, ChartSupportsCasesGui):
     cases
         Analysis cases to be displayed on the chart.
 
-    click_case_handler
-        Client-defined handler to be called when user clicks on a mark
+    handler_click_case
+        Client-defined handler to be called when user clicks on a point
         representing a specific case. Should have signature:
             f(mark: bq.Scatter, event: dict)
+
+        NOTE this is not the same as the 'handler_click_case' method. On
+        an event being triggered the 'handler_click_case' method as defined
+        on the subclass will be executed first, followed by any passed
+        `handler_click_case`.
     """
 
     def __init__(
@@ -2238,9 +2255,9 @@ class OHLCCaseBase(OHLC, ChartSupportsCasesGui):
         max_ticks: int | None = None,
         log_scale: bool = True,
         display: bool = False,
-        click_case_handler: Callable | None = None,
+        handler_click_case: Callable | None = None,
     ):
-        self._client_click_case_handler = click_case_handler
+        self._client_handler_click_case = handler_click_case
         self.cases = cases
         self._current_case: CaseSupportsChartAnaly | None = None
         super().__init__(prices, title, visible_x_ticks, max_ticks, log_scale, display)
@@ -2339,12 +2356,19 @@ class OHLCCaseBase(OHLC, ChartSupportsCasesGui):
         """Last selected case."""
         return self._current_case
 
+    def handler_click_case(self, mark: bq.Scatter, event: dict):
+        """Handler for clicking scatter point representing a case.
+
+        Subclass should implement as required.
+        """
+        raise NotImplementedError("Implement 'handler_click_case' method on subclass.")
+
     def _handler_click_case(self, mark: bq.Scatter, event: dict):
         """Handler for clicking a scatter representing a case."""
         self._current_case = self.cases.event_to_case(mark, event)
-        self.cases.handler_click_case(self, mark, event)
-        if self._client_click_case_handler is not None:
-            self._client_click_case_handler(mark, event)
+        self.handler_click_case(mark, event)
+        if self._client_handler_click_case is not None:
+            self._client_handler_click_case(mark, event)
 
     def reset_marks(self, reset_current_case: bool = True):
         """Reset marks.

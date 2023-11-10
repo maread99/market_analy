@@ -1784,7 +1784,7 @@ class ChartOHLCCaseBase(ChartOHLC):
         if chart_kwargs is None:
             chart_kwargs = {}
         chart_kwargs.setdefault("cases", self.cases)
-        chart_kwargs.setdefault("click_case_handler", self._gui_click_case_handler)
+        chart_kwargs.setdefault("handler_click_case", self._gui_handler_click_case)
         super().__init__(
             analysis, interval, max_ticks, log_scale, display, chart_kwargs, **kwargs
         )
@@ -1801,7 +1801,7 @@ class ChartOHLCCaseBase(ChartOHLC):
         """
         return self.chart.current_case
 
-    def _gui_click_case_handler(self, mark: bq.Scatter, event: dict):
+    def _gui_handler_click_case(self, mark: bq.Scatter, event: dict):
         """Gui level handler for clicking marker representing trend start.
 
         Subclass should define if required

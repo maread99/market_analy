@@ -18,31 +18,6 @@ by any cases class that is to be displayed on a chart.
 `ChartSupportsCasesGui` defines protocol that should be fulfilled by any
 `charts` class that is be used by a gui that provides for selecting and
 navigating between cases.
-
-Notes
------
-
-HANDLING CHART EVENTS
-Nov 23. The handlers for chart events are defined on the `cases` subclass.
-The charts subclass's 'cases' argument is typed with
-`CasesSupportsChartAnaly` and this in turn defines the handler methods that
-the charts class expects the cases instance to have. Alternatively, it
-would be possible to define the handlers on the charts class and for the
-`CasesSupportsChartAnaly` protocol to instead define all the underlying
-attributes that the charts class would need the caese class to have in
-order to define the handlers itself.
-
-It's considered beneficial to define the handlers on the `cases` subclass,
-as opposed to the `charts` subclass, to best accommodate analyses that have
-various versions, for example trends and trends_alt. The supposition is
-that different versions are more likely to require different subclasses of
-the `cases` class than the `charts` class. If this is the case then the
-creation of a variation will be just a matter of writting a new `cases`
-class, not both a new `cases` subclass for the version and a new `charts`
-subclass to define any differences in handling events.
-
-Time will tell if this supposition holds. For now handlers are defined on
-the `cases` class.
 """
 
 from __future__ import annotations
@@ -55,10 +30,6 @@ import typing
 import bqplot as bq
 import numpy as np
 import pandas as pd
-
-# TODO should be able to lose this when lose the handlers...
-if typing.TYPE_CHECKING:
-    from .trends.charts import OHLCTrends
 
 
 class CaseSupportsChartAnaly(typing.Protocol):
@@ -106,12 +77,9 @@ class CasesSupportsChartAnaly(typing.Protocol):
         """Get index position of a case"""
         ...
 
-    def handler_click_case(self, chart: OHLCTrends, mark: bq.Scatter, event: dict):
-        """Handler for clicking on mark representing a case.
-
-        Parameters as those passed to event handler on clicking a point of
-        the scatter.
-        """
+    @staticmethod
+    def get_case_html(case: CaseSupportsChartAnaly) -> str:
+        """Return html to describe a case."""
         ...
 
 
@@ -254,12 +222,3 @@ class CasesBase(ABC, CasesSupportsChartAnaly):
     def get_index(self, case: CaseSupportsChartAnaly) -> int:
         """Get index position of a case."""
         return self.cases.index(case)
-
-    @abstractmethod
-    def handler_click_case(self, chart: OHLCTrends, mark: bq.Scatter, event: dict):
-        """Handler for clicking on mark representing a case.
-
-        Parameters as those passed to event handler on clicking a point of
-        the scatter.
-        """
-        pass
