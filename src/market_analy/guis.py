@@ -1256,7 +1256,7 @@ class BasePrice(BaseVariableDates):
         self._reset_chart()
 
 
-class ChartLine(BasePrice):
+class GuiLine(BasePrice):
     """GUI to display and interact with a Line Chart."""
 
     @property
@@ -1275,7 +1275,7 @@ class ChartLine(BasePrice):
         return d
 
 
-class ChartMultLine(BasePrice):
+class GuiMultLine(BasePrice):
     """GUI to display and interact with a Multiple Line Chart."""
 
     def __init__(
@@ -1536,7 +1536,7 @@ class ChartMultLine(BasePrice):
         self.chart.opaque()
 
 
-class ChartOHLC(BasePrice):
+class GuiOHLC(BasePrice):
     """GUI to display and interact with a OHLC Chart.
 
     Properties (in addition to inhertied)
@@ -1622,7 +1622,7 @@ class ChartOHLC(BasePrice):
         self.chart.mark.on_element_click(self._mark_handler)
 
 
-class PctChg(BaseVariableDates):
+class GuiPctChg(BaseVariableDates):
     """GUI for bar chart showing precentage changes of single instrument.
 
     GUI comprises:
@@ -1693,7 +1693,7 @@ class PctChg(BaseVariableDates):
         return contents
 
 
-class PctChgMult(PctChg):
+class GuiPctChgMult(GuiPctChg):
     """GUI for bar chart showing precentage changes of multiple instruments.
 
     GUI comprises:
@@ -1738,7 +1738,7 @@ class PctChgMult(PctChg):
         return super()._gui_box_contents + [self._icon_row]
 
 
-class ChartOHLCCaseBase(ChartOHLC):
+class GuiOHLCCaseBase(GuiOHLC):
     """Base for analysis over OHLC for single financial instrument.
 
     Base class to create a gui with an OHLC chart with overlaid analysis.
