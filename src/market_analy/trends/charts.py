@@ -34,9 +34,6 @@ class TrendsChart(OHLCCaseBase):
     Scatter marks for advancing movements are green, those for declining
     movements are red.
 
-    Handlers on `movements`, as defined on `MovementsChartProto`, will be
-    enabled.
-
     Parameters
     ----------
     As for OHLCCaseBase, except:
@@ -51,8 +48,7 @@ class TrendsChart(OHLCCaseBase):
         signature:
             f(mark: bq.Scatter, event: dict)
 
-        NB handler will be called after any handlers defined on
-        `cases`.
+        NB handler will be called after any handlers defined on this class.
 
     inc_conf_marks
         Whether to include scatter marks indicating the bar / price at
@@ -93,9 +89,6 @@ class TrendsChart(OHLCCaseBase):
         )
 
         self.cases: MovementsSupportChartAnaly
-
-        if max_ticks is not None or visible_x_ticks is not None:
-            self.update_trend_mark()
 
     @cached_property
     def _y_trend(self) -> pd.Series:
@@ -251,33 +244,22 @@ class TrendsChart(OHLCCaseBase):
     def update_trend_mark(self, *_):
         """Update trend mark to reflect plotted x ticks.
 
+        See doc on base `OHLCCaseBase` class.
+
         Notes
         -----
-        Like for the OHLC class, the OHLC mark is not updated to reflect changes
-        to the plotted data (`_update_mark_data_attr_to_reflect_plotted` is False
-        for the class) as the nature of the mark (discrete renders rather than a
-        continuous line) does not result in any side-effects when the visible
-        domain is shorter than that the mark data. The same is true (more or less)
-        for the Scatter marks. However, it is necessary to update the FlexLine
-        to reflect the plotted data to avoid the line doubling back over the render
-        as it tries to plot the 'next point after the visible range' to the start
-        of the x-axis.
+        Necessary to update FlexLine to reflected plotted data to avoid the
+        line doubling back over the render as it tries to plot the
+        'next point after the visible range' to the start of the x-axis.
 
-        This method serves as a handler which should be called by a client
-        whenever the plotted dates are changed. To handle everything within this
-        class had originally overriden the `self._x_domain_chg_handler` method
-        which is invoked whenever the x scales domain is changed (i.e. whenever
-        the plotted dates are changed), however, and regardless of whether
-        holding off the sync to the frontend of not, the 'wrapped back round'
-        line could continue to be left and other rendering issues were more
-        common than with the implemented solution.
-
-        An alternative approach to resolving the 'wrapped around line' is to set
-        line widths to 0 for the segments prior to the first and subsequent to the
-        last plotted interval. This still leaves a thin trace, for which also set
-        the colour of these segments to the same as the background colour. It's an
-        option, although found it rendered less smoothly that the implemented
-        approach (i.e. updating the marks values to reflect the plotted intervals).
+        An alternative approach, to that implemented here, to resolve the
+        'wrapped around line' is to set line widths to 0 for the segments
+        prior to the first and subsequent to the last plotted interval.
+        This still leaves a thin trace, for which also set the colour of
+        these segments to the same as the background colour. It's an
+        option, although found it rendered less smoothly that the
+        implemented approach (i.e. updating the marks values to reflect the
+        plotted intervals).
         """
         self.mark_trend.x = self.plotted_x_ticks
         self.mark_trend.y = self._y_trend[self._domain_bv]

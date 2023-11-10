@@ -2228,6 +2228,12 @@ class OHLCCaseBase(OHLC, ChartSupportsCasesGui):
     Note: Could have enforced this via making this class an ABC, although
     seemed somewhat overkill for a single method.
 
+    The following methods should be optionally implemented by the subclass
+    as requried:
+        update_trend_mark
+            Update added marks to reflect the plotted data in order to
+            avoid unwanted artefacts.
+
     Parameters
     ----------
     As for OHLC class, except:
@@ -2242,8 +2248,8 @@ class OHLCCaseBase(OHLC, ChartSupportsCasesGui):
 
         NOTE this is not the same as the 'handler_click_case' method. On
         an event being triggered the 'handler_click_case' method as defined
-        on the subclass will be executed first, followed by any passed
-        `handler_click_case`.
+        on the subclass will be executed first, followed by any passed here
+        as `handler_click_case`.
     """
 
     def __init__(
@@ -2261,6 +2267,9 @@ class OHLCCaseBase(OHLC, ChartSupportsCasesGui):
         self.cases = cases
         self._current_case: CaseSupportsChartAnaly | None = None
         super().__init__(prices, title, visible_x_ticks, max_ticks, log_scale, display)
+
+        if max_ticks is not None or visible_x_ticks is not None:
+            self.update_trend_mark()
 
     def create_scatter(
         self,
@@ -2369,6 +2378,37 @@ class OHLCCaseBase(OHLC, ChartSupportsCasesGui):
         self.handler_click_case(mark, event)
         if self._client_handler_click_case is not None:
             self._client_handler_click_case(mark, event)
+
+    def update_trend_mark(self, *_, **__):
+        """Update trend mark to reflect plotted x ticks.
+
+        Notes
+        -----
+        Like for the OHLC class, the OHLC mark is not updated to reflect
+        changes to the plotted data
+        (`_update_mark_data_attr_to_reflect_plotted` is False for the
+        class) as the nature of the mark (discrete renders rather than a
+        continuous line) does not result in any side-effects when the
+        visible domain is shorter than that the mark data. The same is true
+        (more or less) for the Scatter marks. However, to avoid unwanted
+        artefacts other types of mark may require updating to reflect the
+        plotted data. For example, a FlexLine will otherwise double back
+        over the render as it tries to plot the 'next point after the
+        visible range' to the start of the x-axis.
+
+        This method serves as a handler which should be called by a client
+        whenever the plotted dates are changed. To handle everything within this
+        class had originally overriden the `self._x_domain_chg_handler` method
+        which is invoked whenever the x scales domain is changed (i.e. whenever
+        the plotted dates are changed), however, and regardless of whether
+        holding off the sync to the frontend of not, aftefacts persisted
+        for the FlexLine and other rendering issues manifested.
+
+        In short, considered preferable to provide this handler that the
+        subclass can customise if/as required to offer a specific solution
+        for the marks added.
+        """
+        pass
 
     def reset_marks(self, reset_current_case: bool = True):
         """Reset marks.

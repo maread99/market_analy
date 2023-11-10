@@ -318,7 +318,7 @@ class MovementsSupportChartAnaly(CasesSupportsChartAnaly, typing.Protocol):
     Attributes
     ----------
     cases
-        Ordered list of all movements identified in `data`.
+        Ordered sequence of all movements identified in `data`.
 
     data
         OHLC data in which `moves` identified.
@@ -437,7 +437,7 @@ class MovementsBase(CasesBase):
     Attributes
     ----------
     cases
-        Ordered list of all movements identified in `data`.
+        Ordered sequence of all movements identified in `data`.
 
     data
         OHLC data in which `cases` identified.
