@@ -8,6 +8,7 @@ from functools import cached_property, partialmethod
 
 import bqplot as bq
 import ipywidgets as w
+import numpy as np
 import pandas as pd
 
 from ..cases import CaseSupportsChartAnaly
@@ -77,6 +78,10 @@ class TrendsChart(OHLCCaseBase):
         if cases is None:
             raise ValueError("'cases' is a required argument.")
         self._inc_conf_marks = inc_conf_marks
+
+        self._SCATTER_INDEXES_ADV: list[int]  # set by _add_marks
+        self._SCATTER_INDEXES_DEC: list[int]  # set by _add_marks
+
         super().__init__(
             prices,
             cases,
@@ -121,22 +126,6 @@ class TrendsChart(OHLCCaseBase):
     create_scatter = partialmethod(OHLCCaseBase.create_scatter, opacities=[0.65])
     _add_scatter = partialmethod(OHLCCaseBase._add_scatter, opacities=[0.65])
 
-    def hide_cases(self):
-        """Hide scatter marks for all trends.
-
-        Hide scatter marks denoting movements' starts, ends and, if
-        applicable, bars when movements' starts and ends were confirmed.
-        """
-        return super().hide_cases()
-
-    def show_cases(self):
-        """show scatter marks for all trends.
-
-        Shows scatter marks denoting movements' starts, ends and, if
-        applicable, bars when movements' starts and ends were confirmed.
-        """
-        return super().show_cases()
-
     @property
     def current_case(self) -> MovementBase | None:
         """Currently selected case."""
@@ -172,34 +161,14 @@ class TrendsChart(OHLCCaseBase):
 
         cases = self.cases
 
-        # scatter for starts of advancing trends
-        subset = cases.starts_adv
-        self._add_scatter(
-            subset,
-            self._y_trend[subset],
-            COL_ADV,
-            "triangle-up",
-            self.handler_hover_start,
-            self._handler_click_case,
-        )
-        # scatter for starts of declining trends
-        subset = cases.starts_dec
-        self._add_scatter(
-            subset,
-            self._y_trend[subset],
-            COL_DEC,
-            "triangle-down",
-            self.handler_hover_start,
-            self._handler_click_case,
-        )
-        # scatters for ends of trends, only if do not coincide with subsequent trend start
-        handler = self.handler_hover_end
-        subset = cases.ends_adv_solo
-        self._add_scatter(subset, self._y_trend[subset], COL_ADV, "cross", handler)
-        subset = cases.ends_dec_solo
-        self._add_scatter(subset, self._y_trend[subset], COL_DEC, "cross", handler)
+        self._SCATTER_INDEXES_ADV = [0, 2]
+        self._SCATTER_INDEXES_DEC = [1, 3]
 
+        # add conf marks first as want them at the bottom of any pile up
         if self._inc_conf_marks:
+            self._SCATTER_INDEXES_ADV += [4, 6]
+            self._SCATTER_INDEXES_DEC += [5, 7]
+
             # scatters for confirmed starts of trends
             handler = self.handler_hover_conf_start
             self._add_scatter(
@@ -232,6 +201,35 @@ class TrendsChart(OHLCCaseBase):
                 "square",
                 handler,
             )
+
+        # scatters for ends of trends
+        handler = self.handler_hover_end
+        subset = cases.ends_adv
+        self._add_scatter(subset, self._y_trend[subset], COL_ADV, "cross", handler)
+        subset = cases.ends_dec
+        self._add_scatter(subset, self._y_trend[subset], COL_DEC, "cross", handler)
+
+        # add starts of trends last so that they appear on top of any pile
+        # scatter for starts of advancing trends
+        subset = cases.starts_adv
+        self._add_scatter(
+            subset,
+            self._y_trend[subset],
+            COL_ADV,
+            "triangle-up",
+            self.handler_hover_start,
+            self._handler_click_case,
+        )
+        # scatter for starts of declining trends
+        subset = cases.starts_dec
+        self._add_scatter(
+            subset,
+            self._y_trend[subset],
+            COL_DEC,
+            "triangle-down",
+            self.handler_hover_start,
+            self._handler_click_case,
+        )
 
     @property
     def mark_trend(self) -> bq.FlexLine:
@@ -324,20 +322,23 @@ class TrendsChart(OHLCCaseBase):
         )
         return line
 
-    def _get_marks_to_add_on_case_selection(
-        self, case: Movement | MovementAlt, mark: bq.Scatter
-    ) -> list[bq.Scatter]:
+    show_added_marks_all = partialmethod(OHLCCaseBase.show_added_marks_all, 0.65)
+    opacate_added_marks = partialmethod(OHLCCaseBase.opacate_added_marks, opacity=0.65)
+
+    @staticmethod
+    def show_only_one_scatter_point(index: int, scatter: bq.Scatter):
+        """Show only the point of a given `scatter` at a given `index`.
+
+        Notes
+        -----
+        Overrides inherited method to set opacities to 0.65.
+        """
+        arr = np.array([0.65 if i == index else 0 for i in range(len(scatter.x))])
+        scatter.opacities = arr
+
+    def _add_case_rectangle(self, case: MovementBase, mark: bq.Scatter):
+        """Add rect representing chg between conf pxs for specific case."""
         color = mark.colors[0]
-        marks = []
-
-        def f(*args):
-            marks.append(self.create_scatter(*args))
-
-        group = Groups.CASE
-        # remove any existing marks for a selected movement.
-        if group in self.added_marks:
-            self.remove_added_marks(group)
-
         if case.closed:
             if typing.TYPE_CHECKING:
                 assert case.conf_chg_pct is not None
@@ -368,48 +369,42 @@ class TrendsChart(OHLCCaseBase):
                 tooltip=w.HTML(value=s),
                 tooltip_style=TOOLTIP_STYLE,
             )
-            self.add_marks([mark_chg], group, under=True)
+            self.add_marks([mark_chg], Groups.CASE, under=True)
 
-        def handler_start(mark: bq.Scatter, event: dict):
-            mark.tooltip.value = self.cases.get_case_html(case)
-
-        f([case.start], [case.start_px], color, mark.marker, handler_start)
-
-        handler = self._handler_not_start
-        f([case.start_conf], [case.start_conf_px], color, "circle", handler)
-        if case.closed:
-            f([case.end], [case.end_px], color, "cross", handler)
-            f([case.end_conf], [case.end_conf_px], color, "square", handler)
-
-        return marks
-
-    # TODO TIDY THE HANDLERS USING THE METHODS PROVIDED BY THE NEW BASE IMPLEMENTATION
-    def handle_new_case(
-        self, case: CaseSupportsChartAnaly, mark: bq.Scatter, event: dict
-    ):
-        """Handles new case having been selected.
-
-        Removes all existing scatters from figure.
-
-        Adds scatters and lines for the single trend represented by the
-        clicked scatter point.
-        """
+    def _add_case_marks(self, case: CaseSupportsChartAnaly, mark: bq.Scatter):
+        """Add marks to represent specific case."""
         case = typing.cast(Movement, case)
-        marks = self._get_marks_to_add_on_case_selection(case, mark)
+        self._add_case_rectangle(case, mark)
 
         color_break, color_limit = "white", "slategray"
         if not case.by_break:
             color_break, color_limit = color_limit, color_break
 
-        marks.append(
-            self._create_line(case.line_break, color_break, "dashed", "Break line")
-        )
-        marks.append(
-            self._create_line(case.line_limit, color_limit, "dashed", "Limit line")
+        self.add_marks(
+            [
+                self._create_line(case.line_break, color_break, "dashed", "Break line"),
+                self._create_line(case.line_limit, color_limit, "dashed", "Limit line"),
+            ],
+            Groups.CASE,
         )
 
-        self.hide_cases()
-        self.add_marks(marks, Groups.CASE)
+    def focus_case(self, case: CaseSupportsChartAnaly, mark: bq.Scatter):
+        """Focus on a given case.
+
+        Adds scatters and lines to represent specific case.
+        """
+        case = typing.cast(Movement, case)
+        self.remove_case_marks()
+        self.reset_marks()
+        idx = self.cases.get_index_for_direction(case)
+        exclude_scatters = (
+            self._SCATTER_INDEXES_DEC if case.is_adv else self._SCATTER_INDEXES_ADV
+        )
+        self.show_only_one_cases_scatter_point(idx, exclude_scatters=exclude_scatters)
+        for i, mark in enumerate(self.added_marks[Groups.CASES_SCATTERS]):
+            if i in exclude_scatters:
+                mark.visible = False
+        self._add_case_marks(case, mark)
 
 
 class TrendsAltChart(TrendsChart):
@@ -419,18 +414,12 @@ class TrendsAltChart(TrendsChart):
     trends evaluted by the `trends.analy.TrendsAlt` class.
     """
 
-    def handle_new_case(
-        self, case: CaseSupportsChartAnaly, mark: bq.Scatter, event: dict
-    ):
-        """Handles new case having been selected.
-
-        Removes all existing scatters from figure.
-
-        Adds scatters and lines for the single trend represented by the
-        clicked scatter point.
-        """
+    def _add_case_marks(self, case: CaseSupportsChartAnaly, mark: bq.Scatter):
+        """Add marks to represent specific case."""
         case = typing.cast(MovementAlt, case)
-        marks = self._get_marks_to_add_on_case_selection(case, mark)
+        self._add_case_rectangle(case, mark)
+
+        marks = []
         color = mark.colors[0]
 
         def fl(data: pd.Series, color_: str, line_style: str, desc: str) -> bq.Lines:
@@ -494,5 +483,4 @@ class TrendsAltChart(TrendsChart):
         if case.eel is not None:
             fl(case.eel, color, "dotted", "End Establishment Line")
 
-        self.hide_cases()
         self.add_marks(marks, Groups.CASE)

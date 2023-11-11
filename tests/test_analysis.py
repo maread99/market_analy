@@ -1139,13 +1139,13 @@ class TestAnalysis:
             assert y == move.start_px
 
         scat = get_scat("cross", cols_dec)
-        assert (scat.x == movements.ends_dec_solo).all()
-        for y, end in zip(scat.y, movements.ends_dec_solo):
+        assert (scat.x == movements.ends_dec).all()
+        for y, end in zip(scat.y, movements.ends_dec):
             move = (m for m in movements.declines if m.end == end).__next__()
             assert y == move.end_px
         scat = get_scat("cross", cols_adv)
-        assert (scat.x == movements.ends_adv_solo).all()
-        for y, end in zip(scat.y, movements.ends_adv_solo):
+        assert (scat.x == movements.ends_adv).all()
+        for y, end in zip(scat.y, movements.ends_adv):
             move = (m for m in movements.advances if m.end == end).__next__()
             assert y == move.end_px
 
@@ -1183,8 +1183,6 @@ class TestAnalysis:
         assert gui.chart.current_case is None
         gui.current_case is None
 
-        GROUP_CASE = charts.Groups.CASE
-
         def verify_controls_reflect_single_trend():
             assert not controls.is_dark_single_case
             assert not controls.but_show_all.is_light
@@ -1196,37 +1194,41 @@ class TestAnalysis:
                 f"Start: {move.start.strftime('%Y-%m-%d')}"
                 in gui._html_output._html.value
             )
-            assert not any([s.visible for s in scats])
+            assert sum([s.visible for s in scats]) == 4
             assert gui.chart.current_case == move == gui.current_case
 
             # verify trend marks
-            trend_marks = gui.chart.added_marks[GROUP_CASE]
-            trend_scat_marks = [m for m in trend_marks if isinstance(m, bq.Scatter)]
-            assert len(trend_scat_marks) == 4
+            trend_scat_marks = gui.chart.added_marks[charts.Groups.CASES_SCATTERS]
+            assert len(trend_scat_marks) == 8
 
             def get_trend_scat(marker: str):
-                return (m for m in trend_scat_marks if m.marker == marker).__next__()
+                return (
+                    m for m in trend_scat_marks if m.marker == marker and m.visible
+                ).__next__()
 
             marker = "triangle-up" if move.is_adv else "triangle-down"
             scat = get_trend_scat(marker)
-            assert (scat.x == [move.start]).all()
-            assert (scat.y == [move.start_px]).all()
+            i = (i_ for i_, opa in enumerate(scat.opacities) if opa == 0.65).__next__()
+            assert scat.x[i] == move.start
+            assert scat.y[i] == move.start_px
 
             scat = get_trend_scat("cross")
-            assert (scat.x == [move.end]).all()
-            assert (scat.y == [move.end_px]).all()
+            assert scat.x[i] == move.end
+            assert scat.y[i] == move.end_px
 
             scat = get_trend_scat("circle")
-            assert (scat.x == [move.start_conf]).all()
-            assert (scat.y == [move.start_conf_px]).all()
+            assert scat.x[i] == move.start_conf
+            assert scat.y[i] == move.start_conf_px
 
             scat = get_trend_scat("square")
-            assert (scat.x == [move.end_conf]).all()
-            assert (scat.y == [move.end_conf_px]).all()
+            assert scat.x[i] == move.end_conf
+            assert scat.y[i] == move.end_conf_px
 
             # verify conf change rectangle
-            rec = (m for m in trend_marks if m.fill == "between").__next__()
-            assert isinstance(rec, bq.Lines)
+            marks = gui.chart.added_marks[charts.Groups.CASE]
+            rec = (
+                m for m in marks if isinstance(m, bq.Lines) and m.fill == "between"
+            ).__next__()
             if (move.is_adv and move.start_conf_px < move.end_conf_px) or (
                 not move.is_adv and move.start_conf_px > move.end_conf_px
             ):
@@ -1245,13 +1247,17 @@ class TestAnalysis:
             break_clr = ["white"] if move.by_break else ["slategray"]
             limit_clr = ["white"] if not move.by_break else ["slategray"]
 
-            line = (m for m in trend_marks if m.colors == break_clr).__next__()
+            line = (
+                m for m in marks if isinstance(m, bq.Lines) and m.colors == break_clr
+            ).__next__()
             assert isinstance(line, bq.Lines)
             assert line.line_style == "dashed"
             assert (line.x == move.line_break.index).all()
             assert (line.y == move.line_break).all()
 
-            line = (m for m in trend_marks if m.colors == limit_clr).__next__()
+            line = (
+                m for m in marks if isinstance(m, bq.Lines) and m.colors == limit_clr
+            ).__next__()
             assert isinstance(line, bq.Lines)
             assert line.line_style == "dashed"
             assert (line.x == move.line_limit.index).all()
@@ -1387,7 +1393,7 @@ class TestAnalysis:
         controls.but_show_all.fire_event("click", None)
         assert controls.is_dark_single_case
         assert controls.but_show_all.is_light
-        assert GROUP_CASE not in gui.chart.added_marks
+        assert charts.Groups.CASE not in gui.chart.added_marks
         assert all([s.visible for s in scats])
         assert gui.chart.current_case is None
         assert gui.current_case is None

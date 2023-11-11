@@ -352,6 +352,16 @@ class MovementsSupportChartAnaly(CasesSupportsChartAnaly, typing.Protocol):
         ...
 
     @property
+    def ends_adv(self) -> pd.DatetimeIndex:
+        """End bar of advances."""
+        ...
+
+    @property
+    def ends_dec(self) -> pd.DatetimeIndex:
+        """End bar of declines."""
+        ...
+
+    @property
     def ends_adv_solo(self) -> pd.DatetimeIndex:
         """End bars of advances that do not coincide with Starts.
 
