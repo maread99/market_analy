@@ -1834,7 +1834,7 @@ class GuiOHLCCaseBase(GuiOHLC):
             return
 
         if self.current_case is not None:
-            self.chart.reset_marks()
+            self.chart.deselect_current_case()
             self.cases_controls_container.darken_single_case()
         else:
             self.chart.show_cases()

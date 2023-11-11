@@ -757,14 +757,16 @@ class Base(metaclass=ABCMeta):
         for group in self.added_marks:
             self.remove_added_marks(group)
 
-    def opacate_added_marks(self, groups: AddedMarkKeys | Sequence[AddedMarkKeys]):
+    def opacate_added_marks(
+        self, groups: AddedMarkKeys | Sequence[AddedMarkKeys], opacity: float = 1.0
+    ):
         """Make added marks fully opaque by group."""
         if not isinstance(groups, Sequence):
             groups = [groups]
         for group in groups:
             marks = self.added_marks[group]
             for m in marks:
-                m.opacities = [1.0]
+                m.opacities = [opacity]
 
     def _set_added_marks_visibility(
         self, visible: bool, groups: AddedMarkKeys | Sequence[AddedMarkKeys]
@@ -790,11 +792,11 @@ class Base(metaclass=ABCMeta):
             for m in marks:
                 m.visible = False
 
-    def show_added_marks_all(self):
+    def show_added_marks_all(self, opacity: float = 1.0):
         for marks in self.added_marks.values():
             for m in marks:
                 m.visible = True
-                m.opacities = [1.0]
+                m.opacities = [opacity]
 
     def close(self):
         """Close all chart widgets."""
@@ -2269,6 +2271,9 @@ class OHLCCaseBase(OHLC, ChartSupportsCasesGui):
         reset_marks
             Reset added marks to show all cases.
 
+        deselect current case
+            Current case to None, show all cases.
+
         select_case
             Select a specific case.
 
@@ -2495,7 +2500,7 @@ class OHLCCaseBase(OHLC, ChartSupportsCasesGui):
         for group in groups:
             self.show_only_one_other_mark(index, group)
 
-    def _add_case_marks(self, case: CaseSupportsChartAnaly):
+    def _add_case_marks(self, case: CaseSupportsChartAnaly, mark: bq.Scatter):
         """Add marks for a specific case.
 
         Subclass can implement to add marks under the default
@@ -2503,7 +2508,7 @@ class OHLCCaseBase(OHLC, ChartSupportsCasesGui):
         """
         pass
 
-    def focus_case(self, case: CaseSupportsChartAnaly):
+    def focus_case(self, case: CaseSupportsChartAnaly, mark: bq.Scatter):
         """Focus on a give `case`.
 
         Subclass can override this default implementation.
@@ -2512,7 +2517,7 @@ class OHLCCaseBase(OHLC, ChartSupportsCasesGui):
         idx = self.cases.get_index(case)
         self.show_only_one_cases_scatter_point(idx)
         self.show_only_one_cases_other_mark(idx)
-        self._add_case_marks(case)
+        self._add_case_marks(case, mark)
 
     def handle_new_case(
         self, case: CaseSupportsChartAnaly, mark: bq.Scatter, event: dict
@@ -2521,7 +2526,7 @@ class OHLCCaseBase(OHLC, ChartSupportsCasesGui):
 
         Subclass can extend or override as required.
         """
-        self.focus_case(case)
+        self.focus_case(case, mark)
 
     def _handler_click_case(self, mark: bq.Scatter, event: dict):
         """Handler for clicking a scatter representing a case."""
@@ -2562,13 +2567,17 @@ class OHLCCaseBase(OHLC, ChartSupportsCasesGui):
         pass
 
     def reset_marks(self):
+        """Reset added marks to show all cases."""
+        self.remove_case_marks()
+        self.show_added_marks_all()
+
+    def deselect_current_case(self):
         """Reset added marks to show all cases.
 
         Removes any marks for current case. Makes all other added marks
         visible.
         """
-        self.remove_case_marks()
-        self.show_added_marks_all()
+        self.reset_marks()
         self._current_case = None
 
     def _simulate_click_case(self, index: int, scatter_index: int = 0):

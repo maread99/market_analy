@@ -114,6 +114,9 @@ class ChartSupportsCasesGui(typing.Protocol):
     def reset_marks(self):
         ...
 
+    def deselect_current_case(self):
+        ...
+
     def select_next_case(self):
         ...
 
