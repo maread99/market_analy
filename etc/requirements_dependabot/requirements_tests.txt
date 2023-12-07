@@ -202,7 +202,7 @@ wcwidth==0.2.8
     # via prompt-toolkit
 widgetsnbextension==4.0.9
     # via ipywidgets
-yahooquery==2.3.2
+yahooquery==2.3.5
     # via market-prices
 zipp==3.17.0
     # via importlib-resources
