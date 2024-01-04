@@ -4,102 +4,100 @@
 #
 #    pip-compile --output-file=etc/requirements.txt pyproject.toml
 #
-asttokens==2.4.0
+asttokens==2.4.1
     # via stack-data
-backcall==0.2.0
-    # via ipython
+beautifulsoup4==4.12.2
+    # via yahooquery
 bqplot==0.12.42
-    # via market-analy (pyproject.toml)
-certifi==2023.7.22
+    # via market_analy (pyproject.toml)
+certifi==2023.11.17
     # via requests
-charset-normalizer==3.3.1
+charset-normalizer==3.3.2
     # via requests
 colorama==0.4.6
     # via
     #   ipython
     #   tqdm
-comm==0.1.4
+comm==0.2.1
     # via ipywidgets
-contourpy==1.1.1
+contourpy==1.2.0
     # via matplotlib
 cycler==0.12.1
     # via matplotlib
 decorator==5.1.1
     # via ipython
-exceptiongroup==1.1.3
+exceptiongroup==1.2.0
     # via ipython
-exchange-calendars==4.5
+exchange-calendars==4.5.1
     # via
-    #   market-analy (pyproject.toml)
     #   market-prices
-executing==2.0.0
+    #   market_analy (pyproject.toml)
+executing==2.0.1
     # via stack-data
-fonttools==4.43.1
+fonttools==4.47.0
     # via matplotlib
-idna==3.4
+idna==3.6
     # via requests
-importlib-resources==6.1.0
+importlib-resources==6.1.1
     # via matplotlib
-ipython==8.16.1
+ipython==8.18.1
     # via ipywidgets
 ipyvue==1.10.1
     # via ipyvuetify
 ipyvuetify==1.8.10
-    # via market-analy (pyproject.toml)
+    # via market_analy (pyproject.toml)
 ipywidgets==8.1.1
     # via
     #   bqplot
     #   ipyvue
-    #   market-analy (pyproject.toml)
+    #   market_analy (pyproject.toml)
 jedi==0.19.1
     # via ipython
 jinja2==3.1.2
-    # via market-analy (pyproject.toml)
+    # via market_analy (pyproject.toml)
 jupyterlab-widgets==3.0.9
     # via ipywidgets
 kiwisolver==1.4.5
     # via matplotlib
 korean-lunar-calendar==0.3.1
     # via exchange-calendars
-lxml==4.9.3
+lxml==4.9.4
     # via yahooquery
-market-prices==0.11.1
-    # via market-analy (pyproject.toml)
+market-prices==0.11.2
+    # via market_analy (pyproject.toml)
 markupsafe==2.1.3
     # via jinja2
-matplotlib==3.8.0
-    # via market-analy (pyproject.toml)
+matplotlib==3.8.2
+    # via market_analy (pyproject.toml)
 matplotlib-inline==0.1.6
     # via ipython
-numpy==1.26.1
+numpy==1.26.3
     # via
     #   bqplot
     #   contourpy
     #   exchange-calendars
-    #   market-analy (pyproject.toml)
     #   market-prices
+    #   market_analy (pyproject.toml)
     #   matplotlib
     #   pandas
 packaging==23.2
     # via matplotlib
-pandas==2.1.1
+pandas==2.1.4
     # via
     #   bqplot
     #   exchange-calendars
-    #   market-analy (pyproject.toml)
     #   market-prices
+    #   market_analy (pyproject.toml)
     #   yahooquery
 parso==0.8.3
     # via jedi
-pickleshare==0.7.5
-    # via ipython
-pillow==10.1.0
+pillow==10.2.0
     # via matplotlib
-prompt-toolkit==3.0.39
+prompt-toolkit==3.0.43
     # via ipython
 pure-eval==0.2.2
     # via stack-data
-pygments==2.16.1
+pygments==2.17.2
     # via ipython
 pyluach==2.2.0
     # via exchange-calendars
@@ -113,47 +111,51 @@ python-dateutil==2.8.2
 pytz==2023.3.post1
     # via pandas
 requests==2.31.0
-    # via requests-futures
+    # via
+    #   requests-futures
+    #   yahooquery
 requests-futures==1.0.1
     # via yahooquery
 six==1.16.0
     # via
     #   asttokens
     #   python-dateutil
+soupsieve==2.5
+    # via beautifulsoup4
 stack-data==0.6.3
     # via ipython
 toolz==0.12.0
     # via exchange-calendars
 tqdm==4.66.1
     # via yahooquery
-traitlets==5.12.0
+traitlets==5.14.1
     # via
     #   bqplot
     #   comm
     #   ipython
     #   ipywidgets
-    #   market-analy (pyproject.toml)
+    #   market_analy (pyproject.toml)
     #   matplotlib-inline
     #   traittypes
 traittypes==0.2.1
     # via bqplot
-typing-extensions==4.8.0
+typing-extensions==4.9.0
     # via ipython
-tzdata==2023.3
+tzdata==2023.4
     # via
     #   exchange-calendars
-    #   market-analy (pyproject.toml)
     #   market-prices
+    #   market_analy (pyproject.toml)
     #   pandas
-urllib3==2.0.7
+urllib3==2.1.0
     # via requests
-valimp==0.1
+valimp==0.2
     # via market-prices
-wcwidth==0.2.8
+wcwidth==0.2.12
     # via prompt-toolkit
 widgetsnbextension==4.0.9
     # via ipywidgets
-yahooquery==2.3.2
+yahooquery==2.3.7
     # via market-prices
 zipp==3.17.0
     # via importlib-resources
