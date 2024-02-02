@@ -81,7 +81,7 @@ lxml==4.9.4
     # via yahooquery
 market-prices==0.12.1
     # via market_analy (pyproject.toml)
-markupsafe==2.1.4
+markupsafe==2.1.5
     # via jinja2
 matplotlib==3.8.2
     # via market_analy (pyproject.toml)
