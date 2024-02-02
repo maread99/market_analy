@@ -100,7 +100,11 @@ from market_analy.utils.mkt_prices_utils import (
     range_string,
     request_daily_prices,
 )
-from market_analy.utils.pandas_utils import rebase_to_row
+from market_analy.utils.pandas_utils import (
+    rebase_to_row,
+    interval_index_new_tz,
+    index_dates_to_str,
+)
 
 if TYPE_CHECKING:
     from .trends.movements import MovementsSupportChartAnaly
@@ -649,6 +653,10 @@ class Base(metaclass=ABCMeta):
             )
 
         elif style:
+            if isinstance(chgs.index, pd.DatetimeIndex):
+                chgs.index = index_dates_to_str(chgs.index)
+            else:
+                chgs.index = interval_index_new_tz(chgs.index, None)
             symbol_cols = chgs.columns
             styler = style_df(chgs.reset_index(), chg_cols=symbol_cols, caption=caption)
             styler.format({c: formatter_percent for c in symbol_cols})
@@ -678,7 +686,7 @@ class Base(metaclass=ABCMeta):
             session = cal.minute_to_session(minute, "previous")
         df = self.prices.session_prices(session)
         date = df.index[0]
-        df = df.stack(0).droplevel(0)  # one row for each symbol
+        df = df.pt.stacked.droplevel(0)  # one row for each symbol
         chg_df = self.chg(end=date, days=1, style=False)
         chg_df.pop("close")  # so as not to replicate column
         df = pd.concat([df, chg_df], axis=1)
@@ -1129,7 +1137,7 @@ class Compare(Base):
         dur_cols = [c for c in DURATION_COLUMNS if c in df]
         for col in dur_cols:
             if col in df:
-                df[col].fillna(0, inplace=True)
+                df.fillna({col: 0}, inplace=True)
             if col == "days":
                 df[col] = df[col].astype("int64")
 

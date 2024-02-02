@@ -176,7 +176,7 @@ def test_max_advance_and_max_decline():
     assert rtrn.loc[("max_adv", "days")] == 3
 
     # ...with minute index
-    index = pd.date_range("2023-01-01 12:43", freq="T", periods=len(opens))
+    index = pd.date_range("2023-01-01 12:43", freq="min", periods=len(opens))
     df = pd.DataFrame(dict(open=opens, high=highs, low=lows, close=closes), index=index)
     rtrn = analysis.max_advance(df, label="max_adv")
     assert len(rtrn) == 1
@@ -206,7 +206,7 @@ def test_max_advance_and_max_decline():
     assert rtrn.loc[("max_dec", "days")] == 4
 
     # ...with minute index
-    index = pd.date_range("2023-01-01 12:43", freq="T", periods=len(opens))
+    index = pd.date_range("2023-01-01 12:43", freq="min", periods=len(opens))
     df = pd.DataFrame(dict(open=opens, high=highs, low=lows, close=closes), index=index)
     rtrn = analysis.max_decline(df, label="max_dec")
     assert len(rtrn) == 1
@@ -888,7 +888,7 @@ class TestAnalysis:
         assert gui.chart.plottable_interval == expected_plottable
         expected = (
             intraday_pp["start"].tz_convert(None),
-            intraday_pp["end"].tz_convert(None) - pd.Timedelta(15, "T"),
+            intraday_pp["end"].tz_convert(None) - pd.Timedelta(15, "min"),
         )
         assert gui.date_slider.slider.value == expected
 
@@ -1053,7 +1053,7 @@ class TestAnalysis:
         assert gui._dialog.value
         assert (
             gui._dialog.text
-            == "Prices for interval '30T' are only available from '2022-12-05' although the earliest date that can be plotted on the chart implies that require data from '2021-12-30'."
+            == "Prices for interval '30min' are only available from '2022-12-05' although the earliest date that can be plotted on the chart implies that require data from '2021-12-30'."
         )
         gui._dialog.close_dialog()
         assert not gui._dialog.value
@@ -1066,7 +1066,7 @@ class TestAnalysis:
         assert gui._dialog.value
         assert (
             gui._dialog.text
-            == "Prices for interval '1T' are only available from '2023-01-03' although the earliest date that can be plotted on the chart implies that require data from '2021-12-30'."
+            == "Prices for interval '1min' are only available from '2023-01-03' although the earliest date that can be plotted on the chart implies that require data from '2021-12-30'."
         )
         gui._dialog.close_dialog()
         assert not gui._dialog.value
@@ -2515,7 +2515,7 @@ class TestCompare:
         assert gui._dialog.value
         assert (
             gui._dialog.text
-            == "Prices for interval '15T' are not available over the current plottable dates as no price is available over this peroid for the following symbols: ['9988.HK']."
+            == "Prices for interval '15min' are not available over the current plottable dates as no price is available over this peroid for the following symbols: ['9988.HK']."
         )
         gui._dialog.close_dialog()
         assert not gui._dialog.value

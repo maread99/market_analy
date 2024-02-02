@@ -32,8 +32,7 @@ class TrendsProto(typing.Protocol):
         interval: mp.intervals.RowInterval,
         *args: typing.Any,
         **kwargs: typing.Any,
-    ):
-        ...
+    ): ...
 
     def get_movements(self) -> MovementsSupportChartAnaly:
         """Evaluate all movements over `data`."""

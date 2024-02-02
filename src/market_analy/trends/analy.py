@@ -89,8 +89,8 @@ class Trends:
     interval : pd.Timedelta | str
         Interval that each row of `data` represents. Examples:
 
-            pd.Timedelta(15, "T") (or "15T"): each row of data represents
-            15 minutes
+            pd.Timedelta(15, "min") (or "15min"): each row of data
+            represents 15 minutes
 
             pd.Timedelta(1, "D") (or "1D"): for daily data.
 
@@ -107,7 +107,7 @@ class Trends:
         Example, if each row of `data` (i.e. each bar) represents one
         session (i.e. if `interval` is "1D") then passing `prd` as 10 will
         set the period as 10 sessions, whilst if each bar represents an
-        interval of 30 minutes (i.e. `interval` is "30T") then passing 10
+        interval of 30 minutes (i.e. `interval` is "30min") then passing 10
         will set the period as 5 trading hours.
 
     ext_break
@@ -696,8 +696,8 @@ class TrendsAlt:
     interval : pd.Timedelta | str
         Interval that each row of `data` represents. Examples:
 
-            pd.Timedelta(15, "T") (or "15T"): each row of data represents
-            15 minutes
+            pd.Timedelta(15, "min") (or "15min"): each row of data
+            represents 15 minutes
 
             pd.Timedelta(1, "D") (or "1D"): for daily data.
 
@@ -708,7 +708,7 @@ class TrendsAlt:
         bars on a OHLC chart). For example, if each row of `data`
         represents one session (i.e. if `interval` is "1D") then passing 10
         will set the period as 10 sessions, whilst if each row represents
-        an interval of 30 minutes (i.e. `interval` is "30T") then passing
+        an interval of 30 minutes (i.e. `interval` is "30min") then passing
         10 will set the period as 5 hours.
 
     ext : float

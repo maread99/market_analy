@@ -140,8 +140,21 @@ def interval_of_intervals(
 
     Examples
     --------
-    >>> left = pd.date_range('2021-05-01 12:00', periods=5, freq='1H')
-    >>> right = left + pd.Timedelta(30, 'T')
+    >>> # ignore first part, for testing purposes only...
+    >>> import pytest, pandas
+    >>> v = pandas.__version__
+    >>> if (
+    ...     (v.count(".") == 1 and float(v) < 2.2)
+    ...     or (
+    ...         v.count(".") > 1
+    ...         and float(v[:v.index(".", v.index(".") + 1)]) < 2.2
+    ...     )
+    ... ):
+    ...     pytest.skip("printed return only valid from pandas 2.2")
+    >>> #
+    >>> # example from here...
+    >>> left = pd.date_range('2021-05-01 12:00', periods=5, freq='h')
+    >>> right = left + pd.Timedelta(30, 'min')
     >>> index = pd.IntervalIndex.from_arrays(left, right)
     >>> index.to_series(index=range(5))
     0    (2021-05-01 12:00:00, 2021-05-01 12:30:00]
@@ -151,8 +164,9 @@ def interval_of_intervals(
     4    (2021-05-01 16:00:00, 2021-05-01 16:30:00]
     dtype: interval
     >>> interval_of_intervals(index)
-    Interval('2021-05-01 12:00:00', '2021-05-01 16:30:00', closed='right')
+    Interval(2021-05-01 12:00:00, 2021-05-01 16:30:00, closed='right')
     """
+    # NOTE Can lose doctest skip when pandas min support is >= 2.2
     if not intervals.is_monotonic_increasing:
         raise ValueError(f"`intervals` must be monotonic. Received as '{intervals}'.")
     return pd.Interval(intervals[0].left, intervals[-1].right, closed=closed)
@@ -239,9 +253,9 @@ def interval_index_new_tz(
     --------
     >>> tz = ZoneInfo("US/Central")
     >>> left = pd.date_range(
-    ...     '2021-05-01 12:00', periods=5, freq='1H', tz=tz
+    ...     '2021-05-01 12:00', periods=5, freq='h', tz=tz
     ... )
-    >>> right = left + pd.Timedelta(30, 'T')
+    >>> right = left + pd.Timedelta(30, 'min')
     >>> index = pd.IntervalIndex.from_arrays(left, right)
     >>> index.right.tz
     zoneinfo.ZoneInfo(key='US/Central')
@@ -260,3 +274,19 @@ def interval_index_new_tz(
         except TypeError:
             indices.append(indx.tz_convert(tz))
     return pd.IntervalIndex.from_arrays(indices[0], indices[1], closed=index.closed)
+
+
+def index_dates_to_str(index: pd.DatetimeIndex) -> pd.Index:
+    """Convert index representing dates to an index of dtype 'string'.
+
+    Formats dates as %Y-%m-%d.
+
+    Examples
+    --------
+    >>> import pandas as pd
+    >>> index = pd.date_range("2020-01-09", "2020-01-10", freq="D")
+    >>> str_index = index_dates_to_str(index)
+    >>> str_index
+    Index(['2020-01-09', '2020-01-10'], dtype='string')
+    """
+    return index.strftime("%Y-%m-%d").astype("string")

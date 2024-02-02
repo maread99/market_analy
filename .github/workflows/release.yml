@@ -32,14 +32,15 @@ jobs:
       with:
         user: __token__
         password: ${{ secrets.PYPI_TEST_API_TOKEN }}
-        repository_url: https://test.pypi.org/legacy/
+        repository-url: https://test.pypi.org/legacy/
 
     - name: Install from testpypi and import
       shell: bash
       run: |
+        sleep 5
         i=0
         while [ $i -lt 12 ] && [ "${{ github.ref_name }}" != $(pip index versions -i https://test.pypi.org/simple --pre market-analy | cut -d'(' -f2 | cut -d')' -f1 | sed 1q) ];\
-          do echo "waiting for package to appear in test index, i is $i"; echo "sleeping 5s"; sleep 5s; echo "woken up"; ((i++)); echo "next i is $i"; done
+          do echo "waiting for package to appear in test index, i is $i"; echo "sleeping 5s"; sleep 5s; echo "woken up"; let i++; echo "next i is $i"; done
         pip install --index-url https://test.pypi.org/simple market-analy==${{ github.ref_name }} --no-deps
         pip install -r etc/requirements.txt
         python -c 'import market_analy;print(market_analy.__version__)'
@@ -58,8 +59,9 @@ jobs:
     - name: Install and import
       shell: bash
       run: |
+        sleep 5
         i=0
         while [ $i - lt 12 ] && [ "${{ github.ref_name }}" != $(pip index versions -i https://pypi.org/simple --pre market-analy | cut -d'(' -f2 | cut -d')' -f1 | sed 1q) ];\
-          do echo "waiting for package to appear in index, i is $i"; echo "sleeping 5s"; sleep 5s; echo "woken up"; ((i++)); echo "next i is $i"; done
+          do echo "waiting for package to appear in index, i is $i"; echo "sleeping 5s"; sleep 5s; echo "woken up"; let i++; echo "next i is $i"; done
         pip install --index-url https://pypi.org/simple market-analy==${{ github.ref_name }}
         python -c 'import market_analy;print(market_analy.__version__)'
