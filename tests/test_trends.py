@@ -38,7 +38,7 @@ def data_dji_15T(path_res, xnys) -> abc.Iterator[pd.DataFrame]:
     Data from call to:
         prices = PricesYahoo("^DJI")
         data = prices.get(
-            interval="15T",
+            interval="15min",
             start="2023-05-01",
             end="2023-05-30",
             lose_single_symbol=True
@@ -134,7 +134,7 @@ def test_dji_15T_prd15_minbars10(path_res, data_dji_15T):
     """
     moves = analy_trends.Trends(
         data=data_dji_15T,
-        interval="15T",
+        interval="15min",
         prd=15,
         ext_break=0.002,
         ext_limit=0.001,

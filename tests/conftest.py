@@ -38,7 +38,7 @@ def _pickle_new_prices(symbols: str, path: pathlib.Path):
     """
     prices = mp.PricesYahoo(symbols)
     # time adjusted to ensure prices instance doesn't request prices
-    now = pd.Timestamp.now().floor("T")
+    now = pd.Timestamp.now().floor("min")
     margin = pd.Timedelta(hours=1, minutes=1)
     now_required = now - margin
 

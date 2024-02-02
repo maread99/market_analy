@@ -5,6 +5,8 @@ ignore =
     E203,
     # W503 (not PEP 8 compliant) ignored to not conflict with black
     W503,
+    # 'E704 multiple statements on one line' ignored to not conflict with black when function content defined as ...
+    E704,
     # D105 Missing docstring in magic method. I have no issue with this.
     # D Let pylint pick up all the doc errors
     D
