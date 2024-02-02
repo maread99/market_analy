@@ -77,7 +77,7 @@ kiwisolver==1.4.5
     # via matplotlib
 korean-lunar-calendar==0.3.1
     # via exchange-calendars
-lxml==4.9.4
+lxml==5.1.0
     # via yahooquery
 market-prices==0.12.1
     # via market_analy (pyproject.toml)
