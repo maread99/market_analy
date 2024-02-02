@@ -51,7 +51,7 @@ classifiers = [
 dependencies = [
     "market-prices",
     "exchange-calendars",
-    "numpy",
+    "numpy<2",
     "pandas",
     "Jinja2",
     "matplotlib",
