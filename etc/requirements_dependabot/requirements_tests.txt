@@ -91,7 +91,7 @@ mccabe==0.7.0
     # via flake8
 mypy-extensions==1.0.0
     # via black
-numpy==1.26.3
+numpy==1.26.4
     # via
     #   bqplot
     #   contourpy
