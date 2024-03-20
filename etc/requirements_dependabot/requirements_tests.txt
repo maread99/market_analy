@@ -8,7 +8,7 @@ asttokens==2.4.1
     # via stack-data
 beautifulsoup4==4.12.3
     # via yahooquery
-black==24.1.1
+black==24.3.0
     # via market_analy (pyproject.toml)
 bqplot==0.12.42
     # via market_analy (pyproject.toml)
