@@ -50,7 +50,7 @@ flake8-docstrings==1.7.0
     # via market_analy (pyproject.toml)
 fonttools==4.47.2
     # via matplotlib
-idna==3.6
+idna==3.7
     # via requests
 importlib-resources==6.1.1
     # via matplotlib
