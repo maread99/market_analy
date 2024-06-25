@@ -408,7 +408,7 @@ class HtmlOutput(w.HBox):
 
             def repl(mo: re.Match) -> str:
                 match = mo.group()
-                return f'>{"&nbsp"*add_padding}{match[1:]}'
+                return f'>{"&nbsp" * add_padding}{match[1:]}'
 
             regex = re.compile(r"\>.+(?=.*\</t[hd]\>)")
             html = re.sub(regex, repl, html)
