@@ -86,7 +86,7 @@ def test_add_summary():
     # check axis "both"
     expected = df.copy()
     expected.loc["SUMMARY"] = [6, 60]
-    expected["SUMMARY"] = [0, 11, 22, 33, np.NaN]
+    expected["SUMMARY"] = [0, 11, 22, 33, np.nan]
     assert_frame_equal(f(df, aggmethod="sum", axis="both"), expected)
 
     # check invalid axis
@@ -102,14 +102,14 @@ def test_add_summary_row():
     df = pd.DataFrame(dict(a=a, b=b))
     rtrn = f(df, [("mean", "a")])
     expected = df.copy()
-    expected.loc["SUMMARY"] = [1.5, np.NaN]
+    expected.loc["SUMMARY"] = [1.5, np.nan]
     assert_frame_equal(rtrn, expected)
 
     # verify can pass in a list of a single column
     rtrn = f(df, [("sum", "b")], label="foO")
     expected = df.copy()
     expected.loc["foO"] = [0, 60]
-    expected.loc[("foO", "a")] = np.NaN
+    expected.loc[("foO", "a")] = np.nan
     assert_frame_equal(rtrn, expected)
 
     rtrn = f(df, [("mean", "a"), ("sum", "b")], label="spam")
