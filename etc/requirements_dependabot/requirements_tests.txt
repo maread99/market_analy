@@ -56,7 +56,7 @@ importlib-resources==6.4.0
     # via matplotlib
 iniconfig==2.0.0
     # via pytest
-ipython==8.18.1
+ipython==8.26.0
     # via ipywidgets
 ipyvue==1.11.1
     # via ipyvuetify
