@@ -11,19 +11,19 @@ DateSliderMixin():
 BasePrice(Base):
     Base implementation for GUIs incorporating a price chart.
 
-ChartLine(Base):
+GuiLine(Base):
     Line price chart GUI for single financial instrument.
 
-ChartMultLine(Base):
+GuiMultLine(Base):
     Line price chart GUI for comparing multiple financial instruments.
 
-ChartOHLC(Base):
+GuiOHLC(Base):
     OHLC chart GUI for single financial instrument.
 
-PctChg(Base, DateSliderMixin):
+GuiPctChg(Base, DateSliderMixin):
     Bar chart GUI of precentage changes of single instrument.
 
-PctChgMult(PctChg):
+GuiPctChgMult(PctChg):
     Bar chart GUI of precentage changes of multiple instruments.
 
 Notes

@@ -457,7 +457,7 @@ class Base(metaclass=ABCMeta):
         ----------
         **kwargs
             Parameters to define period / price data to be analysed. See
-            method doc with `help(analysis.__doc__)`. Cannot include
+            module doc with `help(analysis.__doc__)`. Cannot include
             'close_only' or 'interval'.
         """
         return self._daily_prices(close_only=False, **kwargs)
@@ -471,7 +471,7 @@ class Base(metaclass=ABCMeta):
         ----------
         **kwargs
             Parameters to define period / price data to be analysed. See
-            method doc with `help(analysis.__doc__)`. Cannot include
+            module doc with `help(analysis.__doc__)`. Cannot include
             'close_only' or 'interval'.
         """
         return self._daily_prices(close_only=True, **kwargs)
@@ -483,7 +483,7 @@ class Base(metaclass=ABCMeta):
         ----------
         **kwargs
             Parameters to define period / price data to be analysed. See
-            method doc with `help(analysis.__doc__)`. Cannot include
+            module doc with `help(analysis.__doc__)`. Cannot include
             'interval', 'add_a_row', 'close_only' or 'lose_single_symbol'
         """
         interval = "1D" if request_daily_prices(**kwargs) else None
@@ -510,7 +510,7 @@ class Base(metaclass=ABCMeta):
         ----------
         **kwargs
             Parameters to define period / price data to be analysed. See
-            method doc with `help(analysis.__doc__)`. Cannot include
+            module doc with `help(analysis.__doc__)`. Cannot include
             'interval', 'add_a_row', 'close_only' or 'lose_single_symbol'.
         """
         interval = "1D" if request_daily_prices(**kwargs) else None
@@ -543,7 +543,7 @@ class Base(metaclass=ABCMeta):
         periods
             List of dictionaries with each dictionary defining a period
             over which require pct change. Period defined with period
-            parameters. See method doc with `help(analysis.__doc__)`.
+            parameters. See module doc with `help(analysis.__doc__)`.
             Cannot include 'interval', 'add_a_row', 'close_only' or
             'lose_single_symbol'.
         """
@@ -569,7 +569,7 @@ class Base(metaclass=ABCMeta):
         ----------
         **kwargs
             Parameters to define period / price data to be analysed. See
-            method doc with `help(analysis.__doc__)`. Cannot include
+            module doc with `help(analysis.__doc__)`. Cannot include
             'interval', 'add_a_row', 'close_only' or 'lose_single_symbol'.
         """
         interval = "1D" if request_daily_prices(**kwargs) else None
@@ -622,7 +622,7 @@ class Base(metaclass=ABCMeta):
 
         **kwargs
             Parameters to define period / price data to be analysed. See
-            method doc with `help(analysis.__doc__)`. Cannot include
+            module doc with `help(analysis.__doc__)`. Cannot include
             'add_a_row' or 'close_only'.
 
         _display
