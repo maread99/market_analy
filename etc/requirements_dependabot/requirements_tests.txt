@@ -12,7 +12,7 @@ black==24.4.2
     # via market_analy (pyproject.toml)
 bqplot==0.12.43
     # via market_analy (pyproject.toml)
-certifi==2024.6.2
+certifi==2024.8.30
     # via requests
 charset-normalizer==3.3.2
     # via requests
