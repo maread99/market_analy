@@ -1,5 +1,8 @@
 """Tests for the `market_analy.standalone` module."""
 
+import datetime
+
+import numpy as np
 import pandas as pd
 from pandas.testing import assert_frame_equal
 
@@ -83,3 +86,204 @@ def test_net_of():
     )
 
     assert_frame_equal(rtrn, expected_rtrn)
+
+
+def test_get_highs():
+    """Tests functions that get high as at each timestamp.
+
+    Tests following functions:
+        get_ath()
+        get_period_high()
+        get_pct_off_high()
+    """
+    values = [
+        100.0,
+        101.0,
+        101.0,
+        102.0,
+        101.5,
+        101.0,
+        100.0,
+        103.2,
+        102.0,
+        101.0,
+        100.0,
+        98.0,
+        95.0,
+        103.0,
+        100.0,
+        105.0,
+        104.0,
+        103.0,
+        101.0,
+        98.0,
+    ]
+    index = pd.date_range(start="2024-01-01", periods=len(values), freq="1B")
+    df = pd.DataFrame({"high": values, "close": values}, index=index)
+    srs = pd.Series(values, index=index)
+    columns = pd.Index(["high"])
+
+    # test get_ath
+
+    expected_ath = [
+        100.0,
+        101.0,
+        101.0,
+        102.0,
+        102.0,
+        102.0,
+        102.0,
+        103.2,
+        103.2,
+        103.2,
+        103.2,
+        103.2,
+        103.2,
+        103.2,
+        103.2,
+        105.0,
+        105.0,
+        105.0,
+        105.0,
+        105.0,
+    ]
+    df_expected = pd.DataFrame(expected_ath, index=index, columns=columns)
+    pd.testing.assert_frame_equal(m.get_ath(df), df_expected)
+    pd.testing.assert_series_equal(m.get_ath(srs), pd.Series(expected_ath, index=index))
+
+    # test get_period_high
+
+    include_current = True
+
+    expected_4 = [
+        100.0,
+        101.0,
+        101.0,
+        102.0,
+        102.0,
+        102.0,
+        102.0,
+        103.2,
+        103.2,
+        103.2,
+        103.2,
+        102.0,
+        101.0,
+        103.0,
+        103.0,
+        105.0,
+        105.0,
+        105.0,
+        105.0,
+        104.0,
+    ]
+    rtrn = m.get_period_high(df, 4, include_current)
+    df_expected = pd.DataFrame(expected_4, index=index, columns=columns)
+    pd.testing.assert_frame_equal(rtrn, df_expected)
+    rtrn = m.get_period_high(srs, 4, include_current)
+    pd.testing.assert_series_equal(rtrn, pd.Series(expected_4, index=index))
+
+    expected_td4 = [
+        100.0,
+        101.0,
+        101.0,
+        102.0,
+        102.0,
+        101.5,
+        101.0,
+        103.2,
+        103.2,
+        103.2,
+        101.0,
+        100.0,
+        100.0,
+        103.0,
+        103.0,
+        105.0,
+        105.0,
+        105.0,
+        105.0,
+        104.0,
+    ]
+    for v in (datetime.timedelta(days=4), "4D"):
+        rtrn = m.get_period_high(df, v, include_current)
+        df_expected = pd.DataFrame(expected_td4, index=index, columns=columns)
+        pd.testing.assert_frame_equal(rtrn, df_expected)
+        rtrn = m.get_period_high(srs, v, include_current)
+        pd.testing.assert_series_equal(rtrn, pd.Series(expected_td4, index=index))
+
+    # testing effect of passing include_current as False
+    include_current = False
+    expected_4f = [
+        np.nan,
+        100.0,
+        101.0,
+        101.0,
+        102.0,
+        102.0,
+        102.0,
+        102.0,
+        103.2,
+        103.2,
+        103.2,
+        103.2,
+        102.0,
+        101.0,
+        103.0,
+        103.0,
+        105.0,
+        105.0,
+        105.0,
+        105.0,
+    ]
+    rtrn = m.get_period_high(df, 4, include_current)
+    df_expected = pd.DataFrame(expected_4f, index=index, columns=columns)
+    pd.testing.assert_frame_equal(rtrn, df_expected)
+    rtrn = m.get_period_high(srs, 4, include_current)
+    pd.testing.assert_series_equal(rtrn, pd.Series(expected_4f, index=index))
+
+    expected_td4f = [
+        np.nan,
+        100.0,
+        101.0,
+        101.0,
+        102.0,
+        102.0,
+        101.5,
+        101.0,
+        103.2,
+        103.2,
+        102.0,
+        101.0,
+        100.0,
+        100.0,
+        103.0,
+        103.0,
+        105.0,
+        105.0,
+        105.0,
+        105.0,
+    ]
+    for v in (datetime.timedelta(days=4), "4D"):
+        rtrn = m.get_period_high(df, v, include_current)
+        df_expected = pd.DataFrame(expected_td4f, index=index, columns=columns)
+        pd.testing.assert_frame_equal(rtrn, df_expected)
+        rtrn = m.get_period_high(srs, v, include_current)
+        pd.testing.assert_series_equal(rtrn, pd.Series(expected_td4f, index=index))
+
+    # test get_pct_off_high
+    expected = [-100 * (h - c) / h for h, c in zip(expected_ath, values)]
+    expected_df = pd.DataFrame(expected, index=index, columns=pd.Index(["ath"]))
+    rtrn = m.get_pct_off_high(df, None)
+    pd.testing.assert_frame_equal(rtrn, expected_df)
+
+    expected = [-100 * (h - c) / h for h, c in zip(expected_4, values)]
+    expected_df = pd.DataFrame(expected, index=index, columns=pd.Index(["4_high"]))
+    rtrn = m.get_pct_off_high(df, 4)
+    pd.testing.assert_frame_equal(rtrn, expected_df)
+
+    # check passing through window and include_current
+    expected = [-100 * (h - c) / h for h, c in zip(expected_td4f, values)]
+    expected_df = pd.DataFrame(expected, index=index, columns=pd.Index(["4D_high"]))
+    rtrn = m.get_pct_off_high(df, "4D", False)
+    pd.testing.assert_frame_equal(rtrn, expected_df)
