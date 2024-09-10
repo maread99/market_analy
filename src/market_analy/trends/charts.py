@@ -12,7 +12,7 @@ import numpy as np
 import pandas as pd
 
 from ..cases import CaseSupportsChartAnaly
-from ..charts import TOOLTIP_STYLE, Groups, OHLCCaseBase, tooltip_html_style
+from ..charts import STYLE_TOOLTIP, Groups, OHLCCaseBase, tooltip_html_style
 from ..config import COL_ADV, COL_DEC
 from ..formatters import formatter_datetime, formatter_float, formatter_percent
 from ..utils import bq_utils as ubq
@@ -74,6 +74,7 @@ class TrendsChart(OHLCCaseBase):
         cases: MovementsSupportChartAnaly | None = None,
         handler_click_case: Callable | None = None,
         inc_conf_marks: bool = True,
+        data_y2: list[float | int] | None = None,
     ):
         if cases is None:
             raise ValueError("'cases' is a required argument.")
@@ -91,6 +92,7 @@ class TrendsChart(OHLCCaseBase):
             log_scale,
             display,
             handler_click_case,
+            data_y2,
         )
 
         self.cases: MovementsSupportChartAnaly
@@ -318,7 +320,7 @@ class TrendsChart(OHLCCaseBase):
             colors=[color_],
             line_style=line_style,
             tooltip=w.HTML(value=tooltip_str),
-            tooltip_style=TOOLTIP_STYLE,
+            tooltip_style=STYLE_TOOLTIP,
         )
         return line
 
@@ -367,7 +369,7 @@ class TrendsChart(OHLCCaseBase):
                 fill_colors=[color_area],
                 fill_opacities=[0.2],
                 tooltip=w.HTML(value=s),
-                tooltip_style=TOOLTIP_STYLE,
+                tooltip_style=STYLE_TOOLTIP,
             )
             self.add_marks([mark_chg], Groups.CASE, under=True)
 
