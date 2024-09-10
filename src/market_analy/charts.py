@@ -35,6 +35,7 @@ from collections.abc import Callable, Sequence
 from copy import copy, deepcopy
 import enum
 from functools import lru_cache, partialmethod
+import itertools
 import typing
 from typing import Any, Literal
 
@@ -58,9 +59,9 @@ from .cases import (
 
 
 COLOR_CHART_TEXT = "lightyellow"
-CHART_TITLE_STYLE = {"font-size": "20px", "fill": COLOR_CHART_TEXT}
+STYLE_CHART_TITLE = {"font-size": "20px", "fill": COLOR_CHART_TEXT}
 
-TOOLTIP_STYLE = {
+STYLE_TOOLTIP = {
     "opacity": 0.8,
     "background-color": "black",
     "border-color": "white",
@@ -132,8 +133,8 @@ def tooltip_html_style(**kwargs) -> str | None:
 def hold_mark_update(func) -> Callable:
     """Hold off syncing mark in frontend until `func` executed.
 
-    Decorator to hold off syncing mark in frontend until decorated
-    function has fully executed.
+    Employ as a decorator to hold off syncing mark in frontend until
+    decorated function has fully executed.
     """
 
     def wrapper(self, *args, **kwargs):
@@ -217,6 +218,18 @@ class Base(metaclass=ABCMeta):
             Subclass can override to add extra marks at initalisation.
             Method should use `add_marks` to add extra marks.
 
+    Subclasses can optionally overwrite or extend the following methods if
+    require a plot against a secondary y-axis and the default implemention
+    is not otherwise sufficient:
+
+        MarkY2Cls()
+            Subclass should overwrite if requires a secondary mark of a
+            class other than bq.Lines.
+
+        _get_mark_y2_data()
+
+        _create_y2_mark()
+
     Subclasses should NOT override or extend the following methods:
 
         _create_chart()
@@ -275,6 +288,12 @@ class Base(metaclass=ABCMeta):
     remove_added_marks_all():
         Remove extra marks in all groups.
 
+    hide_y2():
+        Hide data_y2 mark and y2 axis.
+
+    show_y2():
+        Show data_y2 mark and y2 axis.
+
     The following private Mixin Methods are made available to subclasses to
     expose if appropriate.
 
@@ -296,6 +315,7 @@ class Base(metaclass=ABCMeta):
         data: pd.DataFrame | pd.Series,
         title: str | None = None,
         display: bool = False,
+        data_y2: list[float | int | list[float | int]] | None = None,
         **_,
     ):
         """Create chart.
@@ -311,13 +331,20 @@ class Base(metaclass=ABCMeta):
         display
             True to display chart.
 
+        data_y2
+            Values to be plotted against a secondary y axis.
+
         Notes
         -----
-        Subclass must NOT be override constructor although can extend by
+        Subclass must NOT override constructor although can extend by
         adding code before or after execution of constuctor as defined on
         this ABC.
         """
         self.data = data
+        if data_y2 is None:
+            self._data_y2 = None
+        else:
+            self.data_y2 = data_y2
 
         # Attributes set by --_create_chart--
         self._widgets: list[w.Widget]
@@ -351,6 +378,30 @@ class Base(metaclass=ABCMeta):
         elif data.index.tz is not None:
             data.index = data.index.tz_localize(None)
         self._data = data
+
+    @property
+    def data_y2(self) -> list[float | int] | None:
+        """Secondary y-axis values."""
+        return self._data_y2
+
+    @data_y2.setter
+    def data_y2(self, data: list[float | int | list[float | int]]):
+        if isinstance(data[0], list):
+            for lst in data:
+                assert len(lst) == len(self.data)
+        else:
+            assert len(data) == len(self.data)
+        self._data_y2 = data
+
+    @property
+    def _has_y2_plot(self) -> bool:
+        """Query if chart has data to plot against the y2 axes."""
+        return not (self.data_y2 is None)
+
+    @property
+    def _no_y2_plot(self) -> bool:
+        """Query if chart does not have a plot against the y2 axes."""
+        return self.data_y2 is None
 
     @property
     @abstractmethod
@@ -420,6 +471,7 @@ class Base(metaclass=ABCMeta):
         self.scales = self._create_scales()
         self.axes = self._create_axes()
         self.mark = self._create_mark()
+        self.mark_y2 = None if self._no_y2_plot else self._create_y2_mark()
         self.figure = self._create_figure()
         w.Widget.on_widget_constructed(None)
 
@@ -455,10 +507,9 @@ class Base(metaclass=ABCMeta):
 
         Paramaters
         ----------
-
         axes_kwargs
-            Kwargs for creating Axis, defined by axis in the same way as the
-            return.
+            Kwargs for creating Axis, defined by axis in the same way as
+            the return.
 
         **general_kwargs:
             Kwargs to be passed to Axis constructor for all created Axis.
@@ -502,6 +553,8 @@ class Base(metaclass=ABCMeta):
             "x": {"orientation": "horizontal"},
             "y": {"orientation": "vertical"},
         }
+        if self._has_y2_plot:
+            dflt_kwargs["y2"] = {"orientation": "vertical", "side": "right"}
         axes_kwargs_ = self._add_axes_kwargs(dflt_kwargs, axes_kwargs)
 
         # kwargs for every axis
@@ -524,12 +577,21 @@ class Base(metaclass=ABCMeta):
         Notes
         -----
         Guarantees List ordered according to:
-            ['x', 'y', 'color', 'opacity', 'size', 'rotation', 'skew']
+            ['x', 'y', 'y2', 'color', 'opacity', 'size', 'rotation', 'skew']
         """
         axes = []
         axes_kwargs = self._axes_kwargs()
 
-        for axis_name in ["x", "y", "color", "opacity", "size", "rotation", "skew"]:
+        for axis_name in [
+            "x",
+            "y",
+            "y2",
+            "color",
+            "opacity",
+            "size",
+            "rotation",
+            "skew",
+        ]:
             axis_kwargs = axes_kwargs.pop(axis_name, None)
             if axis_kwargs is None:
                 continue
@@ -560,7 +622,27 @@ class Base(metaclass=ABCMeta):
         """
         return self._y_data
 
-    def _tooltip_value(self, *args):
+    @property
+    def MarkY2Cls(self) -> type[bq.Mark]:
+        """Class of Mark for secondary y axis.
+
+        Notes
+        -----
+        Subclass should override if alternative Mark class required to be
+        plotted against secondary y axis.
+        """
+        return bq.Lines
+
+    def _get_mark_y2_data(self):
+        """Get y data to pass to secondary Mark.
+
+        Notes
+        -----
+        Subclass should override if alternative return requried.
+        """
+        return self.data_y2
+
+    def _tooltip_value(self, *args) -> str:
         """Tooltip value.
 
         Notes
@@ -603,13 +685,35 @@ class Base(metaclass=ABCMeta):
         has_tooltip = self._has_tooltip
         if has_tooltip:
             kwargs.setdefault("tooltip", w.HTML(value="<p>placeholder</p>"))
-            kwargs.setdefault("tooltip_style", TOOLTIP_STYLE)
+            kwargs.setdefault("tooltip_style", STYLE_TOOLTIP)
         kwargs["x"] = self._x_data
         kwargs["y"] = self._get_mark_y_data()
-        kwargs["scales"] = self.scales
+
+        kwargs["scales"] = self.scales.copy()
+        if "y2" in kwargs["scales"]:
+            del kwargs["scales"]["y2"]
+
         mark = self.MarkCls(**kwargs)
         if has_tooltip:
             mark.on_hover(self._hover_handler)
+        return mark
+
+    def _create_y2_mark(self, **kwargs) -> bq.Mark:
+        """bq.Mark for secondary y-axis from default kwargs.
+
+        Notes
+        -----
+        Optionally extend on subclass to pass through any additional
+        kwargs.
+        """
+        kwargs["x"] = self._x_data
+        kwargs["y"] = self._get_mark_y2_data()
+
+        kwargs["scales"] = self.scales.copy()
+        kwargs["scales"]["y"] = kwargs["scales"]["y2"]
+        del kwargs["scales"]["y2"]
+
+        mark = self.MarkY2Cls(**kwargs)
         return mark
 
     @abstractmethod
@@ -621,10 +725,11 @@ class Base(metaclass=ABCMeta):
         Extend on subclass to pass through any additional kwargs. Can
         also pass through `title_style` to override default value.
         """
-        kwargs.setdefault("marks", [self.mark])
+        marks = ([self.mark_y2] if self.mark_y2 is not None else []) + [self.mark]
+        kwargs.setdefault("marks", marks)
         kwargs.setdefault("axes", self.axes)
         kwargs.setdefault("background_style", {"fill": "#222222"})
-        kwargs.setdefault("title_style", CHART_TITLE_STYLE)
+        kwargs.setdefault("title_style", STYLE_CHART_TITLE)
         return bq.Figure(**kwargs)
 
     def _add_marks(self):
@@ -679,21 +784,45 @@ class Base(metaclass=ABCMeta):
         """
         self._update_axis_color(self.axes[0])
 
+    def update_y2_axis_presentation(self):
+        """Update y2 axis presentation.
+
+        Notes
+        -----
+        Subclass can optionally extend to further update secondary y-axis
+        ticks and other axis presentation.
+        """
+        if len(self.axes) > 2:
+            self._update_axis_color(self.axes[2])
+
     def update_presentation(self):
         """Update axis presentation."""
         self.update_y_axis_presentation()
         self.update_x_axis_presentation()
+        self.update_y2_axis_presentation()
 
     # DATA UPDATE
     @hold_mark_update
-    def _update_data(self, data: pd.DataFrame | pd.Series):
+    def _update_data(
+        self, data: pd.DataFrame | pd.Series, data_y2: list[float | int] | None
+    ):
         self.data = data
         self.mark.x = self._x_data
         self.mark.y = self._get_mark_y_data()
+        if data_y2 is not None:
+            assert self.data_y2 is not None
+            assert len(data_y2) == len(data)
+            self.mark_y2.x = self._x_data
+            self.mark_y2.y = self._get_mark_y_data()
         self.update_presentation()
 
     # MIXIN METHODS
-    def update(self, data: pd.DataFrame | pd.Series, title: str | None = None):
+    def update(
+        self,
+        data: pd.DataFrame | pd.Series,
+        title: str | None = None,
+        data_y2: list[float | int | list[float | int]] | None = None,
+    ):
         """Create new chart from existing mark and figure.
 
         Parameters
@@ -703,8 +832,12 @@ class Base(metaclass=ABCMeta):
 
         title
             New chart title. If not passed will retain any existing title.
+
+        data_y2
+            As 'data_y2' parameter passed to constructor. Can only be
+            passed if 'data_y2' was passed to constructor.
         """
-        self._update_data(data)
+        self._update_data(data, data_y2)
         if title:
             self.title = title
 
@@ -760,7 +893,7 @@ class Base(metaclass=ABCMeta):
     def opacate_added_marks(
         self, groups: AddedMarkKeys | Sequence[AddedMarkKeys], opacity: float = 1.0
     ):
-        """Make added marks fully opaque by group."""
+        """Set opacity of added marks by group."""
         if not isinstance(groups, Sequence):
             groups = [groups]
         for group in groups:
@@ -771,7 +904,7 @@ class Base(metaclass=ABCMeta):
     def _set_added_marks_visibility(
         self, visible: bool, groups: AddedMarkKeys | Sequence[AddedMarkKeys]
     ):
-        """Set added marks visibility by group."""
+        """Set visibility of added marks by group."""
         if not isinstance(groups, Sequence):
             groups = [groups]
         for group in groups:
@@ -797,6 +930,20 @@ class Base(metaclass=ABCMeta):
             for m in marks:
                 m.visible = True
                 m.opacities = [opacity]
+
+    def hide_y2(self):
+        """Hide any mark plotted against data_y2 and any y2 axis."""
+        if self._no_y2_plot:
+            return
+        self.mark_y2.visible = False
+        self.axes[2].visible = False
+
+    def show_y2(self):
+        """Show any mark plotted against data_y2 and any y2 axis."""
+        if self._no_y2_plot:
+            return
+        self.mark_y2.visible = True
+        self.axes[2].visible = True
 
     def close(self):
         """Close all chart widgets."""
@@ -852,10 +999,16 @@ class BaseSubsetDD(Base):
     required in accordance with the properties' doc:
 
         @property
-        _update_mark_data_attr_to_reflect_plotted: bool default(False)
+        _update_mark_data_attr_to_reflect_plotted: bool default (False)
+
+        @property
+        _update_mark_y2_data_attr_to_reflect_plotted: bool default (True)
 
         @property
         _plotted_y(self) -> pd.DataFrame
+
+        @property
+        _plotted_y2(self) -> pd.DataFrame
 
     Settable Properties
     -------------------
@@ -926,19 +1079,28 @@ class BaseSubsetDD(Base):
         Always calls `update_presentation` to update the axis
         presentation to reflect the new data.
 
-        Optionally calls `_set_mark_to_plotted` to reassign the mark's
-        data attributes (mark.x, mark.y, mark.color etc) to represent
-        only the plotted data. `_set_mark_to_plotted` in turn calls
-        `_get_mark_y_plotted_data`. This reassigning of the mark's data
-        attributes, to reflect the plotted data, is NOT the default
-        implementation, but rather has to be explicitely requested by the
+        Optionally calls `_set_mark_to_plotted` and
+        `_set_mark_y2_to_plotted` to reassign the mark's and mark_y2's data
+        attributes (.x, .y, .color etc) to represent only the plotted data.
+        This reassigning of the marks' data attributes, to reflect the
+        plotted data, is NOT the default implementation for the principle
+        mark, rather it has to be explicitly requested by the subclass
         subclass by way of overridng the property
         `_update_mark_data_attr_to_reflect_plotted` to return True.
+        However, the default implmentation for mark_y2 IS to update the
+        mark attribute values in this way to reflect the plotted dates. The
+        subclass should override the
+        `_update_mark_y2_data_attr_to_reflect_plotted` to return False in
+        the event that this behaviour is not required.
 
     Worth noting, the BaseSubsetDD implementation is such that:
-        ALL Data is held in `data`, of which:
+        Data for the primary mark is held in `data`, of which:
             y data available from `_y_data`
             x data exposed via `x_ticks`
+
+        Data for the mark y2 mark is held in `data_y2`, of which:
+            y data available from `data_y2` which is defined to allign
+            with x data exposed via `x_ticks`
 
         PLOTTED data properties simply take a slice of the corresopnding
         ALL data property, with that slice reflecting the current x-scale
@@ -946,6 +1108,9 @@ class BaseSubsetDD(Base):
             plotted x data available from `plotted_x_ticks`
 
             plotted y data available from `_plotted_y` (or any exposed
+            public method).
+
+            plotted y2 data available from `_plotted_y2` (or any exposed
             public method).
     """
 
@@ -955,7 +1120,8 @@ class BaseSubsetDD(Base):
         title: str | None = None,
         visible_x_ticks: pd.Interval | None = None,
         max_ticks: int | None = None,
-        display=False,
+        display: bool = False,
+        data_y2: list[float | int] | None = None,
     ):
         """Create chart.
 
@@ -965,6 +1131,9 @@ class BaseSubsetDD(Base):
             Chart data, with rows indexed with a pd.IntervalIndex or, if
             data for daily prices, a pd.DatetimeIndex.
 
+        title
+            Chart title
+
         visible_x_ticks
             x_ticks to initially show on x-axis. None to show all.
 
@@ -973,11 +1142,14 @@ class BaseSubsetDD(Base):
             together with `visible_x_ticks` and `visible_x_ticks` is
             longer than max_ticks then `visible_x_ticks` will be curtailed.
 
-        title
-            Chart title
+        display
+            True to display chart.
+
+        data_y2
+            Values to be plotted against any secondary y axis.
         """
         self._max_ticks = max_ticks
-        super().__init__(data, title, display=False)
+        super().__init__(data, title, display=False, data_y2=data_y2)
         self.scales["x"].observe(self._x_domain_chg_handler, ["domain"])
         self.plotted_x_ticks = self._get_plot_interval(visible_x_ticks)
         if display:
@@ -1066,7 +1238,7 @@ class BaseSubsetDD(Base):
             for any x_tick that falls inside the interval.
         """
         if isinstance(dates, pd.DatetimeIndex):
-            return np.in1d(self.x_ticks, dates)
+            return np.isin(self.x_ticks, dates)
         else:
             return self._x_ticks_s().apply(lambda x: x in dates)
 
@@ -1114,7 +1286,7 @@ class BaseSubsetDD(Base):
     @property
     def _domain_bv(self) -> np.ndarray:
         """Boolean vector indciating dates that currently comprise domain"""
-        return np.in1d(self._x_ticks_posix_raw(), self._domain)
+        return np.isin(self._x_ticks_posix_raw(), self._domain)
 
     # PLOTTED
     @property
@@ -1185,13 +1357,22 @@ class BaseSubsetDD(Base):
     # Y
     @property
     def _plotted_y(self) -> pd.DataFrame:
-        """y-data as currently shown on plot.
+        """y_data as currently shown on plot.
 
         Notes
         -----
         Optionally concrete on subclass.
         """
         return self._y_data[self._domain_bv]
+
+    @property
+    def _plotted_y2(self) -> list[float | int | list[float | int]] | None:
+        """y2_data as currently shown on plot."""
+        if self._no_y2_plot:
+            return None
+        if isinstance(self.data_y2[0], list):
+            return [lst[self._domain_slice] for lst in self.data_y2]
+        return self.data_y2[self._domain_slice]
 
     # X TICK
     @property
@@ -1257,8 +1438,34 @@ class BaseSubsetDD(Base):
         """
         return False
 
+    @property
+    def _update_mark_y2_data_attr_to_reflect_plotted(self):
+        """Does mark_y2 data need to be reassigned to relect plotted data.
+
+        Notes
+        -----
+        Subclass can override to return False if do NOT require mark_y2
+        data attributes to be updated to always reflect plotted data. NB
+        there is no need to override this property in the event that the
+        class does provide for a mark_y2 mark.
+
+        If relying on this property returning True then:
+            `_get_mark_y_plotted_data()` should be reviewed and overriden
+            or extended in event that, as defined, it does not return an
+            object that can be assigned to `mark_y2.y` to represent y data
+            over plotted x_ticks.
+
+            `_set_mark_to_plotted()` should be extended in the event the
+            mark has any data attribute, other than 'x' and 'y', that also
+            requires being set to reflect the plotted value.
+        """
+        return True
+
     def _set_mark_x_to_plotted(self):
         self.mark.x = self.plotted_x_ticks
+
+    def _set_mark_y2_x_to_plotted(self):
+        self.mark_y2.x = self.plotted_x_ticks
 
     def _get_mark_y_plotted_data(self, multiple_symbols: bool = False):
         """Get y data for plotted dates.
@@ -1293,17 +1500,55 @@ class BaseSubsetDD(Base):
                 plotted = mark_y_data[self._domain_slice]
             return plotted
 
+    def _get_mark_y2_plotted_data(
+        self, multiple_symbols: bool = False
+    ) -> list[float | int | list[float | int]]:
+        """Get y2 data for plotted dates.
+
+        If `_update_mark_y2_data_attr_to_reflect_plotted` is True (the
+        default) then this method should be reviewed / extended / overriden
+        to ensure that it returns y2 data for the plotted dates.
+
+        Method as defined will return y2 data for plotted dates if
+        `get_mark_y2_data` returns a list where each element represents one
+        y2 data point.
+
+        Also, if `get_mark_y2_data` returns a list of lists where each list
+        represents a different symbol, and each element of each list
+        represents one y2 data point, then subclass can extend this method
+        to simply pass through `multiple_symbols` as True.
+        """
+        if not self._update_mark_y2_data_attr_to_reflect_plotted:
+            raise NotImplementedError
+
+        mark_y2_data = self._get_mark_y2_data()
+        if multiple_symbols:
+            plotted = []
+            for lst in mark_y2_data:
+                plotted.append(lst[self._domain_slice])
+            return plotted
+        return mark_y2_data[self._domain_slice]
+
     def _set_mark_y_to_plotted(self):
         self.mark.y = self._get_mark_y_plotted_data()
+
+    def _set_mark_y2_y_to_plotted(self):
+        self.mark_y2.y = self._get_mark_y2_plotted_data()
 
     def _set_mark_to_plotted(self):
         self._set_mark_x_to_plotted()
         self._set_mark_y_to_plotted()
 
+    def _set_mark_y2_to_plotted(self):
+        self._set_mark_y2_x_to_plotted()
+        self._set_mark_y2_y_to_plotted()
+
     @hold_mark_update
     def _x_domain_chg_handler(self, event):
         if self._update_mark_data_attr_to_reflect_plotted:
             self._set_mark_to_plotted()
+        if self._has_y2_plot and self._update_mark_y2_data_attr_to_reflect_plotted:
+            self._set_mark_y2_to_plotted()
         self.update_presentation()
 
     def update_x_axis_presentation(self):
@@ -1315,6 +1560,7 @@ class BaseSubsetDD(Base):
         self,
         data: pd.DataFrame | pd.Series,
         visible_x_ticks: pd.Interval | None = None,
+        data_y2: list[float | int | list[float | int]] | None = None,
     ):
         """Update data.
 
@@ -1327,10 +1573,25 @@ class BaseSubsetDD(Base):
             Provides for setting plotted dates.
         """
         x_changed = not self.data.index.equals(data.index)
+
         self.data = data
         if not self._update_mark_data_attr_to_reflect_plotted:
             self.mark.x = self._x_data
             self.mark.y = self._get_mark_y_data()
+
+        if data_y2 is not None:
+            assert self._has_y2_plot
+            if isinstance(data_y2[0], list):
+                for lst in data_y2:
+                    assert len(lst) == len(data)
+            else:
+                assert len(data_y2) == len(data)
+            self.data_y2 = data_y2
+
+            if not self._update_mark_y2_data_attr_to_reflect_plotted:
+                self.mark_y2.x = self._x_data
+                self.mark_y2.y = self._get_mark_y2_data()
+
         no_plot = self.plotted_x_ticks.empty
         if no_plot or x_changed:
             # mark attributes will be updated to reflect plotted
@@ -1345,6 +1606,8 @@ class BaseSubsetDD(Base):
             # if only y changed
             if self._update_mark_data_attr_to_reflect_plotted:
                 self._set_mark_to_plotted()
+            if self._has_y2_plot and self._update_mark_y2_data_attr_to_reflect_plotted:
+                self._set_mark_y2_to_plotted()
             self.update_presentation()
 
     def update(
@@ -1352,6 +1615,7 @@ class BaseSubsetDD(Base):
         data: pd.DataFrame | pd.Series,
         title: str | None = None,
         visible_x_ticks: pd.Interval | None = None,
+        data_y2: list[float | int | list[float | int]] | None = None,
     ):
         """Update chart with new data.
 
@@ -1359,7 +1623,7 @@ class BaseSubsetDD(Base):
 
         Parameters otherwise as constructor.
         """
-        self._update_data(data, visible_x_ticks)
+        self._update_data(data, visible_x_ticks, data_y2)
         if title:
             self.title = title
 
@@ -1387,7 +1651,7 @@ class BasePrice(BaseSubsetDD):
             customise.
 
     Subclass should implement all other aspects of ABC. Additionally,
-    subclasses should implement the following :
+    subclasses should implement the following:
 
         _get_mark_y_plotted_data():
             Override or extend in event method as defined on `BaseSubsetDD`
@@ -1412,11 +1676,25 @@ class BasePrice(BaseSubsetDD):
     low_plotted_price:
         Low price of currently plotted data.
 
+    plotted_y2: -> pd.DataFrame:
+        Values for any secondary mark plotted against y2 axes.
+
+    high_plotted_y2:
+        High price of any secondary mark plotted against y2 axes.
+
+    low_plotted_y2:
+        Low price of currently plotted data.
+
     logscale: -> bool
         True if prices plotted against a log scale.
 
     y_tick_increment: -> Optional[float]
-        If logscale, percentage increase between each successive y-axis label.
+        If logscale, pct increase between each successive y-axis label.
+
+    Methods
+    -------
+    set_drawdown_presentation():
+        Set presentation for a y2 mark that represents drawdown.
     """
 
     LOGSCALE_NUM_TICKS = 8
@@ -1432,6 +1710,7 @@ class BasePrice(BaseSubsetDD):
         max_ticks: int | None = None,
         log_scale: bool = True,
         display: bool = False,
+        data_y2: list[float | int | list[float | int]] | None = None,
     ):
         """Create chart.
 
@@ -1457,11 +1736,14 @@ class BasePrice(BaseSubsetDD):
 
         display
             True to display created chart.
+
+        data_y2
+            Values to be plotted against any secondary y axis.
         """
         self._log_scale_init = log_scale
         if isinstance(data, DataFrame):
             data.columns = data.columns.str.lower()
-        super().__init__(data, title, visible_x_ticks, max_ticks, display)
+        super().__init__(data, title, visible_x_ticks, max_ticks, display, data_y2)
 
     @property
     def prices(self) -> pd.DataFrame:
@@ -1469,7 +1751,12 @@ class BasePrice(BaseSubsetDD):
 
     @prices.setter
     def prices(self, data: pd.DataFrame | pd.Series):
-        """Set new prices for existing dates (to rebase for example)."""
+        """Set new prices for existing dates (to rebase for example).
+
+        NB: This method should not be used if wish to simultaneously set
+        values for a secondary y axis, in which case the `update` method
+        must be used.
+        """
         assert data.index.equals(self.data.index)
         self._update_data(data)
 
@@ -1486,10 +1773,29 @@ class BasePrice(BaseSubsetDD):
     def low_plotted_price(self) -> float:
         return self.plotted_prices.values.min()
 
+    @property
+    def plotted_y2(self) -> list[float | int | list[float | int]]:
+        """Prices as currently shown on plot."""
+        return self._plotted_y2
+
+    @property
+    def high_plotted_y2(self) -> float:
+        if isinstance(self.plotted_y2[0], list):
+            return max(itertools.chain.from_iterable(self.plotted_y2))
+        return max(self.plotted_y2)
+
+    @property
+    def low_plotted_y2(self) -> float:
+        if isinstance(self.plotted_y2[0], list):
+            return min(itertools.chain.from_iterable(self.plotted_y2))
+        return min(self.plotted_y2)
+
     def _create_scales(self) -> dict[ubq.ScaleKeys, bq.Scale]:
         scales = super()._create_scales()
         logscale = self._log_scale_init
         scales["y"] = bq.LogScale() if logscale else bq.LinearScale()
+        if self._has_y2_plot:
+            scales["y2"] = bq.LinearScale()
         return scales
 
     def _axes_kwargs(
@@ -1527,6 +1833,10 @@ class BasePrice(BaseSubsetDD):
             self.scales["y"].min = self.low_plotted_price - excess
         self.scales["y"].max = self.high_plotted_price + excess
 
+        if "y2" in self.scales:
+            self.scales["y2"].max = self.high_plotted_y2
+            self.scales["y2"].min = self.low_plotted_y2
+
     def _y_log_tick_increment(self) -> float | None:
         """Factor by which to raise each successive y-axis label."""
         num_increments = self.LOGSCALE_NUM_TICKS - 1
@@ -1557,6 +1867,32 @@ class BasePrice(BaseSubsetDD):
         super().update_y_axis_presentation()
         self._update_y_scale()
 
+    def set_drawdown_presentation(self):
+        """Set presentation for when data_y2 represents drawdown."""
+        if self._no_y2_plot:
+            return
+        self.mark_y2.fill = "top"
+        # following mark serves only to obscure the drawdown chart fill which otherwise
+        # extends to positive values beyond 0
+        bg_color = self.figure.background_style["fill"]
+        scales = {"y": self.scales["y2"], "x": self.scales["x"]}
+        ln = bq.Lines(
+            x=[self._x_data[0], self._x_data[-1]],
+            y=[0, 0],
+            scales=scales,
+            fill="top",
+            fill_colors=[bg_color],
+            fill_opacities=[1.0],
+            colors=[bg_color],
+            opacities=[0.0],
+        )
+        self.add_marks([ln], Groups.PERSIST, under=False)
+
+        def update_block_line(event):
+            ln.x = [event.new[0], event.new[-1]]
+
+        self.mark_y2.observe(update_block_line, ["x"])
+
 
 class Line(BasePrice):
     """Line chart for single financial instrument.
@@ -1572,6 +1908,7 @@ class Line(BasePrice):
         max_ticks: int | None = None,
         log_scale: bool = True,
         display: bool = False,
+        data_y2: list[float | int] | None = None,
     ):
         """Create chart.
 
@@ -1598,8 +1935,13 @@ class Line(BasePrice):
 
         display
             True to display created chart.
+
+        data_y2
+            Values to be plotted against any secondary y axis.
         """
-        super().__init__(prices, title, visible_x_ticks, max_ticks, log_scale, display)
+        super().__init__(
+            prices, title, visible_x_ticks, max_ticks, log_scale, display, data_y2
+        )
         assert isinstance(self.data, Series) or len(self.data.columns) == 1
 
     @property
@@ -1616,6 +1958,18 @@ class Line(BasePrice):
     def MarkCls(self) -> type[bq.Mark]:
         return bq.Lines
 
+    def _axes_kwargs(
+        self, axes_kwargs: AxesKwargs | None = None, **general_kwargs
+    ) -> AxesKwargs:
+        dflt_axes_kwargs = {"y": {"grid_color": "#666666"}}
+        if self._has_y2_plot:
+            dflt_axes_kwargs["y2"] = {
+                "grid_color": "SteelBlue",
+                "grid_lines": "dashed",
+            }
+        axes_kwargs = self._add_axes_kwargs(dflt_axes_kwargs, axes_kwargs)
+        return super()._axes_kwargs(axes_kwargs, **general_kwargs)
+
     def _create_mark(self, **kwargs) -> bq.Lines:
         return super()._create_mark(
             colors=["DarkOrange"],
@@ -1623,6 +1977,16 @@ class Line(BasePrice):
             fill="bottom",
             fill_colors=["Orange"],
             fill_opacities=[0.35],
+        )
+
+    def _create_y2_mark(self, **kwargs) -> bq.Lines:
+        # assumes require to represent drawdown
+        return super()._create_y2_mark(
+            colors=["LightSkyBlue"],
+            stroke_width=0.7,
+            fill="top",
+            fill_colors=["PowderBlue"],
+            fill_opacities=[0.15],
         )
 
     @property
@@ -1667,6 +2031,12 @@ class MultLine(BasePrice):
     highlight_line()
         Highlight one line plot.
 
+    show_one_y2_line():
+        Show only one of any y2 lines.
+
+    show_all_y2_lines():
+        Show all y2 lines.
+
     cycle_legend():
         Move legend to next location.
 
@@ -1682,6 +2052,7 @@ class MultLine(BasePrice):
         max_ticks: int | None = None,
         log_scale=True,
         display=False,
+        data_y2: list[list[float | int]] | None = None,
     ):
         """Create chart.
 
@@ -1707,9 +2078,14 @@ class MultLine(BasePrice):
 
         display
             True to display created chart.
+
+        data_y2
+            Values to be plotted against any secondary y axis.
         """
         prices = upd.rebase_to_row(prices, 0)
-        super().__init__(prices, title, visible_x_ticks, max_ticks, log_scale, display)
+        super().__init__(
+            prices, title, visible_x_ticks, max_ticks, log_scale, display, data_y2
+        )
 
     @property
     def labels(self) -> list[str]:
@@ -1732,14 +2108,17 @@ class MultLine(BasePrice):
         super().reset_x_ticks()
 
     @property
-    def _y_data(self) -> DataFrame:
+    def _y_data(self) -> pd.DataFrame:
         return self.data
 
-    def _get_mark_y_data(self) -> DataFrame:
+    def _get_mark_y_data(self) -> list[list]:
         return upd.tolists(self._y_data)
 
     def _get_mark_y_plotted_data(self):
         return super()._get_mark_y_plotted_data(multiple_symbols=True)
+
+    def _get_mark_y2_plotted_data(self):
+        return super()._get_mark_y2_plotted_data(multiple_symbols=True)
 
     @property
     def MarkCls(self) -> type[bq.Mark]:
@@ -1751,6 +2130,20 @@ class MultLine(BasePrice):
             labels=self.labels,
             stroke_width=1,
             display_legend=True,
+        )
+
+    @property
+    def _fill_opacity_dflt(self) -> float:
+        return 0.15
+
+    def _create_y2_mark(self, **_) -> bq.Lines:
+        return super()._create_y2_mark(
+            colors=ubq.COLORS_DARK_8,
+            labels=self.labels,
+            stroke_width=0.4,
+            fill="none",  # client should assign any fill directly to `.mark_y2.fill`
+            fill_colors=ubq.COLORS_DARK_8,
+            fill_opacities=[self._fill_opacity_dflt] * self.num_lines,
         )
 
     def _create_figure(self, **_) -> bq.Figure:
@@ -1773,6 +2166,7 @@ class MultLine(BasePrice):
         data: pd.DataFrame | pd.Series,
         title: str | None = None,
         visible_x_ticks: pd.Interval | None = None,
+        data_y2: list[float | int | list[float | int]] | None = None,
     ):
         """Update chart with new data.
 
@@ -1781,7 +2175,7 @@ class MultLine(BasePrice):
         Other parameters as for constructor.
         """
         data = upd.rebase_to_row(data, 0)
-        super().update(data, title, visible_x_ticks)
+        super().update(data, title, visible_x_ticks, data_y2)
 
     @property
     def num_lines(self) -> int:
@@ -1789,24 +2183,70 @@ class MultLine(BasePrice):
         return len(self.mark.y)
 
     def opacity(self, value: float):
-        """Set all lines to a certain opacity."""
+        """Set all y1 lines to a certain opacity."""
         self.mark.opacities = [value] * self.num_lines
 
-    def opaque(self):
-        """Make all lines fully opaque."""
+    def show_one_y2_line(self, index: int):
+        """Show only one of any y2 lines.
+
+        See also
+        --------
+        show_all_y2_lines
+        """
+        if self._no_y2_plot:
+            return
+        self.show_y2()
+        fill_opacities = [0.0] * self.num_lines
+        fill_opacities[index] = self._fill_opacity_dflt
+        self.mark_y2.fill_opacities = fill_opacities
+
+        opacities = [0.0] * self.num_lines
+        opacities[index] = 1.0
+        self.mark_y2.opacities = opacities
+
+    def show_all_y2_lines(self):
+        """Show all y2 lines.
+
+        See also
+        --------
+        show_one_y2_line
+        """
+        if self._no_y2_plot:
+            return
+        self.show_y2()
+        self.mark_y2.fill_opacities = [self._fill_opacity_dflt] * self.num_lines
+        self.mark_y2.opacities = [1.0] * self.num_lines
+
+    def opaque(self, y2: bool = True):
+        """Make all y1 lines fully opaque.
+
+        Parameters
+        ----------
+        y2 : bool
+            Determines whether all y2 lines should be shown at default
+            opacities.
+        """
         self.opacity(1.0)
+        if y2:
+            self.show_all_y2_lines()
 
     def fade_lines(self):
-        """Fade all lines."""
+        """Fade all y1 lines."""
         self.opacity(0.5)
 
-    def highlight_line(self, index: int):
+    def highlight_line(self, index: int, hide_y2: bool = True):
         """Highlight one line by fading all others.
 
-        index: int
+        Parameters
+        ----------
+        index : int
             Index position of line to highlight, as given, for example, by
             position of y co-ordinates in `mark.y` list or position of
             label in `labels`.
+
+        hide_y2 : bool
+            True to hide all of any y2 lines except that corresponding with
+            `index`.
         """
         self.fade_lines()
         # self.mark.opacities[index] = 1.0 won't work as for change to be
@@ -1815,6 +2255,9 @@ class MultLine(BasePrice):
         opacities = copy(self.mark.opacities)
         opacities[index] = 1.0
         self.mark.opacities = opacities
+
+        if hide_y2:
+            self.show_one_y2_line(index)
 
     def cycle_legend(self):
         """Move legend to next location."""
@@ -1841,6 +2284,7 @@ class OHLC(BasePrice):
         max_ticks: int | None = None,
         log_scale=True,
         display=False,
+        data_y2: list[float | int] | None = None,
     ):
         """Create OHLC chart.
 
@@ -1869,15 +2313,17 @@ class OHLC(BasePrice):
 
         display
             True to display created chart.
+
+        data_y2
+            Values to be plotted against any secondary y axis.
         """
-        super().__init__(prices, title, visible_x_ticks, max_ticks, log_scale, display)
+        super().__init__(
+            prices, title, visible_x_ticks, max_ticks, log_scale, display, data_y2
+        )
 
     @property
     def _y_data(self) -> pd.DataFrame:
         return self.data[["open", "high", "low", "close"]]
-
-    def _axes_kwargs(self):
-        return super()._axes_kwargs(grid_color="#555555")
 
     def _get_mark_y_data(self):
         return self._y_data.values.tolist()
@@ -1899,11 +2345,29 @@ class OHLC(BasePrice):
         s += "</p>"
         return s
 
+    def _axes_kwargs(
+        self, axes_kwargs: AxesKwargs | None = None, **general_kwargs
+    ) -> AxesKwargs:
+        dflt_axes_kwargs = {"y": {"grid_color": "#666666"}}
+        if self._has_y2_plot:
+            dflt_axes_kwargs["y2"] = {"grid_color": "SteelBlue", "grid_lines": "dashed"}
+        axes_kwargs = self._add_axes_kwargs(dflt_axes_kwargs, axes_kwargs)
+        return super()._axes_kwargs(axes_kwargs, **general_kwargs)
+
     def _create_mark(self, **kwargs) -> bq.OHLC:
         kwargs.setdefault("stroke", "white")
         kwargs.setdefault("stroke_width", 0.5)
         kwargs.setdefault("colors", ["SkyBlue", "DarkOrange"])
         return super()._create_mark(format="ohlc", marker="candle", **kwargs)
+
+    def _create_y2_mark(self, **kwargs) -> bq.Lines:
+        return super()._create_y2_mark(
+            colors=["LightSkyBlue"],
+            stroke_width=0.7,
+            fill="top",
+            fill_colors=["PowderBlue"],
+            fill_opacities=[0.15],
+        )
 
     def _create_figure(self, **kwargs) -> bq.Figure:
         kwargs.setdefault("padding_x", 0.005)
@@ -2313,11 +2777,14 @@ class OHLCCaseBase(OHLC, ChartSupportsCasesGui):
         log_scale: bool = True,
         display: bool = False,
         handler_click_case: Callable | None = None,
+        data_y2: list[float | int] | None = None,
     ):
         self._client_handler_new_case = handler_click_case
         self.cases = cases
         self._current_case: CaseSupportsChartAnaly | None = None
-        super().__init__(prices, title, visible_x_ticks, max_ticks, log_scale, display)
+        super().__init__(
+            prices, title, visible_x_ticks, max_ticks, log_scale, display, data_y2
+        )
 
         if max_ticks is not None or visible_x_ticks is not None:
             self.update_trend_mark()
@@ -2380,7 +2847,7 @@ class OHLCCaseBase(OHLC, ChartSupportsCasesGui):
             marker=marker,
             opacities=opacities,
             tooltip=w.HTML(value="<p>placeholder</p>"),
-            tooltip_style=TOOLTIP_STYLE,
+            tooltip_style=STYLE_TOOLTIP,
         )
         if hover_handler is not None:
             mark.on_hover(hover_handler)

@@ -53,6 +53,7 @@ from __future__ import annotations
 from abc import ABCMeta, abstractmethod
 from collections.abc import Callable
 from contextlib import contextmanager
+from copy import deepcopy
 from typing import Literal
 
 import bqplot as bq
@@ -66,6 +67,7 @@ from market_prices.intervals import TDInterval, PTInterval, to_ptinterval, ONE_D
 import pandas as pd
 
 from market_analy import charts, gui_parts, analysis as ma_analysis
+from market_analy.standalone import get_pct_off_high
 from market_analy.utils.bq_utils import Crosshairs, FastIntervalSelectorDD
 from market_analy.utils.dict_utils import set_kwargs_from_dflt
 import market_analy.utils.ipyvuetify_utils as vu
@@ -254,7 +256,7 @@ class Base(metaclass=ABCMeta):
 
         Notes
         -----
-        Subclass can optionally extend to pass through +**kwargs+."""
+        Subclass can optionally extend to pass through kwargs."""
         if self.SelectorCls is None:
             return None
         kwargs.setdefault("color", "crimson")
@@ -525,9 +527,10 @@ class BaseVariableDates(Base):
         self.chart.reset_x_ticks()
         self._set_slider_limits_to_all_plottable_x_ticks()
 
-    def _update_chart(
+    def _update_chart(  # type: ignore[override]
         self,
         data: pd.DataFrame | pd.Series,
+        data2: list[float | int | list[float | int]] | None = None,
         title: str | None = None,
         visible_x_ticks: pd.Interval | None = None,
         reset_slider=False,
@@ -541,7 +544,7 @@ class BaseVariableDates(Base):
             False to retain existing extents to extent possible.
         """
         prior_tick_interval = self._tick_interval
-        self.chart.update(data, title, visible_x_ticks)
+        self.chart.update(data, title, visible_x_ticks, data_y2=data2)
         if reset_slider:
             self._set_slider_limits_to_all_plottable_x_ticks()
         else:
@@ -570,6 +573,7 @@ class BasePrice(BaseVariableDates):
 
     GUI comprises:
 
+    # TODO UPDATE FOR any widgets relating to the drawdown
     IconRow: Icons to undertake chart operations.
     w.ToggleButtons: Toggle buttons to select interval (optional)
     Figure: plot
@@ -594,7 +598,7 @@ class BasePrice(BaseVariableDates):
 
     Implementation
     --------------
-    BaseVariableDates is substantially implemented by the base class.
+    BaseVariableDates is substantially implemented by this base class.
     Subclasses are left with implementing the following properties:
         ChartCls -> type[charts.BasePrice]
 
@@ -614,7 +618,32 @@ class BasePrice(BaseVariableDates):
             _prices_kwargs -> dict:
                 Immutable chart kwargs. Subclass should extend to override
                 defaults and/or add immutable kwargs specific to
-                `ChartCls`.
+                `ChartCls`. Should not include 'close_only' or
+                'lose_single_symbols' keys which should instead be
+                declared via the dedicated properties `_prop_close_only`
+                and `_lose_single_symbol` respectively.
+
+            _operate_kwargs -> dict:
+                Kwargs to pass to pt.operate of returned price data in
+                order to get data to pass to chart. Subclass can extend if
+                required.
+
+            _plot_close_only -> bool:
+                Query if only close price should be passed as chart data.
+                True by default. Subclass should override to return False
+                if require that all prices columns (open, high, low, close,
+                volume) are passed as chart data.
+
+            _lose_single_symbol -> bool:
+                Query if, before passing price data to chart, level 0
+                should be stripped from columns if data is for a single
+                symbol. True by default. Subclass should override to return
+                False if this behaviour is not required.
+
+            _include_drawdown -> bool:
+                Query if chart should show drawdown data on secondary
+                y axis. Default True. Subclass should override to return
+                False if drawdown data should not be shown.
 
     Methods
     -------
@@ -623,6 +652,9 @@ class BasePrice(BaseVariableDates):
 
     Properties
     ----------
+    data_initial -> tuple[pd.DataFrame, list[float | list[float]] | None]:
+        Copies of initial data passed to chart.
+
     crosshairs: list
         Crosshair objects associated with figure.
     """
@@ -688,18 +720,22 @@ class BasePrice(BaseVariableDates):
         assert issubclass(self.ChartCls, charts.BasePrice)
         chart_kwargs = {} if chart_kwargs is None else chart_kwargs
         ptinterval = None if interval is None else to_ptinterval(interval)
-        self._initial_prices: pd.DataFrame | pd.Series  # set by _set_initial_prices
-        self._initial_price_params_non_period_: dict  # set via _set_initial_prices
-        prices = self._set_initial_prices(analysis, ptinterval, kwargs)
+        # set by _set_initial_data
+        self._initial_data: tuple[pd.DataFrame, list[float | list[float]] | None]
+        self._initial_price_params_non_period_: dict
+        data, data2 = self._set_initial_data(analysis, ptinterval, kwargs)
+
         self._analysis = analysis
         super().__init__(
-            data=prices,
+            data=data,
             title=self._chart_title,
             max_ticks=max_ticks,
             display=display,
             log_scale=log_scale,
+            data_y2=data2,
             **chart_kwargs,
         )
+        self.chart.set_drawdown_presentation()
 
     @property
     def SelectorCls(self) -> type[FastIntervalSelectorDD]:
@@ -716,27 +752,89 @@ class BasePrice(BaseVariableDates):
         raise NotImplementedError()
 
     @property
+    def _plot_close_only(self) -> bool:
+        """Query if only close price should be passed as chart data.
+
+        Subclass should override to return False if require all prices
+        columns (open, high, low, close, volume) to be passed as chart
+        data.
+        """
+        return True
+
+    @property
+    def _lose_single_symbol(self) -> bool:
+        """Strip level 0 from columns of price data if single symbol.
+
+        Subclass should override to return False if do not want the symbol
+        level of price data to be stripped before passing to chart if data
+        is for a single symbol.
+        """
+        return True
+
+    @property
+    def _operate_kwargs(self) -> dict[str, bool]:
+        """Kwargs to pass to pt.operate of returned price data.
+
+        Kwargs for pt.operate to get data to pass to chart.
+        """
+        return {
+            "close_only": self._plot_close_only,
+            "lose_single_symbol": self._lose_single_symbol,
+        }
+
+    @property
     def _prices_kwargs(self) -> dict:
-        """Fixed kwargs `market_prices.PricesBase.get`.
+        """Fixed kwargs to pass to `market_prices.PricesBase.get`.
 
         Subclass can extend to override any default values or/and extend to
         introduce further immutable kwargs specific to how `ChartCls`
         requires price data.
+
+        Kwargs that change the structure of the returned price data should
+        not be included. The following kwargs should instead be declared
+        via dedicated properties:
+            'close_only' - define with `_plot_close_only` property
+            'lose_single_symbol' - define with `_lose_single_symbol` prop
         """
         return {}
 
-    def _set_initial_prices(
+    @property
+    def _include_drawdown(self) -> bool:
+        """Include option to show drawdown data.
+
+        Subclass should override to return False if option to display
+        drawdown is not required.
+        """
+        return True
+
+    @property
+    def data_initial(self) -> tuple[pd.DataFrame, list[float | list[float]] | None]:
+        """Copies of initial chart data.
+
+        Returns
+        -------
+        initial_data: tuple[pd.DataFrame, list[float | list[float]] | None]
+            [0] Data for principle mark.
+            [1] Data for any mark plotted against the secondary y-axis.
+                None if no mark is plotted against the secondary y-axis.
+        """
+        data2_ = self._initial_data[1]
+        data2 = None if data2_ is None else deepcopy(data2_)
+        return self._initial_data[0].copy(), data2
+
+    def _set_initial_data(
         self,
         analysis: ma_analysis.Analysis,
         interval: mp.intervals.RowInterval | None,
         period_parameters: dict,
-    ) -> pd.DataFrame | pd.Series:
-        """Set initial prices data.
+    ) -> tuple[pd.DataFrame, list[float | list[float]] | None]:
+        """Set initial chart data.
 
         Parameters
         ----------
         analysis
             'analysis' parameter as received by constructor.
+
         interval
             'interval' parameter as received by constructor.
 
@@ -745,8 +843,8 @@ class BasePrice(BaseVariableDates):
 
         Notes
         -----
-        Initial prices are evaluated once, when this method is first
-        called. Subsequent calls will return a copy of the initial prices.
+        Initial data is evaluated once, when this method is first called.
+        Subsequent calls will return a copy of the initial data.
 
         The method is implemented in this way in order that prices can be
         requested by a base class earlier than they would otherwise be
@@ -755,16 +853,16 @@ class BasePrice(BaseVariableDates):
         trends or positions, which is then be displayed visually over a
         chart of the underlying data.
         """
-        if hasattr(self, "_initial_prices"):
-            return self._initial_prices.copy()
+        if hasattr(self, "_initial_data"):
+            return self.data_initial
 
         params = period_parameters.copy()
         params["composite"] = False
         params["interval"] = interval
         prices = analysis.prices.get(**params, **self._prices_kwargs)
-        self._initial_prices = prices
+        self._initial_data = self._prices_to_chart_data(prices)
         self._set_initial_price_params_non_period(params)
-        return self._initial_prices.copy()
+        return self.data_initial
 
     def _set_initial_price_params_non_period(self, initial_price_params: dict):
         """Set initial price params excluding those that define period and interval."""
@@ -786,9 +884,25 @@ class BasePrice(BaseVariableDates):
     def _initial_price_params_non_period(self) -> dict:
         return self._initial_price_params_non_period_
 
-    def _get_prices(self, **kwargs):
-        """Get prices from analysis."""
-        return self._analysis.prices.get(**kwargs, **self._prices_kwargs)
+    def _prices_to_chart_data(
+        self, prices: pd.DataFrame
+    ) -> tuple[pd.DataFrame, list[float | list[float]] | None]:
+        """Return data to pass to chart for given price data."""
+        data = prices.pt.operate(**self._operate_kwargs)
+        if not self._include_drawdown:
+            return data, None
+        pct = get_pct_off_high(prices, None)
+        data2 = upd.tolists(pct)
+        if len(data2) == 1 and isinstance(data2[0], list):
+            data2 = data2[0]
+        return data, data2
+
+    def _get_chart_data(
+        self, **kwargs
+    ) -> tuple[pd.DataFrame, list[float | list[float]] | None]:
+        """Get data to pass to chart."""
+        prices = self._analysis.prices.get(**kwargs, **self._prices_kwargs)
+        return self._prices_to_chart_data(prices)
 
     # TOP ICON ROW
     @property
@@ -1194,7 +1308,7 @@ class BasePrice(BaseVariableDates):
             end -= ONE_DAY
         interval = new.as_pdfreq[:-1] if new.is_monthly else new
         try:
-            prices = self._get_prices(
+            prices, data2 = self._get_chart_data(
                 interval=interval,
                 start=start,
                 end=end,
@@ -1235,18 +1349,18 @@ class BasePrice(BaseVariableDates):
         vxts = pd.Interval(left, right, closed="left")
 
         self._clear_user_activity()
-        self._update_chart(prices, reset_slider=True, visible_x_ticks=vxts)
+        self._update_chart(prices, data2, reset_slider=True, visible_x_ticks=vxts)
 
     def _reset_chart(self):
         """Reset initial chart."""
-        prices = self._initial_prices.copy()
-        if isinstance(prices.index, pd.IntervalIndex):
-            left = prices.index[0].left.tz_localize(None)
-            right = prices.index[-1].right.tz_localize(None)
+        data, data2 = self.data_initial
+        if isinstance(data.index, pd.IntervalIndex):
+            left = data.index[0].left.tz_localize(None)
+            right = data.index[-1].right.tz_localize(None)
         else:
-            left, right = prices.index[0], prices.index[-1] + ONE_DAY
+            left, right = data.index[0], data.index[-1] + ONE_DAY
         vxts = pd.Interval(left, right, closed="left")
-        self._update_chart(prices, visible_x_ticks=vxts, reset_slider=True)
+        self._update_chart(data, data2, visible_x_ticks=vxts, reset_slider=True)
         self._interval_selector.set_value_unobserved(self._tick_interval)
 
     def _reset(self):
@@ -1266,13 +1380,6 @@ class GuiLine(BasePrice):
     @property
     def _chart_title(self) -> str:
         return self._analysis.symbol
-
-    @property
-    def _prices_kwargs(self) -> dict:
-        d = super()._prices_kwargs
-        d["lose_single_symbol"] = True
-        d["close_only"] = True
-        return d
 
 
 class GuiMultLine(BasePrice):
@@ -1321,7 +1428,7 @@ class GuiMultLine(BasePrice):
             `analysis`.
         """
         self._rebase_on_zoom = rebase_on_zoom
-        self._labels: list[str]  # set by --_set_initial_prices--
+        self._labels: list[str]  # set by --_set_initial_data--
         super().__init__(analysis, interval, max_ticks, log_scale, display, **kwargs)
 
     @property
@@ -1333,21 +1440,24 @@ class GuiMultLine(BasePrice):
         return "Rebased comparison"
 
     @property
+    def _lose_single_symbol(self) -> bool:
+        return False
+
+    @property
     def _prices_kwargs(self) -> dict:
         d = super()._prices_kwargs
         d["fill"] = "both"
-        d["close_only"] = True
         return d
 
-    def _set_initial_prices(
+    def _set_initial_data(
         self,
         analysis: ma_analysis.Analysis,
         interval: mp.intervals.RowInterval | None,
         period_parameters: dict,
-    ) -> pd.DataFrame | pd.Series:
-        prices = super()._set_initial_prices(analysis, interval, period_parameters)
-        self._labels = list(prices.columns)
-        return prices
+    ) -> tuple[pd.DataFrame, list[float | list[float]]]:
+        data, data2 = super()._set_initial_data(analysis, interval, period_parameters)
+        self._labels = list(data.columns)
+        return data, data2
 
     def _create_rebase_button(self) -> vu.IconBut:
         but = gui_parts.rebase_but(class_="ml-5 mr-5")
@@ -1554,10 +1664,8 @@ class GuiOHLC(BasePrice):
         return self._analysis.symbol
 
     @property
-    def _prices_kwargs(self) -> dict:
-        d = super()._prices_kwargs
-        d["lose_single_symbol"] = True
-        return d
+    def _plot_close_only(self) -> bool:
+        return False
 
     def _create_selector(self, **kwargs) -> type[Selector] | None:
         """Create selector.

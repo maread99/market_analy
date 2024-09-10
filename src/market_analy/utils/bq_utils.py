@@ -15,8 +15,10 @@ from traitlets import HasTraits, Any, dlink, link
 
 from market_analy.utils import UTC
 
-# possible keys for dictionary taken by +scales+ parameter of Axes class.
-ScaleKeys = Literal["x", "y", "color", "opacity", "size", "rotation", "skew"]
+# possible keys for dictionary taken by `scales` parameter of Axes class.
+# NB "y2" is not a key of the `scales` parameter but rather handled internally to
+# represent a secondary y axis
+ScaleKeys = Literal["x", "y", "y2", "color", "opacity", "size", "rotation", "skew"]
 
 # Colors for use on charts with dark backgrounds.
 COLORS_DARK_8 = [
