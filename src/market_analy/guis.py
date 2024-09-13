@@ -365,7 +365,7 @@ class Base(metaclass=ABCMeta):
 
     def _update_chart(self, data: pd.DataFrame | pd.Series, title: str | None = None):
         """Update chart with new data."""
-        self.chart.update(data, title)
+        self.chart.update(data, title=title)
 
     def _cycle_legend_handler(
         self,
@@ -529,8 +529,9 @@ class BaseVariableDates(Base):
 
     def _update_chart(  # type: ignore[override]
         self,
-        data: pd.DataFrame | pd.Series,
+        data: pd.DataFrame | pd.Series | None = None,
         data2: list[float | int | list[float | int]] | None = None,
+        prices: pd.DataFrame | None = None,
         title: str | None = None,
         visible_x_ticks: pd.Interval | None = None,
         reset_slider=False,
@@ -539,17 +540,33 @@ class BaseVariableDates(Base):
 
         Overrides inherited method.
 
+        Parameters
+        ----------
+        data : pd.DataFrame | pd.Series | None, default: None
+            data against which to update the principle mark. Pass as None
+            if unchanged from current data.
+
+        data2 : list[float | int | list[float | int]] | None, default: None
+            data against which to update the secondary mark. Pass as None
+            if unchanged from current data_y2.
+
+        prices : pd.DataFrame | None
+            prices on which `data` is based, or None if `data` is
+            unchanged.
+
         reset_slider : bool, default: False
             True to set slider extents to reflect all plottable x-ticks.
             False to retain existing extents to extent possible.
         """
         prior_tick_interval = self._tick_interval
-        self.chart.update(data, title, visible_x_ticks, data_y2=data2)
+        self.chart.update(data, data2, title, visible_x_ticks)
         if reset_slider:
             self._set_slider_limits_to_all_plottable_x_ticks()
         else:
             self._update_slider_dates(prior_tick_interval)
         self._set_slider_to_plotted_x_ticks()
+        if prices is not None:
+            self._prices = prices
 
     # TOP ICON ROW
     @property
@@ -573,9 +590,9 @@ class BasePrice(BaseVariableDates):
 
     GUI comprises:
 
-    # TODO UPDATE FOR any widgets relating to the drawdown
     IconRow: Icons to undertake chart operations.
-    w.ToggleButtons: Toggle buttons to select interval (optional)
+    Label | w.ToggleButtons: Toggle buttons for tick interval (optional)
+    Label | w.ToggleButtons: Toggle buttons for drawdown period (optional)
     Figure: plot
     wu.DateRangeSlider: slider to interactively set chart dates
     HtmlOutput: Housing for html output.
@@ -613,6 +630,9 @@ class BasePrice(BaseVariableDates):
                 Set to False on subclass to not include the
                 `w.ToggleButtons` that provides for changing tick interval.
 
+            _HAS_DRAWDOWN : bool, default: True
+                Set to False if subclass should not show drawdown data.
+
         The following properties introduced by this class:
 
             _prices_kwargs -> dict:
@@ -639,11 +659,6 @@ class BasePrice(BaseVariableDates):
                 should be stripped from columns if data is for a single
                 symbol. True by default. Subclass should override to return
                 False if this behaviour is not required.
-
-            _include_drawdown -> bool:
-                Query if chart should show drawdown data on secondary
-                y axis. Default True. Subclass should override to return
-                False if drawdown data should not be shown.
 
     Methods
     -------
@@ -674,6 +689,7 @@ class BasePrice(BaseVariableDates):
     ]
     TICK_INTERVALS_PT = [to_ptinterval(ti) for ti in TICK_INTERVALS]
     _HAS_INTERVAL_SELECTOR = True
+    _HAS_DRAWDOWN = True
 
     def __init__(
         self,
@@ -722,8 +738,10 @@ class BasePrice(BaseVariableDates):
         ptinterval = None if interval is None else to_ptinterval(interval)
         # set by _set_initial_data
         self._initial_data: tuple[pd.DataFrame, list[float | list[float]] | None]
+        self._initial_prices: pd.DataFrame
+        self._prices: pd.DataFrame
         self._initial_price_params_non_period_: dict
-        data, data2 = self._set_initial_data(analysis, ptinterval, kwargs)
+        data, data2, _ = self._set_initial_data(analysis, ptinterval, kwargs)
 
         self._analysis = analysis
         super().__init__(
@@ -799,35 +817,37 @@ class BasePrice(BaseVariableDates):
         return {}
 
     @property
-    def _include_drawdown(self) -> bool:
-        """Include option to show drawdown data.
-
-        Subclass should override to return False if option to display
-        drawdown is not required.
-        """
-        return True
+    def prices(self) -> pd.DataFrame:
+        """Copy of prices on which current chart plots based."""
+        return self._prices.copy()
 
     @property
-    def data_initial(self) -> tuple[pd.DataFrame, list[float | list[float]] | None]:
-        """Copies of initial chart data.
+    def data_prices_initial(
+        self,
+    ) -> tuple[pd.DataFrame, list[float | list[float]] | None, pd.DataFrame]:
+        """Copies of initial chart data and corresponding prices.
 
         Returns
         -------
-        initial_data: tuple[pd.DataFrame, list[float | list[float]] | None]
+        initial_data: tuple[
+            pd.DataFrame,
+            list[float | list[float]] | None,
+            pd.DataFrame,
+        ]
             [0] Data for principle mark.
             [1] Data for any mark plotted against the secondary y-axis.
-                None if no mark is plotted against the secondary y-axis.
+            [2] Prices on which data based.
         """
         data2_ = self._initial_data[1]
         data2 = None if data2_ is None else deepcopy(data2_)
-        return self._initial_data[0].copy(), data2
+        return self._initial_data[0].copy(), data2, self._initial_prices.copy()
 
     def _set_initial_data(
         self,
         analysis: ma_analysis.Analysis,
         interval: mp.intervals.RowInterval | None,
         period_parameters: dict,
-    ) -> tuple[pd.DataFrame, list[float | list[float]] | None]:
+    ) -> tuple[pd.DataFrame, list[float | list[float]] | None, pd.DataFrame]:
         """Set initial chart data.
 
         Parameters
@@ -854,15 +874,16 @@ class BasePrice(BaseVariableDates):
         chart of the underlying data.
         """
         if hasattr(self, "_initial_data"):
-            return self.data_initial
+            return self.data_prices_initial
 
         params = period_parameters.copy()
         params["composite"] = False
         params["interval"] = interval
         prices = analysis.prices.get(**params, **self._prices_kwargs)
+        self._initial_prices = self._prices = prices
         self._initial_data = self._prices_to_chart_data(prices)
         self._set_initial_price_params_non_period(params)
-        return self.data_initial
+        return self.data_prices_initial
 
     def _set_initial_price_params_non_period(self, initial_price_params: dict):
         """Set initial price params excluding those that define period and interval."""
@@ -884,25 +905,29 @@ class BasePrice(BaseVariableDates):
     def _initial_price_params_non_period(self) -> dict:
         return self._initial_price_params_non_period_
 
+    @staticmethod
+    def _get_drawdown(
+        prices: pd.DataFrame, window: int | str | None
+    ) -> list[float | list[float]]:
+        pct = get_pct_off_high(prices, window)
+        data = upd.tolists(pct)
+        if len(data) == 1 and isinstance(data[0], list):
+            data = data[0]
+        return data
+
     def _prices_to_chart_data(
         self, prices: pd.DataFrame
     ) -> tuple[pd.DataFrame, list[float | list[float]] | None]:
         """Return data to pass to chart for given price data."""
         data = prices.pt.operate(**self._operate_kwargs)
-        if not self._include_drawdown:
+        if not self._HAS_DRAWDOWN:
             return data, None
-        pct = get_pct_off_high(prices, None)
-        data2 = upd.tolists(pct)
-        if len(data2) == 1 and isinstance(data2[0], list):
-            data2 = data2[0]
+        data2 = self._get_drawdown(prices, None)
         return data, data2
 
-    def _get_chart_data(
-        self, **kwargs
-    ) -> tuple[pd.DataFrame, list[float | list[float]] | None]:
-        """Get data to pass to chart."""
-        prices = self._analysis.prices.get(**kwargs, **self._prices_kwargs)
-        return self._prices_to_chart_data(prices)
+    def _get_prices(self, **kwargs):
+        """Get price data."""
+        return self._analysis.prices.get(**kwargs, **self._prices_kwargs)
 
     # TOP ICON ROW
     @property
@@ -921,7 +946,7 @@ class BasePrice(BaseVariableDates):
         else:
             self._hide_loading_overlay()
 
-    def _create_intrvl_slctr(self) -> w.ToggleButtons:
+    def _create_intrvl_slctr(self) -> gui_parts.IntervalSelector:
         left = self.chart.plottable_interval.left
         right = self.chart.plottable_interval.right
         intervals = zip(self.TICK_INTERVALS, self.TICK_INTERVALS_PT)
@@ -933,8 +958,50 @@ class BasePrice(BaseVariableDates):
             if left + pt <= to:
                 labels.append(label)
         return gui_parts.IntervalSelector(
-            labels, self._tick_interval, self._interval_selector_handler
+            labels, self._interval_selector_handler, self._tick_interval
         )
+
+    # DRAWDOWN SELECTOR
+    def _drawdown_selector_handler(self, change: dict):
+        new, old = change["new"], change["old"]
+        if not new:
+            self.chart.hide_y2()
+            return
+
+        if not old:
+            self.chart.show_y2()
+        window = None if new == "ATH" else new
+        try:
+            self.set_drawdown_period(window)
+        except ValueError as err:
+            self._popup("Drawdown period unavailable", err.args[0])
+            change["owner"].set_value_unobserved(old)
+
+    def _create_drawdown_slctr(self) -> gui_parts.DrawdownSelector:
+        labels = [125, 90, 60, 40, 20, 10]
+        return gui_parts.DrawdownSelector(labels, self._drawdown_selector_handler)
+
+    def _create_selector_boxes(self) -> w.HBox | None:
+        if self.chart.tick_interval not in self.TICK_INTERVALS_PT:
+            self._HAS_INTERVAL_SELECTOR = False
+
+        if not self._HAS_INTERVAL_SELECTOR and not self._HAS_DRAWDOWN:
+            return None
+
+        layout = w.Layout(justify_content="flex-start", margin="15px 5px 0 0")
+        style = w.widgets.widget_string.LabelStyle(font_weight="bold")
+        selectors, labels = [], []
+        if self._HAS_INTERVAL_SELECTOR:
+            self._interval_selector = self._create_intrvl_slctr()
+            selectors.append(self._interval_selector)
+            labels.append(w.Label("Tick interval:", layout=layout, style=style))
+        if self._HAS_DRAWDOWN:
+            self._drawdown_selector = self._create_drawdown_slctr()
+            selectors.append(self._drawdown_selector)
+            labels.append(w.Label("Drawdown:", layout=layout, style=style))
+        if len(selectors) == 1:
+            return w.HBox(children=[labels[0], selectors[0]])
+        return w.HBox(children=[w.VBox(children=labels), w.VBox(children=selectors)])
 
     # TAB CONTROL
     def _cursor_tab_reset(self):
@@ -978,15 +1045,7 @@ class BasePrice(BaseVariableDates):
         self._crosshairs = Crosshairs(self.chart.figure)
         self._set_mark_handlers()
         self._icon_row_top: gui_parts.IconRowTop = self._create_icon_row_top()
-
-        if (
-            not self._HAS_INTERVAL_SELECTOR
-            or self.chart.tick_interval not in self.TICK_INTERVALS_PT
-        ):
-            self._interval_selector: w.ToggleButtons | None = None
-        else:
-            self._interval_selector = self._create_intrvl_slctr()
-
+        self._selector_boxes: w.HBox | None = self._create_selector_boxes()
         self.date_slider: wu.DateRangeSlider = self._create_date_slider()
         self._html_output: w.HTML = self._create_html_output()
         self.tabs_control: gui_parts.TabsControl = self._create_tabs_control()
@@ -994,8 +1053,8 @@ class BasePrice(BaseVariableDates):
     @property
     def _gui_box_contents(self) -> list[w.Widget]:
         contents = [self._icon_row_top]
-        if self._interval_selector is not None:
-            contents += [self._interval_selector]
+        if self._selector_boxes is not None:
+            contents += [self._selector_boxes]
         contents += [
             self.chart.figure,
             self.date_slider,
@@ -1054,6 +1113,9 @@ class BasePrice(BaseVariableDates):
         **kwargs:
             passed to Crosshair.
         """
+        # ensure plotted again scale associated with principle mark
+        kwargs.setdefault("existing_mark", self.chart.mark)
+
         ch = self.crosshairs.add(draggable=draggable, **kwargs)
         reg = ch.cross.on_element_click
         if delible:
@@ -1171,7 +1233,7 @@ class BasePrice(BaseVariableDates):
         # crosshairs have been added. I originally tried to decorate the
         # _max_adv and _max_dec with a context manager which stored the
         # value of .selected, forced slctr.reset() and after adding the
-        # crossharirs reassigning the stored selection to .selected. However,
+        # crosshairrs reassigning the stored selection to .selected. However,
         # reassigning FastIntervalSelector.selected does not trigger a redrawing
         # of the  selector rectangle to reflect the newly assigned selection.
         # with the exception of assigning None, which removes is (NB noted to
@@ -1227,6 +1289,11 @@ class BasePrice(BaseVariableDates):
         self._max_dec_crosshairs()
 
     # UPDATE CHART
+    def set_drawdown_period(self, window: int | str | None):
+        """Set period over which drawdown high is evaluated."""
+        dd = self._get_drawdown(self.prices, window)
+        self._update_chart(data2=dd)
+
     def _clear_user_activity(self):
         self._close_crosshairs()
         self.html_output.clear()
@@ -1308,7 +1375,7 @@ class BasePrice(BaseVariableDates):
             end -= ONE_DAY
         interval = new.as_pdfreq[:-1] if new.is_monthly else new
         try:
-            prices, data2 = self._get_chart_data(
+            prices = self._get_prices(
                 interval=interval,
                 start=start,
                 end=end,
@@ -1316,8 +1383,9 @@ class BasePrice(BaseVariableDates):
             )
         except Exception as err:
             raise ValueError(str(err)) from None
-        if prices.isna().any(axis=None):
-            symbols = [col for col in prices.columns if prices[col].isna().any()]
+        data, data2 = self._prices_to_chart_data(prices)
+        if data.isna().any(axis=None):
+            symbols = [col for col in data.columns if data[col].isna().any()]
             msg = (
                 f"Prices for interval '{new.as_pdfreq}' are not available over the"
                 f" current plottable dates as no price is available over this peroid"
@@ -1349,19 +1417,22 @@ class BasePrice(BaseVariableDates):
         vxts = pd.Interval(left, right, closed="left")
 
         self._clear_user_activity()
-        self._update_chart(prices, data2, reset_slider=True, visible_x_ticks=vxts)
+        self._update_chart(data, data2, prices, reset_slider=True, visible_x_ticks=vxts)
+        if self._HAS_DRAWDOWN:
+            self._drawdown_selector.set_value_unobserved("ATH")
 
     def _reset_chart(self):
         """Reset initial chart."""
-        data, data2 = self.data_initial
+        data, data2, prices = self.data_prices_initial
         if isinstance(data.index, pd.IntervalIndex):
             left = data.index[0].left.tz_localize(None)
             right = data.index[-1].right.tz_localize(None)
         else:
             left, right = data.index[0], data.index[-1] + ONE_DAY
         vxts = pd.Interval(left, right, closed="left")
-        self._update_chart(data, data2, visible_x_ticks=vxts, reset_slider=True)
-        self._interval_selector.set_value_unobserved(self._tick_interval)
+        self._update_chart(data, data2, prices, visible_x_ticks=vxts, reset_slider=True)
+        if self._HAS_INTERVAL_SELECTOR:
+            self._interval_selector.set_value_unobserved(self._tick_interval)
 
     def _reset(self):
         self.slctr.disable()
@@ -1454,10 +1525,12 @@ class GuiMultLine(BasePrice):
         analysis: ma_analysis.Analysis,
         interval: mp.intervals.RowInterval | None,
         period_parameters: dict,
-    ) -> tuple[pd.DataFrame, list[float | list[float]]]:
-        data, data2 = super()._set_initial_data(analysis, interval, period_parameters)
+    ) -> tuple[pd.DataFrame, list[float | list[float]] | None, pd.DataFrame]:
+        data, data2, prices = super()._set_initial_data(
+            analysis, interval, period_parameters
+        )
         self._labels = list(data.columns)
-        return data, data2
+        return data, data2, prices
 
     def _create_rebase_button(self) -> vu.IconBut:
         but = gui_parts.rebase_but(class_="ml-5 mr-5")
@@ -1494,7 +1567,7 @@ class GuiMultLine(BasePrice):
         )
         self._but_rebase: vu.IconBut = self._create_rebase_button()
         self._but_legend: vu.IconBut = self._create_legend_button()
-        self._controls_box = w.HBox = self._create_controls_box()
+        self._controls_box: w.HBox = self._create_controls_box()
 
     @property
     def _gui_box_contents(self) -> list[w.Widget]:
@@ -1575,6 +1648,7 @@ class GuiMultLine(BasePrice):
         if isinstance(prices.index, pd.IntervalIndex):
             prices.index = upd.interval_index_new_tz(prices.index, None)
         else:
+            prices.index.freq = None  # `get_interval_index` will fail if CustomDay
             prices.index = mp.utils.pandas_utils.get_interval_index(prices.index, "1D")
         for symbol in self._labels:
             prices[symbol] = upd.rebase_to_cell(

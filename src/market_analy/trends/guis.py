@@ -92,6 +92,7 @@ class TrendsGuiBase(GuiOHLCCaseBase):
     """
 
     _HAS_INTERVAL_SELECTOR = False
+    _HAS_DRAWDOWN = False
 
     def __init__(
         self,
@@ -107,7 +108,7 @@ class TrendsGuiBase(GuiOHLCCaseBase):
         chart_kwargs: dict | None = None,
         **kwargs,
     ):
-        data, _ = self._set_initial_data(analysis, interval, kwargs)
+        data, _, _ = self._set_initial_data(analysis, interval, kwargs)
         if isinstance(data.index, pd.IntervalIndex):
             data.index = data.index.left
             if data.index.tz is not None:
@@ -136,10 +137,6 @@ class TrendsGuiBase(GuiOHLCCaseBase):
     @property
     def _chart_title(self) -> str:
         return self._analysis.symbol + " Trend Analysis"
-
-    @property
-    def _include_drawdown(self) -> bool:
-        return False
 
     @property
     def _icon_row_top_handlers(self) -> list[Callable]:
