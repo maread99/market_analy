@@ -804,14 +804,28 @@ class Base(metaclass=ABCMeta):
     # DATA UPDATE
     @hold_mark_update
     def _update_data(
-        self, data: pd.DataFrame | pd.Series, data_y2: list[float | int] | None
+        self, data: pd.DataFrame | pd.Series | None, data_y2: list[float | int] | None
     ):
-        self.data = data
-        self.mark.x = self._x_data
-        self.mark.y = self._get_mark_y_data()
+        """Update chart data.
+
+        Parameters
+        ----------
+        data
+            Data with which to update the principle mark. Pass as None if
+            only updating the secondary mark.
+
+        data_y2
+            Data with which to update the secondary mark. Pass as None if
+            only updating the principle mark.
+        """
+        if data is not None:
+            self.data = data
+            self.mark.x = self._x_data
+            self.mark.y = self._get_mark_y_data()
         if data_y2 is not None:
             assert self.data_y2 is not None
-            assert len(data_y2) == len(data)
+            data_ = data if data is not None else self.data
+            assert len(data_y2) == len(data_)
             self.mark_y2.x = self._x_data
             self.mark_y2.y = self._get_mark_y_data()
         self.update_presentation()
@@ -820,8 +834,8 @@ class Base(metaclass=ABCMeta):
     def update(
         self,
         data: pd.DataFrame | pd.Series,
-        title: str | None = None,
         data_y2: list[float | int | list[float | int]] | None = None,
+        title: str | None = None,
     ):
         """Create new chart from existing mark and figure.
 
@@ -830,12 +844,12 @@ class Base(metaclass=ABCMeta):
         data
             As 'data' parameter passed to constructor.
 
-        title
-            New chart title. If not passed will retain any existing title.
-
         data_y2
             As 'data_y2' parameter passed to constructor. Can only be
             passed if 'data_y2' was passed to constructor.
+
+        title
+            New chart title. If not passed will retain any existing title.
         """
         self._update_data(data, data_y2)
         if title:
@@ -1558,11 +1572,25 @@ class BaseSubsetDD(Base):
     @hold_mark_update
     def _update_data(
         self,
-        data: pd.DataFrame | pd.Series,
-        visible_x_ticks: pd.Interval | None = None,
+        data: pd.DataFrame | pd.Series | None,
         data_y2: list[float | int | list[float | int]] | None = None,
+        visible_x_ticks: pd.Interval | None = None,
     ):
         """Update data.
+
+        Parameters
+        ----------
+        data
+            Data with which to update the principle mark. Pass as None if
+            only updating the secondary mark with data_y2.
+
+        data_y2
+            Data with which to update the secondary mark. Pass as None if
+            only updating the principle mark.
+
+        visible_x_ticks
+            x_ticks to plot post update. If not passed interval to plot
+            will be assued as currently plotted x_ticks.
 
         Notes
         -----
@@ -1572,50 +1600,86 @@ class BaseSubsetDD(Base):
 
             Provides for setting plotted dates.
         """
-        x_changed = not self.data.index.equals(data.index)
+        if data is None and data_y2 is None:
+            return
 
-        self.data = data
-        if not self._update_mark_data_attr_to_reflect_plotted:
-            self.mark.x = self._x_data
-            self.mark.y = self._get_mark_y_data()
+        if data is not None:
+            # TODO CAN LOSE THIS IF ALL WORKING AS REQUIRED
+            # NOTE SEE note further below re keeping this until happy
+            # # x_changed has to be resolved here before setting any new data
+            # if isinstance(data.index, pd.DatetimeIndex):
+            #     x_changed = not self.data.index.left.equals(data.index)
+            # else:
+            #     x_changed = not self.data.index.equals(data.index)
+            self.data = data
+            if not self._update_mark_data_attr_to_reflect_plotted:
+                self.mark.x = self._x_data
+                self.mark.y = self._get_mark_y_data()
+        # TODO CAN LOSE THIS IF ALL WORKING AS REQUIRED
+        # NOTE SEE note further below re keeping this until happy
+        # else:
+        #     x_changed = False
 
         if data_y2 is not None:
             assert self._has_y2_plot
+            data_ = data if data is not None else self.data
             if isinstance(data_y2[0], list):
                 for lst in data_y2:
-                    assert len(lst) == len(data)
+                    assert len(lst) == len(data_)
             else:
-                assert len(data_y2) == len(data)
+                assert len(data_y2) == len(data_)
             self.data_y2 = data_y2
 
             if not self._update_mark_y2_data_attr_to_reflect_plotted:
                 self.mark_y2.x = self._x_data
                 self.mark_y2.y = self._get_mark_y2_data()
-
-        no_plot = self.plotted_x_ticks.empty
-        if no_plot or x_changed:
-            # mark attributes will be updated to reflect plotted
-            # and presentation will be updated all as part of setting
-            # plotted_x_ticks implementation (via self._x_domain_chg_handler)
-            plot_interval = self._get_plot_interval(visible_x_ticks)
-            if plot_interval.length < self.tick_interval:
-                subset = self.date_intervals_subset(plot_interval, overlap=True)
-                plot_interval = upd.interval_of_intervals(subset, closed="left")
-            self.plotted_x_ticks = plot_interval
-        else:
-            # if only y changed
-            if self._update_mark_data_attr_to_reflect_plotted:
-                self._set_mark_to_plotted()
-            if self._has_y2_plot and self._update_mark_y2_data_attr_to_reflect_plotted:
+            elif data is None:
+                # shortcut out, only updating data_y2 and setting to plotted
                 self._set_mark_y2_to_plotted()
-            self.update_presentation()
+                self.update_presentation()
+                return
+
+        # mark attributes will be updated to reflect plotted
+        # and presentation will be updated all as part of setting
+        # plotted_x_ticks implementation (via self._x_domain_chg_handler)
+        plot_interval = self._get_plot_interval(visible_x_ticks)
+        if plot_interval.length < self.tick_interval:
+            subset = self.date_intervals_subset(plot_interval, overlap=True)
+            plot_interval = upd.interval_of_intervals(subset, closed="left")
+        prior_plotted_x_ticks = self.plotted_x_ticks.copy()
+        self.plotted_x_ticks = plot_interval
+        if prior_plotted_x_ticks.equals(self.plotted_x_ticks):
+            # trigger handler manually as will not have fired if value unchanged
+            self._x_domain_chg_handler(event=None)
+
+        # TODO DEL IF GET A NEW APPROACH WORKING...
+        # NOTE TO NOT BE TOO HASTY LOSING THIS!!! AS OF 12/09/24 BELIEVE THAT THERE IS
+        # A FLAKY BUG WITH THE SUGGESTED IMPLENTATION...Keep playing with it and doen't
+        # lose this code (or that above) until happy
+        # no_plot = self.plotted_x_ticks.empty
+        # if no_plot or x_changed:
+        #     # mark attributes will be updated to reflect plotted
+        #     # and presentation will be updated all as part of setting
+        #     # plotted_x_ticks implementation (via self._x_domain_chg_handler)
+        #     plot_interval = self._get_plot_interval(visible_x_ticks)
+        #     if plot_interval.length < self.tick_interval:
+        #         subset = self.date_intervals_subset(plot_interval, overlap=True)
+        #         plot_interval = upd.interval_of_intervals(subset, closed="left")
+        #     self.plotted_x_ticks = plot_interval
+        # else:
+        #     # if only y changed
+        #     if self._update_mark_data_attr_to_reflect_plotted:
+        #         self._set_mark_to_plotted()
+        #     if self._has_y2_plot and self._update_mark_y2_data_attr_to_reflect_plotted:
+        #         self._set_mark_y2_to_plotted()
+        #     self.update_presentation()
 
     def update(
         self,
         data: pd.DataFrame | pd.Series,
+        data_y2: list[float | int | list[float | int]] | None = None,
         title: str | None = None,
         visible_x_ticks: pd.Interval | None = None,
-        data_y2: list[float | int | list[float | int]] | None = None,
     ):
         """Update chart with new data.
 
@@ -1623,7 +1687,7 @@ class BaseSubsetDD(Base):
 
         Parameters otherwise as constructor.
         """
-        self._update_data(data, visible_x_ticks, data_y2)
+        self._update_data(data, data_y2, visible_x_ticks)
         if title:
             self.title = title
 
@@ -2163,10 +2227,10 @@ class MultLine(BasePrice):
 
     def update(
         self,
-        data: pd.DataFrame | pd.Series,
+        data: pd.DataFrame | pd.Series | None,
+        data_y2: list[float | int | list[float | int]] | None = None,
         title: str | None = None,
         visible_x_ticks: pd.Interval | None = None,
-        data_y2: list[float | int | list[float | int]] | None = None,
     ):
         """Update chart with new data.
 
@@ -2174,8 +2238,9 @@ class MultLine(BasePrice):
 
         Other parameters as for constructor.
         """
-        data = upd.rebase_to_row(data, 0)
-        super().update(data, title, visible_x_ticks, data_y2)
+        if data is not None:
+            data = upd.rebase_to_row(data, 0)
+        super().update(data, data_y2, title, visible_x_ticks)
 
     @property
     def num_lines(self) -> int:

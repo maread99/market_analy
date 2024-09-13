@@ -46,7 +46,6 @@ PctChgIconRowMult:
 from __future__ import annotations
 
 from collections.abc import Callable
-from contextlib import contextmanager
 import re
 
 import ipywidgets as w
@@ -81,14 +80,14 @@ def close_but(handler: Callable | None = None) -> wu.ButtonIcon:
     return but
 
 
-class IntervalSelector(w.ToggleButtons):
+class IntervalSelector(wu.ToggleButtonsHandled):
     """`w.ToggleButtons` to select a date interval."""
 
     def __init__(
         self,
         labels: list[str],
-        value: intervals.PTInterval | None = None,
         handler: Callable | None = None,
+        value: intervals.PTInterval | None = None,
         layout_kwargs: dict | None = None,
     ):
         """Constructor.
@@ -100,57 +99,81 @@ class IntervalSelector(w.ToggleButtons):
             from which PTIntervals can be instantiated, for example:
                 ['3mo', '1d', '1h', '30m', '5m']
 
-        value
-            Value corresponding with any toggle button to initially select.
-            If not passed then first toggle button will be selected.
-
         handler
             Handler to handle changes to `ToggleButtons` value. Should have
             signature `handler(change: dict)` where 'change' is a
             dictionary including keys 'old' and 'new' which have values as
             old and new price intervals, of type `intervals.PTInterval`.
 
+        value
+            Value corresponding with any toggle button to initially select.
+            If not passed then first toggle button will be selected.
+
         layout_kwargs
             Passed to `w.Layout` assigned to `ToggleButtons`.
         """
         values = [intervals.to_ptinterval(lab) for lab in labels]
-        tbs_style = w.ToggleButtonsStyle(button_width="40px")
-        tooltips = ["Select date interval" for i in range(len(values))]
-        layout_kwargs = layout_kwargs if layout_kwargs is not None else {}
-        layout_kwargs.setdefault("justify_content", "center")
-        layout_kwargs.setdefault("margin", "15px 0 0 0")
-        layout = w.Layout(**layout_kwargs)
+        tooltips = ["Select date interval" for _ in range(len(values))]
         super().__init__(
-            options=list(zip(labels, values)),
-            tooltips=tuple(tooltips),
-            style=tbs_style,
-            layout=layout,
+            labels,
+            values,
+            tooltips=tooltips,
+            handler=handler,
+            value=value,
+            layout_kwargs=layout_kwargs,
         )
 
-        if value is not None and value in values:
-            self.value = value
-        self._handler = handler
-        self._observe_handler()
 
-    def _observe_handler(self):
-        if self._handler is not None:
-            self.observe(self._handler, ["value"])
+class DrawdownSelector(wu.ToggleButtonsHandled):
+    """`w.ToggleButtons` to select a drawdown period.
 
-    def _unobserve_handler(self):
-        if self._handler is not None:
-            self.unobserve(self._handler, ["value"])
+    Button values generally represent the value that can be passed
+    through to the 'window' option of pd.DataFrame.rolling. Values are:
+        - as `labels` for those which represent perioods defined in bars.
+        - '365D' for '52wk' button
+        - 'ATH' for 'ATH' button (cannot take None as this intefers with
+            the buttons implemnentation)
+        - False for 'x' button
 
-    @contextmanager
-    def _handler_disabled(self):
-        """Undertake operation within context of handler being disabled."""
-        self._unobserve_handler()
-        yield
-        self._observe_handler()
+    Parameters
+    ----------
+    labels
+        Button labels representing the options that can be selected to
+        determine the period, in number of bars, over which the high is
+        evaluated. NB 'ATH' and '52wk' will always be added to the start
+        of the options by the constructor.
 
-    def set_value_unobserved(self, value: intervals.PTInterval):
-        """Set value without triggering any handler."""
-        with self._handler_disabled():
-            self.value = value
+    handler
+        Handler to handle changes to `ToggleButtons` value. Should have
+        signature `handler(change: dict)` where 'change' is a dictionary
+        including keys 'old' and 'new' which have values as old and new
+        values.
+
+    value
+        Value corresponding with any toggle button to initially select. If
+        not passed then first toggle button will be selected.
+    """
+
+    def __init__(
+        self,
+        labels: list[int],
+        handler: Callable | None = None,
+        value: str | int | None = None,
+    ):
+        labels_ = ["ATH", "52wk"] + [str(lbl) for lbl in labels] + ["x"]
+        values = ["ATH", "365D"] + [lbl for lbl in labels] + [False]
+        tooltips = (
+            ["All-time high", "52 week high"]
+            + [f"{lbl} bar high" for lbl in labels]
+            + ["Hide drawdown"]
+        )
+        super().__init__(
+            labels_,
+            values,
+            tooltips=tooltips,
+            handler=handler,
+            value=value,
+        )
 
 
 def loading_overlay() -> v.Overlay:

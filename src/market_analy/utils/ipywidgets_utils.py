@@ -25,9 +25,11 @@ DateRangeSlider:
 
 from __future__ import annotations
 
-from collections.abc import Callable
 import asyncio
+from collections.abc import Callable
+from contextlib import contextmanager
 from time import time
+from typing import Any
 
 import ipywidgets as w  # type: ignore[import]
 import pandas as pd
@@ -520,3 +522,99 @@ class DateRangeSlider(w.Box):
     @handle_color.setter
     def handle_color(self, color: str):
         self._style.handle_color = color
+
+
+class ToggleButtonsHandled(w.ToggleButtons):
+    """`w.ToggleButtons` with incorporated handler."""
+
+    def __init__(
+        self,
+        labels: list[str],
+        values: list[Any],
+        tooltips: list[str] | None = None,
+        handler: Callable | None = None,
+        value: Any | None = None,
+        layout_kwargs: dict | None = None,
+        tbs_style: w.ToggleButtonsStyle | None = None,
+    ):
+        """Constructor.
+
+        Parameters
+        ----------
+        labels
+            Button Labels. Length will represent number of buttons.
+
+        values
+            Button Values. Must have same length as labels and value at
+            each index should correspond with label at same index of
+            `labels`.
+
+        tooltips
+            Button tooltips. If passed then should have the same length as
+            `labels`.
+
+        handler
+            Handler to handle changes to `ToggleButtons` value. Should have
+            signature `handler(change: dict)` where 'change' is a
+            dictionary including keys 'old' and 'new' which have values as
+            previous and newly selected buttons.
+
+        value
+            Value corresponding with any toggle button to initially select.
+            If not passed then first toggle button will be selected.
+
+        layout_kwargs
+            Passed to `w.Layout` assigned to `ToggleButtons`.
+
+        tbs_style
+            `w.ToggleButtonsStyle` to apply.
+        """
+        if value is not None and value not in values:
+            raise ValueError(f"`value` {value} is not in `values` {values}")
+        if len(labels) != len(values):
+            raise ValueError(
+                "The length of `labels` and `values` must be equal although `labels` "
+                f"received with length {len(labels)} and `values` with length"
+                f"{len(values)}."
+            )
+
+        kwargs = {}
+        kwargs["style"] = (
+            w.ToggleButtonsStyle(button_width="40px")
+            if tbs_style is None
+            else tbs_style
+        )
+        if tooltips is not None:
+            kwargs["tooltips"] = tooltips
+
+        layout_kwargs = layout_kwargs if layout_kwargs is not None else {}
+        layout_kwargs.setdefault("justify_content", "center")
+        layout_kwargs.setdefault("margin", "15px 0 0 0")
+        kwargs["layout"] = w.Layout(**layout_kwargs)
+
+        super().__init__(options=list(zip(labels, values)), **kwargs)
+
+        if value is not None:
+            self.value = value
+        self._handler = handler
+        self._observe_handler()
+
+    def _observe_handler(self):
+        if self._handler is not None:
+            self.observe(self._handler, ["value"])
+
+    def _unobserve_handler(self):
+        if self._handler is not None:
+            self.unobserve(self._handler, ["value"])
+
+    @contextmanager
+    def _handler_disabled(self):
+        """Undertake operation within context of handler being disabled."""
+        self._unobserve_handler()
+        yield
+        self._observe_handler()
+
+    def set_value_unobserved(self, value: Any):
+        """Set value without triggering any handler."""
+        with self._handler_disabled():
+            self.value = value
