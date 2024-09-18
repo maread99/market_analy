@@ -4,6 +4,8 @@ For most methods of Analysis and Compare testing consists of verifying the
 return from one or two specific calls against hard-coded expected returns.
 """
 
+from __future__ import annotations
+
 from collections import abc
 import contextlib
 import io
@@ -20,10 +22,12 @@ from pandas.testing import assert_series_equal, assert_frame_equal, assert_index
 import pytest
 
 from market_analy import analysis, guis, charts
+from market_analy.standalone import get_pct_off_high
 from market_analy.trends.movements import Movement
 from market_analy.trends.guis import TrendsGui
 from market_analy.utils import UTC
 from market_analy.utils import bq_utils as bqu
+
 
 # pylint: disable=too-many-lines
 # pylint: disable=missing-function-docstring, missing-type-doc
@@ -840,11 +844,103 @@ class TestAnalysis:
         f = analy.plot
         verify_app(f, guis.GuiOHLC, **intraday_pp)
 
+        # verify labels of tick selector
         gui = analy.plot(**intraday_pp, display=False)
         labels = [label for label, pt in gui._interval_selector.options]
-
         assert labels == ["1D", "4H", "1H", "30T", "15T", "5T", "2T", "1T"]
 
+        # verify drawdown selector
+        expected_labels = ("ATH", "52wk", "125", "90", "60", "40", "20", "10", "x")
+        expected_dd_values = ("ATH", "365D", 125, 90, 60, 40, 20, 10, False)
+        labels, values = zip(*gui._drawdown_selector.options)
+        assert labels == expected_labels
+        assert values == expected_dd_values
+        assert gui._drawdown_selector.value == "ATH"  # verify initial value
+
+        def verify_prices(
+            interval: mp.intervals.TDInterval, start: pd.Timestamp, end: pd.Timestamp
+        ):
+            """verify `prices` attr as expected"""
+            assert gui.prices.pt.interval == interval
+            assert gui.prices.pt.first_ts == start
+            assert gui.prices.pt.last_ts == end
+            assert gui.prices.columns.equals(
+                pd.MultiIndex.from_product(
+                    (["AZN.L"], ["open", "high", "low", "close", "volume"])
+                )
+            )
+
+        def verify_prices_to_chart():
+            """verify 'prices' attr reconciles with charted plot."""
+            assert gui.chart.x_ticks.equals(gui.prices.index.left.tz_convert(None))
+            cols = [("AZN.L", c) for c in ["open", "high", "low", "close"]]
+            assert (gui.chart.mark.y == gui.prices[cols].values).all()
+
+        def verify_chart_mark_y2(window: str | int | None, slc: slice | None = None):
+            """Verify mark_y2 values as expected"""
+            assert isinstance(gui.chart.mark_y2, bq.Lines)
+            assert (gui.chart.mark_y2.x == gui.chart.plotted_x_ticks.values).all()
+            dd_data = get_pct_off_high(gui.prices, window)["AZN.L"].values
+            assert (gui.chart.data_y2 == dd_data).all()
+            assert (gui.chart.mark_y2.y == dd_data[slc]).all()
+
+        def verify_chart_mark_y2_mult_windows(
+            window_slc: slice, slc: slice | None = None
+        ):
+            """Verify mark_y2 values as expected for multiple drawdown values.
+
+            Also verifies that changing drawdown value has no effect on
+            `prices` attribute.
+            """
+            prices_prev = gui.prices.copy()
+            for v in expected_dd_values[window_slc]:
+                gui._drawdown_selector.value = v
+                v = None if v == "ATH" else v
+                verify_chart_mark_y2(v, slc)
+                assert gui.prices.equals(prices_prev)
+
+        def verify_52wk_shows_dialog():
+            """Verify selecting the 52wk drawdown period raises dialog.
+
+            Also verifies `prices` are not changed and prior value selected
+            on the drawdow period is reselected.
+            """
+            prices_prior = gui.prices.copy()
+            value_prior = gui._drawdown_selector.value
+            gui._drawdown_selector.value = "365D"
+            assert gui._dialog.value
+            assert gui._dialog.text == (
+                "52wk drawdown period only available with '1D' tick interval"
+            )
+            gui._dialog.close_dialog()
+            assert not gui._dialog.value
+            assert gui.prices.equals(prices_prior)
+            assert gui._drawdown_selector.value == value_prior
+
+        prices_initial = gui.prices.copy()
+
+        # verify prices and drawdown data
+        expected_interval = mp.intervals.TDInterval.T5
+
+        verify_prices(expected_interval, intraday_pp["start"], intraday_pp["end"])
+        verify_prices_to_chart()
+
+        verify_chart_mark_y2_mult_windows(slice(2, -1))
+
+        verify_52wk_shows_dialog()
+
+        # verify function of 'x' button
+        assert gui.chart.mark_y2.visible
+        assert gui.chart.axes[2].visible
+        gui._drawdown_selector.value = False
+        assert not gui.chart.mark_y2.visible
+        assert not gui.chart.axes[2].visible
+
+        gui._drawdown_selector.value = 10
+        assert gui.chart.mark_y2.visible
+        assert gui.chart.axes[2].visible
+
+        # verify plotted intervals
         expected_plottable = pd.Interval(
             intraday_pp["start"].tz_convert(None),
             intraday_pp["end"].tz_convert(None),
@@ -853,7 +949,6 @@ class TestAnalysis:
         assert gui.chart.plottable_interval == expected_plottable
         assert gui.chart.plotted_interval == expected_plottable
 
-        expected_interval = mp.intervals.TDInterval.T5
         assert gui._interval_selector.value == expected_interval
         expected_init = (
             intraday_pp["start"].tz_convert(None),
@@ -872,7 +967,7 @@ class TestAnalysis:
         assert gui.chart.plottable_interval == expected_plottable
 
         # verify all ranges as expected if change to longer interval
-        gui._interval_selector.value = mp.intervals.TDInterval.T15
+        gui._interval_selector.value = expected_interval = mp.intervals.TDInterval.T15
         expected = (pd.Timestamp("2023-01-06 15:00"), pd.Timestamp("2023-01-09 15:15"))
         assert gui.date_slider.slider.value == expected
         expected = pd.Interval(
@@ -880,6 +975,15 @@ class TestAnalysis:
         )
         assert gui.chart.plotted_interval == expected
         assert gui.chart.plottable_interval == expected_plottable
+
+        # verify `gui.prices``
+        verify_prices(expected_interval, intraday_pp["start"], intraday_pp["end"])
+
+        # assert tick change caused drawdown period to return to ATH
+        assert gui._drawdown_selector.value == "ATH"
+        # assert drawdown data as expected for new tick interval and selected bar range
+        verify_chart_mark_y2(None, slice(1, 37))  # slice from manual inspection
+        verify_chart_mark_y2_mult_windows(slice(2, -1), slice(1, 37))
 
         # verify effect of max dates button
         assert gui._icon_row_top.children[0].tooltip == "Max dates"
@@ -892,6 +996,9 @@ class TestAnalysis:
         )
         assert gui.date_slider.slider.value == expected
 
+        verify_chart_mark_y2(expected_dd_values[-2])
+        verify_chart_mark_y2_mult_windows(slice(2, -1))
+
         # check edge of availability of 1D interval
         gui.date_slider.slider.value = (
             pd.Timestamp("2023-01-09 08:00"),
@@ -901,10 +1008,11 @@ class TestAnalysis:
             pd.Timestamp("2023-01-09 08:00"), pd.Timestamp("2023-01-09 16:30"), "left"
         )
         assert gui.chart.plotted_interval == expected
-        gui._interval_selector.value = mp.intervals.TDInterval.D1
+        gui._interval_selector.value = interval = mp.intervals.TDInterval.D1
 
         # plottable and plotted should be reduced to one day, as remainder either side is
         # less than one day and hence can't be otherwise represented by a 1D interval
+        verify_prices(interval, pd.Timestamp("2023-01-09"), pd.Timestamp("2023-01-09"))
         expected = pd.Interval(
             pd.Timestamp("2023-01-09"), pd.Timestamp("2023-01-10"), "left"
         )
@@ -915,7 +1023,12 @@ class TestAnalysis:
 
         # ...and if go back to 15T then the full range available will now be restricted to
         # the range that was available for 1D
-        gui._interval_selector.value = mp.intervals.TDInterval.T15
+        gui._interval_selector.value = interval = mp.intervals.TDInterval.T15
+        verify_prices(
+            interval,
+            pd.Timestamp("2023-01-09 08:00", tz="Europe/London"),
+            pd.Timestamp("2023-01-09 16:30", tz="Europe/London"),
+        )
         expected = pd.Interval(
             pd.Timestamp("2023-01-09 08:00"), pd.Timestamp("2023-01-09 16:30"), "left"
         )
@@ -924,15 +1037,22 @@ class TestAnalysis:
         expected = (pd.Timestamp("2023-01-09 08:00"), pd.Timestamp("2023-01-09 16:15"))
         assert gui.date_slider.slider.value == expected
 
+        # drawdown should be working off full table now representing 15T data over 1 day
+        verify_chart_mark_y2(None)
+        verify_chart_mark_y2_mult_windows(slice(2, -1))
+
         # verify effect of reset button
         assert gui._icon_row_top.children[1].tooltip == "Reset"
         gui._icon_row_top.children[1].click()
         assert gui._interval_selector.value == mp.intervals.TDInterval.T5
+        assert gui._drawdown_selector.value == "ATH"
+        assert gui.prices.equals(prices_initial)
         assert gui.chart.plotted_interval == expected_plottable
         assert gui.chart.plottable_interval == expected_plottable
         assert gui.date_slider.slider.value == expected_init
 
         # verify raises dialog box when try to change interval to 1D for period < 1d
+        prices_prev = gui.prices.copy()
         slider_tup = (
             pd.Timestamp("2023-01-09 08:00"),
             pd.Timestamp("2023-01-09 16:20"),
@@ -952,6 +1072,7 @@ class TestAnalysis:
         gui._dialog.close_dialog()
         assert not gui._dialog.value
         # verify values unchanged
+        assert gui.prices.equals(prices_prev)
         assert gui.chart.plotted_interval == expected
         assert gui.chart.plottable_interval == expected_plottable
         assert gui.date_slider.slider.value == slider_tup
@@ -1023,17 +1144,73 @@ class TestAnalysis:
         expected = ["3M", "1M", "5D", "1D", "4H", "1H", "30T", "15T", "5T", "2T", "1T"]
         assert labels == expected
 
-        gui._interval_selector.value = mp.intervals.TDInterval.D5
-        gui._interval_selector.value = mp.intervals.DOInterval.M1
-        gui._interval_selector.value = mp.intervals.DOInterval.M3
+        interval = mp.intervals.TDInterval.D1
+        assert gui._interval_selector.value == interval
+        verify_prices(interval, pd.Timestamp("2021-12-30"), pd.Timestamp("2023-01-05"))
+        assert gui._drawdown_selector.value == "ATH"
+        verify_chart_mark_y2_mult_windows(slice(None, -1))  # check for values save 'x'
+
+        expected = expected_plottable = pd.Interval(
+            pd.Timestamp("2021-12-30"), pd.Timestamp("2023-01-06"), "left"
+        )
+        assert gui.chart.plotted_interval == expected
+        assert gui.chart.plottable_interval == expected
+        assert gui.date_slider.slider.value == (
+            pd.Timestamp("2021-12-30"),
+            pd.Timestamp("2023-01-05"),
+        )
+
+        start, end = pd.Timestamp("2022-02-22"), pd.Timestamp("2022-10-11")
+        gui.date_slider.slider.value = (start, end)
+        expected = pd.Interval(start, end + pd.Timedelta(1, "D"), "left")
+        assert gui.chart.plotted_interval == expected
+        assert gui.chart.plottable_interval == expected_plottable
+        # check for values save 'x', slice from manual inspection
+        verify_chart_mark_y2_mult_windows(slice(None, -1), slice(37, 196))
+
+        gui._icon_row_top.children[0].click()  # click max_dates
+
+        gui._interval_selector.value = interval = mp.intervals.TDInterval.D5
+        verify_prices(interval, pd.Timestamp("2021-12-30"), pd.Timestamp("2023-01-06"))
+        verify_chart_mark_y2(None)
+        verify_chart_mark_y2_mult_windows(slice(2, -1))  # check for all windows
+        verify_52wk_shows_dialog()
+
+        gui._icon_row_top.children[0].click()  # click max_dates
+        gui._interval_selector.value = interval = mp.intervals.DOInterval.M1
+        verify_prices(interval, pd.Timestamp("2022-01-01"), pd.Timestamp("2023-01-01"))
+        verify_chart_mark_y2(None)
+        verify_chart_mark_y2_mult_windows(slice(2, -1))  # check for all windows
+        verify_52wk_shows_dialog()
+
+        expected = expected_plottable = pd.Interval(
+            pd.Timestamp("2022-01-01"), pd.Timestamp("2023-01-01"), "left"
+        )
+        assert gui.chart.plotted_interval == expected
+        assert gui.chart.plottable_interval == expected_plottable
+        gui.date_slider.slider.value = (
+            pd.Timestamp("2022-03-01"),
+            pd.Timestamp("2022-09-01"),
+        )
+        expected = pd.Interval(
+            pd.Timestamp("2022-03-01"), pd.Timestamp("2022-10-01"), "left"
+        )
+        assert gui.chart.plotted_interval == expected
+        assert gui.chart.plottable_interval == expected_plottable
+        # check for values save 'x', slice from manual inspection
+        verify_chart_mark_y2_mult_windows(slice(2, -1), slice(2, -3))
+
+        gui._icon_row_top.children[0].click()  # click max_dates
+
+        gui._interval_selector.value = interval = mp.intervals.DOInterval.M3
+        verify_prices(interval, pd.Timestamp("2022-01-01"), pd.Timestamp("2023-01-01"))
 
         expected = pd.Interval(
             pd.Timestamp("2022-01-01"), pd.Timestamp("2023-01-01"), "left"
         )
         assert gui.chart.plotted_interval == expected
         assert gui.chart.plottable_interval == expected
-
-        gui.date_slider.slider.value = (
+        assert gui.date_slider.slider.value == (
             pd.Timestamp("2022-01-01"),
             pd.Timestamp("2022-10-01"),
         )
@@ -2435,9 +2612,62 @@ class TestCompare:
 
         gui = analy.plot(**intraday_pp, display=False)
 
+        expected_dd_values = ("ATH", "365D", 125, 90, 60, 40, 20, 10)
+        _, values = zip(*gui._drawdown_selector.options)
+        values[:-1] == expected_dd_values
+
+        def verify_prices(
+            interval: mp.intervals.TDInterval, start: pd.Timestamp, end: pd.Timestamp
+        ):
+            """verify `prices` attr as expected"""
+            assert gui.prices.pt.interval == interval
+            assert gui.prices.pt.first_ts == start
+            assert gui.prices.pt.last_ts == end
+            assert gui.prices.columns.equals(
+                pd.MultiIndex.from_product(
+                    (
+                        ["MSFT", "AZN.L", "9988.HK"],
+                        ["open", "high", "low", "close", "volume"],
+                    ),
+                )
+            )
+
+        def verify_prices_to_chart():
+            """verify 'prices' attr reconciles with plot x-axis."""
+            assert gui.chart.x_ticks.tz_localize(tz).equals(gui.prices.index.left)
+
+        def verify_chart_mark_y2(window: str | int | None, slc: slice | None = None):
+            """Verify mark_y2 values as expected"""
+            assert isinstance(gui.chart.mark_y2, bq.Lines)
+            assert (gui.chart.mark_y2.x == gui.chart.plotted_x_ticks.values).all()
+            for i, symb in enumerate(["MSFT", "AZN.L", "9988.HK"]):
+                dd_data = get_pct_off_high(gui.prices[symb], window).iloc[:, 0].values
+                assert (gui.chart.data_y2[i] == dd_data).all()
+                assert (gui.chart.mark_y2.y[i] == dd_data[slc]).all()
+
+        def verify_chart_mark_y2_mult_windows(
+            window_slc: slice, slc: slice | None = None
+        ):
+            """Verify mark_y2 values as expected for multiple drawdown values.
+
+            Also verifies that changing drawdown value has no effect on
+            `prices` attribute.
+
+            Leaves drawdown selector on "ATH".
+            """
+            prices_prev = gui.prices.copy()
+            for v in expected_dd_values[window_slc]:
+                gui._drawdown_selector.value = v
+                v = None if v == "ATH" else v
+                verify_chart_mark_y2(v, slc)
+                assert gui.prices.equals(prices_prev)
+            gui._drawdown_selector.value = "ATH"
+
+        prices_initial = gui.prices.copy()
+
         # verify initial range
-        assert gui._interval_selector.value == mp.intervals.TDInterval.T5
-        interval = gui._interval_selector.value
+        interval = mp.intervals.TDInterval.T5
+        assert gui._interval_selector.value == interval
         start, end = intraday_pp["start"], intraday_pp["end"]
         start = start.astimezone(tz).tz_localize(None)
         end = end.astimezone(tz).tz_localize(None)
@@ -2446,16 +2676,30 @@ class TestCompare:
         assert gui.chart.plottable_interval == expected_plottable
         assert gui.date_slider.slider.value == (start, end - interval)
 
+        verify_prices(
+            interval,
+            intraday_pp["start"].astimezone(tz),
+            intraday_pp["end"].astimezone(tz),
+        )
+        verify_prices_to_chart()
+        verify_chart_mark_y2(None)  # verify for default ATH
+        verify_chart_mark_y2_mult_windows(slice(2, None))
+
         # verify rebasing to left of visible range
         test_rebase_date = pd.Timestamp("2023-01-09 10:25")
         gui.date_slider.slider.value = (test_rebase_date, end - interval)
         assert (gui.chart.prices.iloc[0] == 100).all()
         gui._but_rebase.fire_event("click", None)
+
+        # verify for default ATH, slice for manual inspection
+        verify_chart_mark_y2(None, slice(230, 462))
+        verify_chart_mark_y2_mult_windows(slice(2, None), slice(230, 462))
+
         gui.date_slider.slider.value = (start, end - interval)
         assert not (gui.chart.prices.iloc[0] == 100).any()
         assert (gui.chart.prices.loc[test_rebase_date] == 100).all()
-        assert gui._icon_row_top.children[0].tooltip == "Max dates"
 
+        assert gui._icon_row_top.children[0].tooltip == "Max dates"
         gui._icon_row_top.children[0].click()  # click max_dates
         assert gui.date_slider.slider.value == (start, end - interval)
         assert (gui.chart.prices.iloc[0] == 100).all()
@@ -2467,6 +2711,11 @@ class TestCompare:
         slider_start = pd.Timestamp("2023-01-09 09:55")
         slider_tup = (slider_start, pd.Timestamp("2023-01-09 13:10"))
         gui.date_slider.slider.value = slider_tup
+
+        slc = slice(224, 264)
+        verify_chart_mark_y2(None, slc)
+        verify_chart_mark_y2_mult_windows(slice(2, None), slc)
+
         gui.tabs_control.v_model = 1
         gui.tabs_control.but_zoom.fire_event("click", None)
         expected = pd.Interval(slider_start, pd.Timestamp("2023-01-09 13:15"), "left")
@@ -2474,6 +2723,13 @@ class TestCompare:
         assert gui.chart.plottable_interval == expected_plottable
         assert gui.date_slider.slider.value == slider_tup
         assert (gui.chart.data.loc[slider_start] == 100).all()
+
+        # slc of data_y2 should remain unchanged post zoom
+        verify_chart_mark_y2(None, slc)
+        verify_chart_mark_y2_mult_windows(slice(2, None), slc)
+
+        # prices should have remained unchanged as no change to tick interval
+        assert gui.prices.equals(prices_initial)
 
         # verify effect of reset button
         gui._interval_selector.value == mp.intervals.TDInterval.T15
@@ -2597,3 +2853,5 @@ class TestCompare:
         assert gui.chart.plotted_interval == plotted_interval
         assert gui.chart.plottable_interval == plotted_interval
         assert gui.date_slider.slider.value == slider
+
+        verify_chart_mark_y2_mult_windows(slice(None))
