@@ -974,7 +974,11 @@ class BasePrice(BaseVariableDates):
         try:
             self.set_drawdown_period(window)
         except ValueError as err:
-            self._popup("Drawdown period unavailable", err.args[0])
+            if window == "365D" and self._interval_selector.value != ONE_DAY:
+                msg = "52wk drawdown period only available with '1D' tick interval"
+            else:
+                msg = err.args[0]
+            self._popup("Drawdown period unavailable", msg)
             change["owner"].set_value_unobserved(old)
 
     def _create_drawdown_slctr(self) -> gui_parts.DrawdownSelector:
@@ -1433,6 +1437,8 @@ class BasePrice(BaseVariableDates):
         self._update_chart(data, data2, prices, visible_x_ticks=vxts, reset_slider=True)
         if self._HAS_INTERVAL_SELECTOR:
             self._interval_selector.set_value_unobserved(self._tick_interval)
+        if self._HAS_DRAWDOWN:
+            self._drawdown_selector.set_value_unobserved("ATH")
 
     def _reset(self):
         self.slctr.disable()
