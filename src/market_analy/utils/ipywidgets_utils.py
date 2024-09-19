@@ -450,6 +450,9 @@ class DateRangeSlider(w.Box):
         else:
             if all(dti == dti.normalize()):
                 fmt = "%y/%m/%d"
+            elif dti[0] + pd.DateOffset(years=1) <= dti[-1]:
+                # errors triggered in slider if %y not present when range >= 1 year
+                fmt = "%y/%m/%d/%H:%M"
             elif dti[-1] - dti[0] > pd.Timedelta(days=28):
                 fmt = "%m/%d/%H:%M"
             else:

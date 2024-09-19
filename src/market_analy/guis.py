@@ -1439,6 +1439,7 @@ class BasePrice(BaseVariableDates):
             self._interval_selector.set_value_unobserved(self._tick_interval)
         if self._HAS_DRAWDOWN:
             self._drawdown_selector.set_value_unobserved("ATH")
+            self.chart.show_y2()
 
     def _reset(self):
         self.slctr.disable()
