@@ -1042,6 +1042,7 @@ class TestAnalysis:
         verify_chart_mark_y2_mult_windows(slice(2, -1))
 
         # verify effect of reset button
+        gui._drawdown_selector.value = False
         assert gui._icon_row_top.children[1].tooltip == "Reset"
         gui._icon_row_top.children[1].click()
         assert gui._interval_selector.value == mp.intervals.TDInterval.T5
@@ -1050,6 +1051,8 @@ class TestAnalysis:
         assert gui.chart.plotted_interval == expected_plottable
         assert gui.chart.plottable_interval == expected_plottable
         assert gui.date_slider.slider.value == expected_init
+        assert gui.chart.mark_y2.visible
+        assert gui.chart.axes[2].visible
 
         # verify raises dialog box when try to change interval to 1D for period < 1d
         prices_prev = gui.prices.copy()

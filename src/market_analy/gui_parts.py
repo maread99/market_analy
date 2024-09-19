@@ -113,7 +113,7 @@ class IntervalSelector(wu.ToggleButtonsHandled):
             Passed to `w.Layout` assigned to `ToggleButtons`.
         """
         values = [intervals.to_ptinterval(lab) for lab in labels]
-        tooltips = ["Select date interval" for _ in range(len(values))]
+        tooltips = ["Select tick interval" for _ in range(len(values))]
         super().__init__(
             labels,
             values,
