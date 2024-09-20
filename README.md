@@ -34,9 +34,9 @@ prices = PricesYahoo("MSFT")
 # OR if Yahoo API endpoints are not all currently available in your region...
 prices = PricesYahoo("MSFT", calendars="XNYS", delays=0)
 analy = Analysis(prices)
-gui = analy.plot(days=30)
+gui = analy.plot(months=18)
 ```
-https://user-images.githubusercontent.com/56914820/220773777-df0d0bec-bbe1-45bb-b067-d679666450cd.mp4
+https://github.com/user-attachments/assets/9d03b38d-9da2-4668-8126-e6a33a66c269
 
 ```python
 trend_kwargs = {
