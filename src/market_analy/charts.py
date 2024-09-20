@@ -1604,21 +1604,10 @@ class BaseSubsetDD(Base):
             return
 
         if data is not None:
-            # TODO CAN LOSE THIS IF ALL WORKING AS REQUIRED
-            # NOTE SEE note further below re keeping this until happy
-            # # x_changed has to be resolved here before setting any new data
-            # if isinstance(data.index, pd.DatetimeIndex):
-            #     x_changed = not self.data.index.left.equals(data.index)
-            # else:
-            #     x_changed = not self.data.index.equals(data.index)
             self.data = data
             if not self._update_mark_data_attr_to_reflect_plotted:
                 self.mark.x = self._x_data
                 self.mark.y = self._get_mark_y_data()
-        # TODO CAN LOSE THIS IF ALL WORKING AS REQUIRED
-        # NOTE SEE note further below re keeping this until happy
-        # else:
-        #     x_changed = False
 
         if data_y2 is not None:
             assert self._has_y2_plot
@@ -1651,28 +1640,6 @@ class BaseSubsetDD(Base):
         if prior_plotted_x_ticks.equals(self.plotted_x_ticks):
             # trigger handler manually as will not have fired if value unchanged
             self._x_domain_chg_handler(event=None)
-
-        # TODO DEL IF GET A NEW APPROACH WORKING...
-        # NOTE TO NOT BE TOO HASTY LOSING THIS!!! AS OF 12/09/24 BELIEVE THAT THERE IS
-        # A FLAKY BUG WITH THE SUGGESTED IMPLENTATION...Keep playing with it and doen't
-        # lose this code (or that above) until happy
-        # no_plot = self.plotted_x_ticks.empty
-        # if no_plot or x_changed:
-        #     # mark attributes will be updated to reflect plotted
-        #     # and presentation will be updated all as part of setting
-        #     # plotted_x_ticks implementation (via self._x_domain_chg_handler)
-        #     plot_interval = self._get_plot_interval(visible_x_ticks)
-        #     if plot_interval.length < self.tick_interval:
-        #         subset = self.date_intervals_subset(plot_interval, overlap=True)
-        #         plot_interval = upd.interval_of_intervals(subset, closed="left")
-        #     self.plotted_x_ticks = plot_interval
-        # else:
-        #     # if only y changed
-        #     if self._update_mark_data_attr_to_reflect_plotted:
-        #         self._set_mark_to_plotted()
-        #     if self._has_y2_plot and self._update_mark_y2_data_attr_to_reflect_plotted:
-        #         self._set_mark_y2_to_plotted()
-        #     self.update_presentation()
 
     def update(
         self,
