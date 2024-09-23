@@ -1,7 +1,5 @@
 """Common pytest fixtures and test utility functions."""
 
-from __future__ import annotations
-
 from collections import abc
 import pathlib
 import pickle

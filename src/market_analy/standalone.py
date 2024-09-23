@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import datetime
-from typing import Union
 
 import pandas as pd
 import valimp
@@ -100,7 +99,7 @@ def net_of(data: pd.DataFrame, rebase: bool = True) -> pd.DataFrame:
     return pd.DataFrame({col: mapping[col] for col in df.columns})
 
 
-def get_ath(data: Union[pd.Series, pd.DataFrame]) -> Union[pd.Series, pd.DataFrame]:
+def get_ath(data: pd.Series | pd.DataFrame) -> pd.Series | pd.DataFrame:
     """Return all-time high as at each timestamp.
 
     Returns ATH as at end of period represented by corresponding
@@ -129,10 +128,10 @@ def get_ath(data: Union[pd.Series, pd.DataFrame]) -> Union[pd.Series, pd.DataFra
 
 @valimp.parse
 def get_period_high(
-    data: Union[pd.Series, pd.DataFrame],
-    window: Union[int, str, datetime.timedelta],
+    data: pd.Series | pd.DataFrame,
+    window: int | str | datetime.timedelta,
     include_current: bool = True,
-) -> Union[pd.Series, pd.DataFrame]:
+) -> pd.Series | pd.DataFrame:
     """Return 52wk high as at each timestamp.
 
     NB: For sessions within the first 52 weeks of data, the high will
@@ -186,7 +185,7 @@ def get_period_high(
 @valimp.parse
 def get_pct_off_high(
     data: pd.DataFrame,
-    window: Union[int, str, datetime.timedelta, None],
+    window: int | str | datetime.timedelta | None,
     include_current: bool = True,
 ) -> pd.DataFrame:
     """Return percent off high as at each timestamp.

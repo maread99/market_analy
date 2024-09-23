@@ -1,7 +1,5 @@
 """Utility funcions for market_prices library."""
 
-from __future__ import annotations
-
 import pandas as pd
 import market_prices as mp
 

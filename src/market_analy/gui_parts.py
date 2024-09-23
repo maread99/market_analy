@@ -43,8 +43,6 @@ PctChgIconRowMult:
     Percent change bar chart options for multiple instruments.
 """
 
-from __future__ import annotations
-
 from collections.abc import Callable
 import re
 

@@ -1,7 +1,5 @@
 """Utility functions and classes for ipyvuetify library."""
 
-from __future__ import annotations
-
 from collections.abc import Callable
 from typing import Literal
 
@@ -402,7 +400,7 @@ class ToggleIcons(SelectableList):
 
     Attributes
     ----------
-    contain_me: List[Union[IconBut, vue.Tooltip]]
+    contain_me: List[IconBut | vue.Tooltip]
         To house `ToggleIcons` in a parent component, pass `.contain_me` to
         parent component's children attribute.
 

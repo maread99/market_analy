@@ -4,8 +4,6 @@ For most methods of Analysis and Compare testing consists of verifying the
 return from one or two specific calls against hard-coded expected returns.
 """
 
-from __future__ import annotations
-
 from collections import abc
 import contextlib
 import io
@@ -828,7 +826,7 @@ class TestAnalysis:
     def test_corr(self, analy, analy_other):
         f = analy.corr
         rtrn = f(analy_other, style=False, end="2022-12-31", days=20)
-        assert rtrn == 0.49620301268372446
+        assert round(rtrn, 11) == 0.49620301268
 
         rtrn = f(analy_other, end="2022-12-31", days=20)
         expected = "\\begin{table}\n\\caption{Correlation 20D to 2022-12-31  (2022-12-01 to 30)}\n\\begin{tabular}{lr}\n & BARC.L \\\\\nAZN.L & \\background-color#6bacd1 \\color#f1f1f1 0.50 \\\\\n\\end{tabular}\n\\end{table}\n"

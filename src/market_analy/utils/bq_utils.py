@@ -1,7 +1,5 @@
 """Utility constants, functions and classes for bqplot."""
 
-from __future__ import annotations
-
 from collections.abc import Iterable
 from copy import copy
 from itertools import cycle

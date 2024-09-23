@@ -1,7 +1,5 @@
 """Utility functions and classes for lists."""
 
-from __future__ import annotations
-
 from typing import Any, Literal
 from copy import copy
 

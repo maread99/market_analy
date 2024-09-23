@@ -1,7 +1,5 @@
 """Utilities for operating on pandas DataFrame and Series."""
 
-from __future__ import annotations
-
 from typing import Any, Literal
 from zoneinfo import ZoneInfo
 
