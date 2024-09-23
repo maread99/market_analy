@@ -27,8 +27,6 @@ PctChgBarMult(_PctChgBarBase):
     Bar Chart displaying precentage changes of multiple instruments.
 """
 
-from __future__ import annotations
-
 from abc import ABCMeta, abstractmethod
 from collections import defaultdict
 from collections.abc import Callable, Sequence
@@ -36,8 +34,7 @@ from copy import copy, deepcopy
 import enum
 from functools import lru_cache, partialmethod
 import itertools
-import typing
-from typing import Any, Literal
+from typing import Any, Literal, TYPE_CHECKING
 
 import bqplot as bq
 import IPython
@@ -93,17 +90,17 @@ CASES_OTHER = set(
 CASES_GROUPS = set([Groups.CASES_SCATTERS]) | CASES_OTHER
 
 # type aliases
-AddedMarkKeys = typing.Union[
-    str,
-    Literal[
+AddedMarkKeys = (
+    str
+    | Literal[
         Groups.CASE,
         Groups.PERSIST,
         Groups.CASES_SCATTERS,
         Groups.CASES_OTHER_0,
         Groups.CASES_OTHER_1,
         Groups.CASES_OTHER_2,
-    ],
-]
+    ]
+)
 AddedMarks = dict[AddedMarkKeys, list[bq.Mark]]
 AxesKwargs = dict[ubq.ScaleKeys, dict[str, Any]]
 
@@ -162,7 +159,7 @@ class Base(metaclass=ABCMeta):
             Data represented by x-axis. Subclass can optionally expose
             via more concrete property.
 
-        _y_data: Union[DataFrame, Series]
+        _y_data: DataFrame | Series
             Data represented by y-axis. Subclass can optionally expose
             via more concrete property.
 
@@ -3123,7 +3120,7 @@ class OHLCCaseBase(OHLC, ChartSupportsCasesGui):
         case = self.current_case
         i = 0 if case is None else self.cases.get_index(case) + 1
         if i == len(self.cases.cases):
-            if typing.TYPE_CHECKING:
+            if TYPE_CHECKING:
                 assert case is not None
             return case  # current case is last case
         return self.cases.cases[i]

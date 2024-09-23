@@ -85,7 +85,7 @@ from __future__ import annotations
 from abc import ABCMeta
 from collections.abc import Callable, Sequence
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Literal, Union
+from typing import TYPE_CHECKING, Any, Literal
 
 import market_prices as mp
 import matplotlib as mpl
@@ -113,9 +113,9 @@ if TYPE_CHECKING:
 from .trends.guis import TrendsGui, TrendsGuiBase
 from .trends.analy import Trends
 
-Date = Union[str, datetime, None]
-Calendar = Union[str, ExchangeCalendar]
-Symbols = Union[str, list[str]]
+Date = str | datetime | None
+Calendar = str | ExchangeCalendar
+Symbols = str | list[str]
 ChartEngine = Literal["bqplot", "matplotlib"]
 
 
@@ -184,8 +184,8 @@ def add_summary(
     return pd.concat([rtrn, summary_column], axis=1)
 
 
-SummaryRowFuncDef = tuple[str, Union[str, list[str]]]
-SummaryRowDef = Union[SummaryRowFuncDef, list[SummaryRowFuncDef]]
+SummaryRowFuncDef = tuple[str, str | list[str]]
+SummaryRowDef = SummaryRowFuncDef | list[SummaryRowFuncDef]
 
 
 def add_summary_row(

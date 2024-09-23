@@ -23,8 +23,6 @@ DateRangeSlider:
     Double handled slider to select date ranges.
 """
 
-from __future__ import annotations
-
 import asyncio
 from collections.abc import Callable
 from contextlib import contextmanager

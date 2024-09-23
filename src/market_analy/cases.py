@@ -20,8 +20,6 @@ by any cases class that is to be displayed on a chart.
 navigating between cases.
 """
 
-from __future__ import annotations
-
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from dataclasses import dataclass

@@ -1,7 +1,5 @@
 """Charts for trend analysis."""
 
-from __future__ import annotations
-
 import typing
 from collections.abc import Callable
 from functools import cached_property, partialmethod
