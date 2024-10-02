@@ -54,7 +54,7 @@ idna==3.10
     # via requests
 iniconfig==2.0.0
     # via pytest
-ipython==8.27.0
+ipython==8.28.0
     # via ipywidgets
 ipyvue==1.11.1
     # via ipyvuetify
