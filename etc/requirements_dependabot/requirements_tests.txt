@@ -48,7 +48,7 @@ flake8==7.1.1
     #   market_analy (pyproject.toml)
 flake8-docstrings==1.7.0
     # via market_analy (pyproject.toml)
-fonttools==4.53.1
+fonttools==4.55.3
     # via matplotlib
 idna==3.10
     # via requests
