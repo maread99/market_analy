@@ -4,7 +4,7 @@
 #
 #    pip-compile --extra=dev --output-file=etc/requirements_dev.txt pyproject.toml
 #
-anyio==4.6.0
+anyio==4.8.0
     # via
     #   httpx
     #   jupyter-server
@@ -14,13 +14,13 @@ argon2-cffi-bindings==21.2.0
     # via argon2-cffi
 arrow==1.3.0
     # via isoduration
-astroid==3.3.3
+astroid==3.3.8
     # via pylint
-asttokens==2.4.1
+asttokens==3.0.0
     # via stack-data
 async-lru==2.0.4
     # via jupyterlab
-attrs==24.2.0
+attrs==24.3.0
     # via
     #   jsonschema
     #   referencing
@@ -30,15 +30,15 @@ beautifulsoup4==4.12.3
     # via
     #   nbconvert
     #   yahooquery
-black==24.8.0
+black==24.10.0
     # via market_analy (pyproject.toml)
-bleach==6.1.0
+bleach[css]==6.2.0
     # via nbconvert
-bqplot==0.12.43
+bqplot==0.12.44
     # via market_analy (pyproject.toml)
-build==1.2.2
+build==1.2.2.post1
     # via pip-tools
-certifi==2024.8.30
+certifi==2024.12.14
     # via
     #   httpcore
     #   httpx
@@ -47,9 +47,9 @@ cffi==1.17.1
     # via argon2-cffi-bindings
 cfgv==3.4.0
     # via pre-commit
-charset-normalizer==3.3.2
+charset-normalizer==3.4.1
     # via requests
-click==8.1.7
+click==8.1.8
     # via
     #   black
     #   pip-tools
@@ -65,32 +65,32 @@ comm==0.2.2
     # via
     #   ipykernel
     #   ipywidgets
-contourpy==1.3.0
+contourpy==1.3.1
     # via matplotlib
 cycler==0.12.1
     # via matplotlib
-debugpy==1.8.5
+debugpy==1.8.11
     # via ipykernel
 decorator==5.1.1
     # via ipython
 defusedxml==0.7.1
     # via nbconvert
-dill==0.3.8
+dill==0.3.9
     # via pylint
-distlib==0.3.8
+distlib==0.3.9
     # via virtualenv
 exceptiongroup==1.2.2
     # via
     #   anyio
     #   ipython
     #   pytest
-exchange-calendars==4.5.6
+exchange-calendars==4.8
     # via
     #   market-prices
     #   market_analy (pyproject.toml)
 executing==2.1.0
     # via stack-data
-fastjsonschema==2.20.0
+fastjsonschema==2.21.1
     # via nbformat
 filelock==3.16.1
     # via virtualenv
@@ -100,17 +100,17 @@ flake8==7.1.1
     #   market_analy (pyproject.toml)
 flake8-docstrings==1.7.0
     # via market_analy (pyproject.toml)
-fonttools==4.53.1
+fonttools==4.55.3
     # via matplotlib
 fqdn==1.5.1
     # via jsonschema
 h11==0.14.0
     # via httpcore
-httpcore==1.0.5
+httpcore==1.0.7
     # via httpx
-httpx==0.27.2
+httpx==0.28.1
     # via jupyterlab
-identify==2.6.1
+identify==2.6.5
     # via pre-commit
 idna==3.10
     # via
@@ -122,11 +122,11 @@ iniconfig==2.0.0
     # via pytest
 ipykernel==6.29.5
     # via jupyterlab
-ipython==8.27.0
+ipython==8.31.0
     # via
     #   ipykernel
     #   ipywidgets
-ipyvue==1.11.1
+ipyvue==1.11.2
     # via ipyvuetify
 ipyvuetify==1.10.0
     # via market_analy (pyproject.toml)
@@ -139,16 +139,16 @@ isoduration==20.11.0
     # via jsonschema
 isort==5.13.2
     # via pylint
-jedi==0.19.1
+jedi==0.19.2
     # via ipython
-jinja2==3.1.4
+jinja2==3.1.5
     # via
     #   jupyter-server
     #   jupyterlab
     #   jupyterlab-server
     #   market_analy (pyproject.toml)
     #   nbconvert
-json5==0.9.25
+json5==0.10.0
     # via jupyterlab-server
 jsonpointer==3.0.0
     # via jsonschema
@@ -157,7 +157,7 @@ jsonschema[format-nongpl]==4.23.0
     #   jupyter-events
     #   jupyterlab-server
     #   nbformat
-jsonschema-specifications==2023.12.1
+jsonschema-specifications==2024.10.1
     # via jsonschema
 jupyter-client==8.6.3
     # via
@@ -173,11 +173,11 @@ jupyter-core==5.7.2
     #   nbclient
     #   nbconvert
     #   nbformat
-jupyter-events==0.10.0
+jupyter-events==0.11.0
     # via jupyter-server
 jupyter-lsp==2.2.5
     # via jupyterlab
-jupyter-server==2.14.2
+jupyter-server==2.15.0
     # via
     #   jupyter-lsp
     #   jupyterlab
@@ -185,7 +185,7 @@ jupyter-server==2.14.2
     #   notebook-shim
 jupyter-server-terminals==0.5.3
     # via jupyter-server
-jupyterlab==4.2.5
+jupyterlab==4.3.4
     # via market_analy (pyproject.toml)
 jupyterlab-pygments==0.3.0
     # via nbconvert
@@ -193,7 +193,7 @@ jupyterlab-server==2.27.3
     # via jupyterlab
 jupyterlab-widgets==3.0.13
     # via ipywidgets
-kiwisolver==1.4.7
+kiwisolver==1.4.8
     # via matplotlib
 korean-lunar-calendar==0.3.1
     # via exchange-calendars
@@ -201,11 +201,11 @@ lxml==4.9.4
     # via yahooquery
 market-prices==0.12.5
     # via market_analy (pyproject.toml)
-markupsafe==2.1.5
+markupsafe==3.0.2
     # via
     #   jinja2
     #   nbconvert
-matplotlib==3.9.2
+matplotlib==3.10.0
     # via market_analy (pyproject.toml)
 matplotlib-inline==0.1.7
     # via
@@ -215,17 +215,17 @@ mccabe==0.7.0
     # via
     #   flake8
     #   pylint
-mistune==3.0.2
+mistune==3.1.0
     # via nbconvert
-mypy==1.11.2
+mypy==1.14.1
     # via market_analy (pyproject.toml)
 mypy-extensions==1.0.0
     # via
     #   black
     #   mypy
-nbclient==0.10.0
+nbclient==0.10.2
     # via nbconvert
-nbconvert==7.16.4
+nbconvert==7.16.5
     # via jupyter-server
 nbformat==5.10.4
     # via
@@ -238,7 +238,7 @@ nodeenv==1.9.1
     # via pre-commit
 notebook-shim==0.2.4
     # via jupyterlab
-numpy==2.1.1
+numpy==2.2.1
     # via
     #   bqplot
     #   contourpy
@@ -250,7 +250,7 @@ numpy==2.1.1
     #   pandas-stubs
 overrides==7.7.0
     # via jupyter-server
-packaging==24.1
+packaging==24.2
     # via
     #   black
     #   build
@@ -268,7 +268,7 @@ pandas==2.2.3
     #   market-prices
     #   market_analy (pyproject.toml)
     #   yahooquery
-pandas-stubs==2.2.2.240909
+pandas-stubs==2.2.3.241126
     # via market_analy (pyproject.toml)
 pandocfilters==1.5.1
     # via nbconvert
@@ -276,7 +276,7 @@ parso==0.8.4
     # via jedi
 pathspec==0.12.1
     # via black
-pillow==10.4.0
+pillow==11.1.0
     # via matplotlib
 pip-tools==7.4.1
     # via market_analy (pyproject.toml)
@@ -288,13 +288,13 @@ platformdirs==4.3.6
     #   virtualenv
 pluggy==1.5.0
     # via pytest
-pre-commit==3.8.0
+pre-commit==4.0.1
     # via market_analy (pyproject.toml)
-prometheus-client==0.21.0
+prometheus-client==0.21.1
     # via jupyter-server
-prompt-toolkit==3.0.47
+prompt-toolkit==3.0.48
     # via ipython
-psutil==6.0.0
+psutil==6.1.1
     # via ipykernel
 pure-eval==0.2.3
     # via stack-data
@@ -306,21 +306,21 @@ pydocstyle==6.3.0
     # via flake8-docstrings
 pyflakes==3.2.0
     # via flake8
-pygments==2.18.0
+pygments==2.19.1
     # via
     #   ipython
     #   nbconvert
-pylint==3.3.0
+pylint==3.3.3
     # via market_analy (pyproject.toml)
 pyluach==2.2.0
     # via exchange-calendars
-pyparsing==3.1.4
+pyparsing==3.2.1
     # via matplotlib
-pyproject-hooks==1.1.0
+pyproject-hooks==1.2.0
     # via
     #   build
     #   pip-tools
-pytest==8.3.3
+pytest==8.3.4
     # via
     #   market_analy (pyproject.toml)
     #   pytest-mock
@@ -332,13 +332,13 @@ python-dateutil==2.9.0.post0
     #   jupyter-client
     #   matplotlib
     #   pandas
-python-json-logger==2.0.7
+python-json-logger==3.2.1
     # via jupyter-events
 pytz==2024.2
     # via pandas
-pywin32==306
+pywin32==308
     # via jupyter-core
-pywinpty==2.0.13
+pywinpty==2.0.14
     # via
     #   jupyter-server
     #   jupyter-server-terminals
@@ -362,7 +362,7 @@ requests==2.32.3
     #   jupyterlab-server
     #   requests-futures
     #   yahooquery
-requests-futures==1.0.1
+requests-futures==1.0.2
     # via yahooquery
 rfc3339-validator==0.1.4
     # via
@@ -372,22 +372,18 @@ rfc3986-validator==0.1.1
     # via
     #   jsonschema
     #   jupyter-events
-rpds-py==0.20.0
+rpds-py==0.22.3
     # via
     #   jsonschema
     #   referencing
 send2trash==1.8.3
     # via jupyter-server
-six==1.16.0
+six==1.17.0
     # via
-    #   asttokens
-    #   bleach
     #   python-dateutil
     #   rfc3339-validator
 sniffio==1.3.1
-    # via
-    #   anyio
-    #   httpx
+    # via anyio
 snowballstemmer==2.2.0
     # via pydocstyle
 soupsieve==2.6
@@ -398,9 +394,9 @@ terminado==0.18.1
     # via
     #   jupyter-server
     #   jupyter-server-terminals
-tinycss2==1.3.0
-    # via nbconvert
-tomli==2.0.1
+tinycss2==1.4.0
+    # via bleach
+tomli==2.2.1
     # via
     #   black
     #   build
@@ -411,16 +407,16 @@ tomli==2.0.1
     #   pytest
 tomlkit==0.13.2
     # via pylint
-toolz==0.12.1
+toolz==1.0.0
     # via exchange-calendars
-tornado==6.4.1
+tornado==6.4.2
     # via
     #   ipykernel
     #   jupyter-client
     #   jupyter-server
     #   jupyterlab
     #   terminado
-tqdm==4.66.5
+tqdm==4.67.1
     # via yahooquery
 traitlets==5.14.3
     # via
@@ -442,9 +438,9 @@ traitlets==5.14.3
     #   traittypes
 traittypes==0.2.1
     # via bqplot
-types-python-dateutil==2.9.0.20240906
+types-python-dateutil==2.9.0.20241206
     # via arrow
-types-pytz==2024.2.0.20240913
+types-pytz==2024.2.0.20241221
     # via pandas-stubs
 typing-extensions==4.12.2
     # via
@@ -453,8 +449,9 @@ typing-extensions==4.12.2
     #   async-lru
     #   black
     #   ipython
+    #   mistune
     #   mypy
-tzdata==2024.1
+tzdata==2024.2
     # via
     #   exchange-calendars
     #   market-prices
@@ -462,15 +459,15 @@ tzdata==2024.1
     #   pandas
 uri-template==1.3.0
     # via jsonschema
-urllib3==2.2.3
+urllib3==2.3.0
     # via requests
 valimp==0.3
     # via market-prices
-virtualenv==20.26.5
+virtualenv==20.28.1
     # via pre-commit
 wcwidth==0.2.13
     # via prompt-toolkit
-webcolors==24.8.0
+webcolors==24.11.1
     # via jsonschema
 webencodings==0.5.1
     # via
@@ -478,7 +475,7 @@ webencodings==0.5.1
     #   tinycss2
 websocket-client==1.8.0
     # via jupyter-server
-wheel==0.44.0
+wheel==0.45.1
     # via pip-tools
 widgetsnbextension==4.0.13
     # via ipywidgets
