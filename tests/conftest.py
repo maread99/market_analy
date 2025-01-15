@@ -129,10 +129,3 @@ def prices_analysis_other(class_mocker) -> abc.Iterator[mp.PricesYahoo]:
 @pytest.fixture
 def path_res() -> abc.Iterator[pathlib.Path]:
     yield _RESOURCES_DIR
-
-
-@pytest.fixture
-def xnys() -> abc.Iterator[xcals.ExchangeCalendar]:
-    yield xcals.get_calendar(
-        "XNYS", start=pd.Timestamp("2015"), end=pd.Timestamp("2024")
-    )

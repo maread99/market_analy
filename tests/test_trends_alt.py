@@ -8,13 +8,12 @@ import pytest
 
 from market_analy.trends.analy import TrendsAlt
 
-
 # NOTE: testing of `trends_akt.Trends` is LIMITED. See Notes section of
 # `trends_alt.Trends` regarding the need for a more comprehensive test suite.
 
 
 @pytest.fixture
-def data_dji_1D_alt(path_res, xnys) -> abc.Iterator[pd.DataFrame]:
+def data_dji_1D_alt(path_res) -> abc.Iterator[pd.DataFrame]:
     """Daily data for Dow Jones Index.
 
     Data from call to:
@@ -26,7 +25,7 @@ def data_dji_1D_alt(path_res, xnys) -> abc.Iterator[pd.DataFrame]:
     path = path_res / "dji_1D_alt.csv"
     data = pd.read_csv(path, index_col=0)
     data.columns.name = ""
-    data.index = pd.DatetimeIndex(data.index, freq=xnys.day)
+    data.index = pd.DatetimeIndex(data.index)
     yield data
 
 
@@ -40,6 +39,14 @@ def test_dji_1D(path_res, data_dji_1D_alt):
 
     Stored movements confirmed as required by inspection.
     """
+    filename_dat = "dji_1D.dat"
+    path = path_res / filename_dat
+    with open(path, "rb") as file:
+        move_saved = pickle.load(file)
+    # Cannot simply use CustomDay of 'current' XNYS calendar as may have
+    # changed since movements saved
+    data_dji_1D_alt.index.freq = move_saved.sel.index.freq
+
     moves = TrendsAlt(
         data=data_dji_1D_alt,
         interval="1D",
@@ -51,7 +58,6 @@ def test_dji_1D(path_res, data_dji_1D_alt):
         min_bars=3,
     ).get_movements()
 
-    path = path_res / "dji_1D.dat"
     file = open(path, "rb")
     for move in moves.cases:
         try:

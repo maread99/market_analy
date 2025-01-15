@@ -3,6 +3,7 @@
 from collections import abc
 import pathlib
 import pickle
+from zoneinfo import ZoneInfo
 
 import pandas as pd
 import pytest
@@ -15,7 +16,7 @@ from market_analy.trends.movements import Movement
 
 
 @pytest.fixture
-def data_dji_1D(path_res, xnys) -> abc.Iterator[pd.DataFrame]:
+def data_dji_1D(path_res) -> abc.Iterator[pd.DataFrame]:
     """Daily data for Dow Jones Index.
 
     Data from call to:
@@ -27,12 +28,12 @@ def data_dji_1D(path_res, xnys) -> abc.Iterator[pd.DataFrame]:
     path = path_res / "dji_1D.csv"
     data = pd.read_csv(path, index_col=0)
     data.columns.name = ""
-    data.index = pd.DatetimeIndex(data.index, freq=xnys.day)
+    data.index = pd.DatetimeIndex(data.index)
     yield data
 
 
 @pytest.fixture
-def data_dji_15T(path_res, xnys) -> abc.Iterator[pd.DataFrame]:
+def data_dji_15T(path_res) -> abc.Iterator[pd.DataFrame]:
     """Daily data for Dow Jones Index.
 
     Data from call to:
@@ -47,7 +48,7 @@ def data_dji_15T(path_res, xnys) -> abc.Iterator[pd.DataFrame]:
     path = path_res / "dji_15T.csv"
     data = pd.read_csv(path, index_col=0)
     data.columns.name = ""
-    data.index = pd.DatetimeIndex(data.index, name="left", tz=xnys.tz)
+    data.index = pd.DatetimeIndex(data.index, name="left")
     yield data
 
 
@@ -71,6 +72,13 @@ def test_dji_1D_prd60(path_res, data_dji_1D):
 
     Stored movements confirmed as required by inspection.
     """
+    path = path_res / "dji_1D_prd60.dat"
+    with open(path, "rb") as file:
+        move_saved = pickle.load(file)
+    # Cannot simply use CustomDay of 'current' XNYS calendar as may have
+    # changed since movements saved
+    data_dji_1D.index.freq = move_saved.line_break.index.freq
+
     moves = analy_trends.Trends(
         data=data_dji_1D,
         interval="1D",
@@ -78,7 +86,6 @@ def test_dji_1D_prd60(path_res, data_dji_1D):
         ext_break=0.04,
         ext_limit=0.02,
     ).get_movements()
-    path = path_res / "dji_1D_prd60.dat"
     assert_moves_as_saved(path, moves.cases)
 
 
@@ -91,6 +98,13 @@ def test_dji_1D_prd15(path_res, data_dji_1D):
 
     Stored movements confirmed as required by inspection.
     """
+    path = path_res / "dji_1D_prd15.dat"
+    with open(path, "rb") as file:
+        move_saved = pickle.load(file)
+    # Cannot simply use CustomDay of 'current' XNYS calendar as may have
+    # changed since movements saved
+    data_dji_1D.index.freq = move_saved.line_break.index.freq
+
     moves = analy_trends.Trends(
         data=data_dji_1D,
         interval="1D",
@@ -98,7 +112,6 @@ def test_dji_1D_prd15(path_res, data_dji_1D):
         ext_break=0.02,
         ext_limit=0.01,
     ).get_movements()
-    path = path_res / "dji_1D_prd15.dat"
     assert_moves_as_saved(path, moves.cases)
 
 
@@ -111,6 +124,13 @@ def test_dji_1D_prd15_minbars10(path_res, data_dji_1D):
 
     Stored movements confirmed as required by inspection.
     """
+    path = path_res / "dji_1D_prd15_minbars10.dat"
+    with open(path, "rb") as file:
+        move_saved = pickle.load(file)
+    # Cannot simply use CustomDay of 'current' XNYS calendar as may have
+    # changed since movements saved
+    data_dji_1D.index.freq = move_saved.line_break.index.freq
+
     moves = analy_trends.Trends(
         data=data_dji_1D,
         interval="1D",
@@ -119,7 +139,6 @@ def test_dji_1D_prd15_minbars10(path_res, data_dji_1D):
         ext_limit=0.01,
         min_bars=10,
     ).get_movements()
-    path = path_res / "dji_1D_prd15_minbars10.dat"
     assert_moves_as_saved(path, moves.cases)
 
 
@@ -132,6 +151,7 @@ def test_dji_15T_prd15_minbars10(path_res, data_dji_15T):
 
     Stored movements confirmed as required by inspection.
     """
+    data_dji_15T.index = data_dji_15T.index.tz_convert(ZoneInfo("America/New_York"))
     moves = analy_trends.Trends(
         data=data_dji_15T,
         interval="15min",
