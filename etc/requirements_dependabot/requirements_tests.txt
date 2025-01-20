@@ -120,7 +120,7 @@ platformdirs==4.3.6
     # via black
 pluggy==1.5.0
     # via pytest
-prompt-toolkit==3.0.48
+prompt-toolkit==3.0.50
     # via ipython
 pure-eval==0.2.3
     # via stack-data
