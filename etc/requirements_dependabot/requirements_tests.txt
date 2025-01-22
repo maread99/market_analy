@@ -40,7 +40,7 @@ exchange-calendars==4.8
     # via
     #   market-prices
     #   market_analy (pyproject.toml)
-executing==2.1.0
+executing==2.2.0
     # via stack-data
 flake8==7.1.1
     # via
