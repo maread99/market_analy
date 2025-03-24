@@ -185,7 +185,7 @@ typing-extensions==4.12.2
     # via
     #   black
     #   ipython
-tzdata==2024.2
+tzdata==2025.2
     # via
     #   exchange-calendars
     #   market-prices
