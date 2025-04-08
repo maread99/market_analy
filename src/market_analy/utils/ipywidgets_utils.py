@@ -105,10 +105,10 @@ def throttle(wait) -> Callable:
         new_args, new_kwargs = None, None
 
         def throttled(*args, **kwargs):
-            nonlocal new_args, new_kwargs, time_of_last_call, scheduled, timer
+            nonlocal new_args, new_kwargs, scheduled, timer
 
             def call_it():
-                nonlocal new_args, new_kwargs, time_of_last_call, scheduled, timer
+                nonlocal time_of_last_call, scheduled
                 time_of_last_call = time()
                 fn(*new_args, **new_kwargs)
                 scheduled = False

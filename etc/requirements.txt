@@ -6,11 +6,11 @@
 #
 asttokens==3.0.0
     # via stack-data
-beautifulsoup4==4.12.3
+beautifulsoup4==4.13.3
     # via yahooquery
 bqplot==0.12.44
     # via market_analy (pyproject.toml)
-certifi==2024.12.14
+certifi==2025.1.31
     # via requests
 charset-normalizer==3.4.1
     # via requests
@@ -24,25 +24,25 @@ contourpy==1.3.1
     # via matplotlib
 cycler==0.12.1
     # via matplotlib
-decorator==5.1.1
+decorator==5.2.1
     # via ipython
 exceptiongroup==1.2.2
     # via ipython
-exchange-calendars==4.8
+exchange-calendars==4.10
     # via
     #   market-prices
     #   market_analy (pyproject.toml)
-executing==2.1.0
+executing==2.2.0
     # via stack-data
-fonttools==4.55.3
+fonttools==4.57.0
     # via matplotlib
 idna==3.10
     # via requests
-ipython==8.31.0
+ipython==8.35.0
     # via ipywidgets
 ipyvue==1.11.2
     # via ipyvuetify
-ipyvuetify==1.10.0
+ipyvuetify==1.11.1
     # via market_analy (pyproject.toml)
 ipywidgets==8.1.5
     # via
@@ -51,7 +51,7 @@ ipywidgets==8.1.5
     #   market_analy (pyproject.toml)
 jedi==0.19.2
     # via ipython
-jinja2==3.1.5
+jinja2==3.1.6
     # via market_analy (pyproject.toml)
 jupyterlab-widgets==3.0.13
     # via ipywidgets
@@ -65,11 +65,11 @@ market-prices==0.12.5
     # via market_analy (pyproject.toml)
 markupsafe==3.0.2
     # via jinja2
-matplotlib==3.10.0
+matplotlib==3.10.1
     # via market_analy (pyproject.toml)
 matplotlib-inline==0.1.7
     # via ipython
-numpy==2.2.1
+numpy==2.2.4
     # via
     #   bqplot
     #   contourpy
@@ -91,7 +91,7 @@ parso==0.8.4
     # via jedi
 pillow==11.1.0
     # via matplotlib
-prompt-toolkit==3.0.48
+prompt-toolkit==3.0.50
     # via ipython
 pure-eval==0.2.3
     # via stack-data
@@ -99,13 +99,13 @@ pygments==2.19.1
     # via ipython
 pyluach==2.2.0
     # via exchange-calendars
-pyparsing==3.2.1
+pyparsing==3.2.3
     # via matplotlib
 python-dateutil==2.9.0.post0
     # via
     #   matplotlib
     #   pandas
-pytz==2024.2
+pytz==2025.2
     # via pandas
 requests==2.32.3
     # via
@@ -134,9 +134,11 @@ traitlets==5.14.3
     #   traittypes
 traittypes==0.2.1
     # via bqplot
-typing-extensions==4.12.2
-    # via ipython
-tzdata==2024.2
+typing-extensions==4.13.1
+    # via
+    #   beautifulsoup4
+    #   ipython
+tzdata==2025.2
     # via
     #   exchange-calendars
     #   market-prices
