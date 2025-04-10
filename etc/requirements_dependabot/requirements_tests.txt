@@ -198,7 +198,7 @@ valimp==0.3
     # via market-prices
 wcwidth==0.2.13
     # via prompt-toolkit
-widgetsnbextension==4.0.13
+widgetsnbextension==4.0.14
     # via ipywidgets
 yahooquery==2.3.7
     # via market-prices
