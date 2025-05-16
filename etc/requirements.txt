@@ -10,9 +10,13 @@ beautifulsoup4==4.13.4
     # via yahooquery
 bqplot==0.12.44
     # via market_analy (pyproject.toml)
-certifi==2025.1.31
-    # via requests
-charset-normalizer==3.4.1
+certifi==2025.4.26
+    # via
+    #   curl-cffi
+    #   requests
+cffi==1.17.1
+    # via curl-cffi
+charset-normalizer==3.4.2
     # via requests
 colorama==0.4.6
     # via
@@ -22,29 +26,31 @@ comm==0.2.2
     # via ipywidgets
 contourpy==1.3.2
     # via matplotlib
+curl-cffi==0.11.1
+    # via yahooquery
 cycler==0.12.1
     # via matplotlib
 decorator==5.2.1
     # via ipython
-exceptiongroup==1.2.2
+exceptiongroup==1.3.0
     # via ipython
-exchange-calendars==4.10
+exchange-calendars==4.10.1
     # via
     #   market-prices
     #   market_analy (pyproject.toml)
 executing==2.2.0
     # via stack-data
-fonttools==4.57.0
+fonttools==4.58.0
     # via matplotlib
 idna==3.10
     # via requests
-ipython==8.35.0
+ipython==8.36.0
     # via ipywidgets
 ipyvue==1.11.2
     # via ipyvuetify
 ipyvuetify==1.11.1
     # via market_analy (pyproject.toml)
-ipywidgets==8.1.6
+ipywidgets==8.1.7
     # via
     #   bqplot
     #   ipyvue
@@ -53,19 +59,19 @@ jedi==0.19.2
     # via ipython
 jinja2==3.1.6
     # via market_analy (pyproject.toml)
-jupyterlab-widgets==3.0.14
+jupyterlab-widgets==3.0.15
     # via ipywidgets
 kiwisolver==1.4.8
     # via matplotlib
 korean-lunar-calendar==0.3.1
     # via exchange-calendars
-lxml==4.9.4
+lxml==5.4.0
     # via yahooquery
-market-prices==0.12.5
+market-prices==0.12.9
     # via market_analy (pyproject.toml)
 markupsafe==3.0.2
     # via jinja2
-matplotlib==3.10.1
+matplotlib==3.10.3
     # via market_analy (pyproject.toml)
 matplotlib-inline==0.1.7
     # via ipython
@@ -95,6 +101,8 @@ prompt-toolkit==3.0.51
     # via ipython
 pure-eval==0.2.3
     # via stack-data
+pycparser==2.22
+    # via cffi
 pygments==2.19.1
     # via ipython
 pyluach==2.2.0
@@ -108,9 +116,7 @@ python-dateutil==2.9.0.post0
 pytz==2025.2
     # via pandas
 requests==2.32.3
-    # via
-    #   requests-futures
-    #   yahooquery
+    # via requests-futures
 requests-futures==1.0.2
     # via yahooquery
 six==1.17.0
@@ -137,6 +143,7 @@ traittypes==0.2.1
 typing-extensions==4.13.2
     # via
     #   beautifulsoup4
+    #   exceptiongroup
     #   ipython
 tzdata==2025.2
     # via
@@ -152,5 +159,5 @@ wcwidth==0.2.13
     # via prompt-toolkit
 widgetsnbextension==4.0.14
     # via ipywidgets
-yahooquery==2.3.7
+yahooquery==2.4.1
     # via market-prices
