@@ -10,7 +10,7 @@ beautifulsoup4==4.13.4
     # via yahooquery
 black==25.1.0
     # via market_analy (pyproject.toml)
-bqplot==0.12.44
+bqplot==0.12.45
     # via market_analy (pyproject.toml)
 certifi==2025.4.26
     # via
