@@ -144,7 +144,7 @@ pyluach==2.2.0
     # via exchange-calendars
 pyparsing==3.2.3
     # via matplotlib
-pytest==8.3.5
+pytest==8.4.0
     # via
     #   market_analy (pyproject.toml)
     #   pytest-mock
