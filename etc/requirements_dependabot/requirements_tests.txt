@@ -120,7 +120,7 @@ parso==0.8.4
     # via jedi
 pathspec==0.12.1
     # via black
-pillow==11.2.1
+pillow==11.3.0
     # via matplotlib
 platformdirs==4.3.8
     # via black
