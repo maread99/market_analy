@@ -64,7 +64,7 @@ ipython==8.36.0
     # via ipywidgets
 ipyvue==1.11.2
     # via ipyvuetify
-ipyvuetify==1.11.1
+ipyvuetify==1.11.3
     # via market_analy (pyproject.toml)
 ipywidgets==8.1.7
     # via
