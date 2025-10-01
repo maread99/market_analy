@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=43.0.0", "wheel", "setuptools_scm[toml]>=6.2"]
+requires = ["setuptools>=77.0.0", "wheel", "setuptools_scm[toml]>=6.2"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -10,7 +10,7 @@ authors = [
   {name = "Marcus Read"},
 ]
 readme = "README.md"
-license = {text = "MIT License"}
+license = "MIT"
 keywords = [
     "finance",
     "analysis",
@@ -27,7 +27,8 @@ keywords = [
     "commodities",
     "indices",
 ]
-requires-python = "~=3.10"
+dynamic = ["version"]
+requires-python = ">=3.10, <4"
 
 classifiers = [
 	"Development Status :: 4 - Beta",
@@ -36,7 +37,6 @@ classifiers = [
     "Intended Audience :: Financial and Insurance Industry",
     "Intended Audience :: Science/Research",
 	"Natural Language :: English",
-	"License :: OSI Approved :: MIT License",
 	"Operating System :: OS Independent",
 	"Programming Language :: Python",
 	"Programming Language :: Python :: 3",
@@ -60,36 +60,30 @@ dependencies = [
     "bqplot",
     "traitlets",
     "tzdata",
-    "ipywidgets>=8.0",
+    "ipywidgets",
     "ipyvuetify",
 ]
-
-dynamic = ["version"]
 
 [project.optional-dependencies]
 jupyter = [
     "jupyter",
     "jupyterlab>=3.0",
 ]
-tests = [
-    "black",
-    "flake8",
-    "flake8-docstrings",
+
+[dependency-groups]
+test = [
     "pytest",
     "pytest-mock",
 ]
 dev = [
-    "black",
-    "flake8",
-    "flake8-docstrings",
-    "pytest",
-    "pytest-mock",
+    {include-group = "test"},
+    "ipykernel",
     "jupyterlab>=3.0",
-    "pandas-stubs",
     "mypy",
-    "pip-tools",
+    "mypy-extensions",
+    "pandas-stubs",
     "pre-commit",
-    "pylint",
+    # "ruff",  # use local standalone install or ruff extension for editor.
 ]
 
 [project.urls]
@@ -100,7 +94,3 @@ documentation = "https://github.com/maread99/market_analy"
 
 [tool.setuptools_scm]
 write_to = "src/market_analy/_version.py"
-
-[tool.black]
-line-length = 88
-target-version = ['py310', 'py311', 'py312', 'py313']
