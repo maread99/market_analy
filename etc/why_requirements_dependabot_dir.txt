@@ -1,9 +1,0 @@
-requirements_test.txt is in the dedicated `requirements_dependabot`
-directory simply so that dependabot can be configured to look only at these
-dependencies and ignore the additional requirements in
-requirements_dev.txt.
-
-NB Dependabot has to look at requirements_tests.txt, as opposed to simply
-requirements.txt, in order that the tests triggered by the dependabot PR
-run in an environment that has installed the bumped versions of the
-dependencies.

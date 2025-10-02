@@ -1,65 +1,54 @@
-# Workflow to upload a Python Package using Twine when a release is created
-name: Release to PyPI
+# Workflow to upload a Python Package when a release is created
+name: Publish to PyPI
 
 on:
   release:
     types: [released]
 
 permissions:
+  id-token: write
   contents: read
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    environment:
+      name: pypi
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+      - name: Install Python
+        run: uv python install
+      - name: Build
+        run: uv build
 
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.x'
+      - name: Publish to Test PyPI
+        run: uv publish --index testpypi
+      - name: Check test install and import
+        run: |
+          sleep 5  # Wait for Test Pypi to publish
+          # Include pypi index for deps not available from test pypi...
+          uv run \
+            --with market-analy \
+            --refresh-package market-analy \
+            --index https://test.pypi.org/simple \
+            --index https://pypi.org/simple \
+            --index-strategy unsafe-best-match \
+            --no-project \
+            --isolated \
+            -- \
+            python -c 'import market_analy; print(f"{market_analy.__version__=}")'
 
-    - name: Install build dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install build
-
-    - name: Build package
-      run: python -m build
-
-    - name: Publish to Test PyPI
-      uses: pypa/gh-action-pypi-publish@release/v1
-      with:
-        user: __token__
-        password: ${{ secrets.PYPI_TEST_API_TOKEN }}
-        repository-url: https://test.pypi.org/legacy/
-
-    - name: Install from testpypi and import
-      shell: bash
-      run: |
-        sleep 5
-        while [ "${{ github.ref_name }}" != $(pip index versions -i https://test.pypi.org/simple --pre market-analy | cut -d'(' -f2 | cut -d')' -f1 | sed 1q) ];\
-          do echo "waiting for package to appear in test index, sleeping 5s"; sleep 5s; echo "woken up"; done
-        pip install --index-url https://test.pypi.org/simple market-analy==${{ github.ref_name }} --no-deps
-        pip install -r etc/requirements.txt
-        python -c 'import market_analy;print(market_analy.__version__)'
-
-    - name: Clean pip
-      run: |
-        pip uninstall -y market_analy
-        pip cache purge
-
-    - name: Publish to PyPI
-      uses: pypa/gh-action-pypi-publish@release/v1
-      with:
-        user: __token__
-        password: ${{ secrets.PYPI_API_TOKEN }}
-
-    - name: Install and import
-      shell: bash
-      run: |
-        sleep 5
-        while [ "${{ github.ref_name }}" != $(pip index versions -i https://pypi.org/simple --pre market-analy | cut -d'(' -f2 | cut -d')' -f1 | sed 1q) ];\
-          do echo "waiting for package to appear in index, sleeping 5s"; sleep 5s; echo "woken up"; done
-        pip install --index-url https://pypi.org/simple market-analy==${{ github.ref_name }}
-        python -c 'import market_analy;print(market_analy.__version__)'
+      - name: Publish to PyPI
+        run: uv publish
+      - name: Check install and import
+        run: |
+          sleep 5  # Wait for Pypi to publish
+          uv run \
+          --with market-analy \
+          --refresh-package market-analy \
+          --no-project \
+          --isolated \
+          -- \
+          python -c 'import market_analy;print(f"{market_analy.__version__=}")'
