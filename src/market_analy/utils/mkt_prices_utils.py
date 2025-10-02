@@ -1,7 +1,7 @@
 """Utility funcions for market_prices library."""
 
-import pandas as pd
 import market_prices as mp
+import pandas as pd
 
 
 def request_daily_prices(**kwargs) -> bool:
@@ -10,10 +10,10 @@ def request_daily_prices(**kwargs) -> bool:
         return False
     if "end" in kwargs and not mp.helpers.is_date(pd.Timestamp(kwargs["end"])):
         return False
-    return all((kw not in kwargs for kw in ["minutes", "hours"]))
+    return all(kw not in kwargs for kw in ["minutes", "hours"])
 
 
-def period_string(**kwargs) -> str:
+def period_string(**kwargs) -> str:  # noqa: C901
     """Return string description of period defined from period parameters.
 
     Period parameters as defined by `mp.prices.base.Base.get`
@@ -27,8 +27,8 @@ def period_string(**kwargs) -> str:
 
     NB excess kwargs pass silently.
     """
-    start = kwargs.get("start", None)
-    end = kwargs.get("end", None)
+    start = kwargs.get("start")
+    end = kwargs.get("end")
     minutes = kwargs.get("minutes", 0)
     hours = kwargs.get("hours", 0)
     days = kwargs.get("days", 0)
@@ -67,10 +67,9 @@ def period_string(**kwargs) -> str:
 
     if end_str is None and start_str is None:
         return duration
-    elif end_str is not None:
+    if end_str is not None:
         return f"{duration} to {end_str}".strip()
-    else:
-        return f"{duration} from {start_str}"
+    return f"{duration} from {start_str}"
 
 
 def range_string(

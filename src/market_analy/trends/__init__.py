@@ -7,16 +7,17 @@ from __future__ import annotations
 
 import typing
 
-import market_prices as mp
-import pandas as pd
-
+# ruff: noqa: F401
 # necessary for unpickling test resources. When picked analy was here
 # ... i.e. at market_analy.trend. Also serves to provide legacy access.
-from .analy import Trends  # noqa: F401
-from .guis import TrendsGui  # noqa: F401
-from .movements import Movement, Movements  # noqa: F401
+from .analy import Trends
+from .guis import TrendsGui
+from .movements import Movement, Movements
 
 if typing.TYPE_CHECKING:
+    import market_prices as mp
+    import pandas as pd
+
     from .movements import MovementsSupportChartAnaly
 
 

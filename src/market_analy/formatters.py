@@ -6,8 +6,7 @@ import pandas as pd
 def formatter_datetime(x: pd.Timestamp) -> str:
     if x == x.normalize():
         return x.strftime("%Y-%m-%d")
-    else:
-        return x.strftime("%Y-%m-%d %H:%M")
+    return x.strftime("%Y-%m-%d %H:%M")
 
 
 def formatter_percent(x: float) -> str:

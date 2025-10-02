@@ -1,7 +1,5 @@
 """Standalone analysis functions."""
 
-from __future__ import annotations
-
 import datetime
 
 import pandas as pd
@@ -63,7 +61,7 @@ def net_of(data: pd.DataFrame, rebase: bool = True) -> pd.DataFrame:
     4  24.525  65.4  16.35   32.7       5
     """
     if not isinstance(data.columns, pd.MultiIndex):
-        raise ValueError("`data.columns` must be a `pd.MultiIndex`")
+        raise TypeError("`data.columns` must be a `pd.MultiIndex`")
     if len(data.columns.levels) != 2:
         raise ValueError("`data.columns` must have two levels")
     if len(data.columns.levels[0]) != 2:

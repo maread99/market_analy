@@ -7,7 +7,7 @@
 
 # market_analy
 
-[![PyPI](https://img.shields.io/pypi/v/market-analy)](https://pypi.org/project/market-analy/) ![Python Support](https://img.shields.io/pypi/pyversions/market-analy) [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+[![PyPI](https://img.shields.io/pypi/v/market-analy)](https://pypi.org/project/market-analy/) ![Python Support](https://img.shields.io/pypi/pyversions/market-analy) [![Code style: ruff](https://img.shields.io/badge/code%20style-ruff-D7FF64.svg)](https://github.com/astral-sh/ruff) [![pre-commit.ci status](https://results.pre-commit.ci/badge/github/maread99/market_analy/main.svg)](https://results.pre-commit.ci/latest/github/maread99/market_analy/main)
 
 A python package for interactive charting and analysis of financial instruments.
 

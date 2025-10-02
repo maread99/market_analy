@@ -56,7 +56,6 @@ def test_selectable_list():
 
 def test_selectable_list_mult():
     """Reasonably broad test for SelectableListMult."""
-
     elements = ["one", 2, 3.0, [4], {"five": 5}, {6}, (7, 7)]
     names = ["one", "two", "random", "four", 5, "six", "seven"]
 
@@ -88,7 +87,7 @@ def test_selectable_list_mult():
     slm.deselect(["one", 2])
     assert slm.selected == [3.0, {6}, (7, 7)]
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError):  # noqa: PT011
         slm.deselect_indices([1, 2], pass_silently=False)
 
     assert slm.selected == [3.0, {6}, (7, 7)]

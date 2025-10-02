@@ -4,21 +4,32 @@ from __future__ import annotations
 
 import typing
 from abc import ABC, abstractmethod
-from collections.abc import Sequence
 from dataclasses import dataclass
 from functools import cached_property
 
-import bqplot as bq
-import numpy as np
 import pandas as pd
 
-from ..cases import CaseBase, CasesBase, CasesSupportsChartAnaly, CaseSupportsChartAnaly
-from ..charts import tooltip_html_style
-from ..config import COL_ADV
-from ..formatters import formatter_datetime, formatter_float, formatter_percent
+from market_analy.cases import (
+    CaseBase,
+    CasesBase,
+    CasesSupportsChartAnaly,
+    CaseSupportsChartAnaly,
+)
+from market_analy.charts import tooltip_html_style
+from market_analy.config import COL_ADV
+from market_analy.formatters import (
+    formatter_datetime,
+    formatter_float,
+    formatter_percent,
+)
 
 if typing.TYPE_CHECKING:
-    from .analy import TrendParams, TrendAltParams
+    from collections.abc import Sequence
+
+    import bqplot as bq
+    import numpy as np
+
+    from .analy import TrendAltParams, TrendParams
 
 
 @dataclass(frozen=True, eq=False)
@@ -432,7 +443,7 @@ class MovementsSupportChartAnaly(CasesSupportsChartAnaly, typing.Protocol):
         ...
 
     def get_index_for_direction(self, case: MovementBase) -> int:
-        """Get index position of a case in `advances` or `declines`"""
+        """Get index position of a case in `advances` or `declines`."""
         ...
 
 
@@ -574,7 +585,7 @@ class MovementsBase(CasesBase):
 
     @property
     def trend(self) -> pd.Series:
-        """Trend
+        """Trend.
 
         `pd.Series` with index as bars (`pd.DatetimeIndex`) and values as
         corresponding trend value:
@@ -589,7 +600,7 @@ class MovementsBase(CasesBase):
         return srs
 
     def get_index_for_direction(self, case: MovementBase) -> int:
-        """Get index position of a case in `advances` or `declines`"""
+        """Get index position of a case in `advances` or `declines`."""
         seq = self.advances if case.is_adv else self.declines
         return seq.index(case)
 
@@ -600,7 +611,7 @@ class MovementsBase(CasesBase):
         """
         i = event["data"]["index"]
         case = self.advances[i] if mark.colors[0] == COL_ADV else self.declines[i]
-        return case
+        return case  # noqa: RET504
 
 
 @dataclass(frozen=True)
@@ -612,13 +623,13 @@ class Movements(MovementsBase, MovementsSupportChartAnaly):
     def event_to_case(self, mark: bq.Scatter, event: dict) -> Movement:
         # Only for type checker to know move is a Movement as defined on this module.
         case = super().event_to_case(mark, event)
-        case = typing.cast(Movement, case)
-        return case
+        case = typing.cast("Movement", case)
+        return case  # noqa: RET504
 
     @staticmethod
     def get_case_html(case: CaseSupportsChartAnaly) -> str:
         """Return html to describe a movement."""
-        case = typing.cast(Movement, case)
+        case = typing.cast("Movement", case)
         color = "crimson" if case.is_dec else "limegreen"
         style = tooltip_html_style(color=color, line_height=1.3)
         s = f"<p {style}>Start: " + formatter_datetime(case.start)
@@ -664,7 +675,7 @@ class MovementsAlt(MovementsBase, MovementsSupportChartAnaly):
     @staticmethod
     def get_case_html(case: CaseSupportsChartAnaly) -> str:
         """Return html to describe a movement."""
-        case = typing.cast(MovementAlt, case)
+        case = typing.cast("MovementAlt", case)
         color = "crimson" if case.is_dec else "limegreen"
         style = tooltip_html_style(color=color, line_height=1.3)
         s = f"<p {style}>Start: " + formatter_datetime(case.start)

@@ -4,43 +4,30 @@ For most methods of Analysis and Compare testing consists of verifying the
 return from one or two specific calls against hard-coded expected returns.
 """
 
-from collections import abc
 import contextlib
 import io
 import pickle
 import re
+from collections import abc
 from zoneinfo import ZoneInfo
 
 import bqplot as bq
 import market_prices as mp
 import numpy as np
 import pandas as pd
-from pandas import Timestamp as T
-from pandas.testing import assert_series_equal, assert_frame_equal, assert_index_equal
 import pytest
+from pandas import Timestamp as T  # noqa: N817
+from pandas.testing import assert_frame_equal, assert_index_equal, assert_series_equal
 
-from market_analy import analysis, guis, charts
+from market_analy import analysis, charts, guis
 from market_analy.standalone import get_pct_off_high
-from market_analy.trends.movements import Movement
 from market_analy.trends.guis import TrendsGui
+from market_analy.trends.movements import Movement
 from market_analy.utils import UTC
 from market_analy.utils import bq_utils as bqu
 
-
-# pylint: disable=too-many-lines
-# pylint: disable=missing-function-docstring, missing-type-doc
-# pylint: disable=missing-param-doc, missing-any-param-doc, redefined-outer-name
-# pylint: disable=too-many-public-methods, too-many-arguments, too-many-locals
-# pylint: disable=too-many-statements
-# pylint: disable=protected-access, unused-argument, invalid-name
-#   missing-fuction-docstring: doc not required for all tests
-#   protected-access: not required for tests
-#   not compatible with use of fixtures to parameterize tests:
-#       too-many-arguments, too-many-public-methods
-#   not compatible with pytest fixtures:
-#       redefined-outer-name, no-self-use, missing-any-param-doc, missing-type-doc
-#   unused-argument: not compatible with pytest fixtures, caught by pylance anyway.
-#   invalid-name: names in tests not expected to strictly conform with snake_case.
+# ruff: noqa: C408  # unnecessary-collection-call. Happy using dict() here.
+# ruff: noqa: E501  # line-too-long
 
 
 def verify_app(f, cls, *args, **kwargs):
@@ -639,8 +626,9 @@ class TestAnalysis:
         assert gui.chart.axes[1].orientation == "horizontal"
         assert gui.chart.axes[1].orientation == "horizontal"
 
-        start, end = pd.Timestamp("2023-01-06 15:00:00"), pd.Timestamp(
-            "2023-01-10 16:03:00"
+        start, end = (
+            pd.Timestamp("2023-01-06 15:00:00"),
+            pd.Timestamp("2023-01-10 16:03:00"),
         )
         assert start == gui.chart.data.index[0].left
         assert end == gui.chart.data.index[-1].right
@@ -850,7 +838,7 @@ class TestAnalysis:
         # verify drawdown selector
         expected_labels = ("ATH", "52wk", "125", "90", "60", "40", "20", "10", "x")
         expected_dd_values = ("ATH", "365D", 125, 90, 60, 40, 20, 10, False)
-        labels, values = zip(*gui._drawdown_selector.options)
+        labels, values = zip(*gui._drawdown_selector.options, strict=True)
         assert labels == expected_labels
         assert values == expected_dd_values
         assert gui._drawdown_selector.value == "ATH"  # verify initial value
@@ -858,7 +846,7 @@ class TestAnalysis:
         def verify_prices(
             interval: mp.intervals.TDInterval, start: pd.Timestamp, end: pd.Timestamp
         ):
-            """verify `prices` attr as expected"""
+            """Verify `prices` attr as expected."""
             assert gui.prices.pt.interval == interval
             assert gui.prices.pt.first_ts == start
             assert gui.prices.pt.last_ts == end
@@ -869,13 +857,13 @@ class TestAnalysis:
             )
 
         def verify_prices_to_chart():
-            """verify 'prices' attr reconciles with charted plot."""
+            """Verify 'prices' attr reconciles with charted plot."""
             assert gui.chart.x_ticks.equals(gui.prices.index.left.tz_convert(None))
             cols = [("AZN.L", c) for c in ["open", "high", "low", "close"]]
             assert (gui.chart.mark.y == gui.prices[cols].values).all()
 
         def verify_chart_mark_y2(window: str | int | None, slc: slice | None = None):
-            """Verify mark_y2 values as expected"""
+            """Verify mark_y2 values as expected."""
             assert isinstance(gui.chart.mark_y2, bq.Lines)
             assert (gui.chart.mark_y2.x == gui.chart.plotted_x_ticks.values).all()
             dd_data = get_pct_off_high(gui.prices, window)["AZN.L"].values
@@ -893,7 +881,7 @@ class TestAnalysis:
             prices_prev = gui.prices.copy()
             for v in expected_dd_values[window_slc]:
                 gui._drawdown_selector.value = v
-                v = None if v == "ATH" else v
+                v = None if v == "ATH" else v  # noqa: PLW2901
                 verify_chart_mark_y2(v, slc)
                 assert gui.prices.equals(prices_prev)
 
@@ -1270,14 +1258,13 @@ class TestAnalysis:
         """
         movements = analy.movements("1D", trend_kwargs, **trend_period_kwargs)
         path = path_res / "azn_1D_prd60.dat"
-        file = open(path, "rb")
-        for m in movements.cases:
-            try:
-                loaded = pickle.load(file)
-            except EOFError:
-                break
-            assert m == loaded
-        file.close()
+        with path.open("rb") as file:
+            for m in movements.cases:
+                try:
+                    loaded = pickle.load(file)
+                except EOFError:
+                    break
+                assert m == loaded
 
     def test_trends_chart(self, analy, trend_kwargs, trend_period_kwargs):
         """Verifies various aspects of gui beahviour for trends plot."""
@@ -1288,7 +1275,7 @@ class TestAnalysis:
 
         gui = f(interval, trend_kwargs, **kwargs, display=False)
         movements = analy.movements("1D", trend_kwargs, **kwargs)
-        for gm, m in zip(gui.cases.cases, movements.cases):
+        for gm, m in zip(gui.cases.cases, movements.cases, strict=True):
             assert gm == m
 
         prd = trend_kwargs["prd"]
@@ -1303,27 +1290,27 @@ class TestAnalysis:
             assert s.visible
 
         def get_scat(marker: str, cols: list[str]):
-            return next((s for s in scats if (s.marker, s.colors) == (marker, cols)))
+            return next(s for s in scats if (s.marker, s.colors) == (marker, cols))
 
         cols_adv, cols_dec = ["lime"], ["red"]
 
         scat = get_scat("triangle-down", cols_dec)
         assert (scat.x == movements.starts_dec).all()
-        for y, move in zip(scat.y, movements.declines):
+        for y, move in zip(scat.y, movements.declines, strict=True):
             assert y == move.start_px
         scat = get_scat("triangle-up", cols_adv)
         assert (scat.x == movements.starts_adv).all()
-        for y, move in zip(scat.y, movements.advances):
+        for y, move in zip(scat.y, movements.advances, strict=True):
             assert y == move.start_px
 
         scat = get_scat("cross", cols_dec)
         assert (scat.x == movements.ends_dec).all()
-        for y, end in zip(scat.y, movements.ends_dec):
+        for y, end in zip(scat.y, movements.ends_dec, strict=True):
             move = (m for m in movements.declines if m.end == end).__next__()
             assert y == move.end_px
         scat = get_scat("cross", cols_adv)
         assert (scat.x == movements.ends_adv).all()
-        for y, end in zip(scat.y, movements.ends_adv):
+        for y, end in zip(scat.y, movements.ends_adv, strict=True):
             move = (m for m in movements.advances if m.end == end).__next__()
             assert y == move.end_px
 
@@ -1359,7 +1346,7 @@ class TestAnalysis:
         assert controls.but_show_all.is_light
         assert not gui._html_output._html.value
         assert gui.chart.current_case is None
-        gui.current_case is None
+        assert gui.current_case is None
 
         def verify_controls_reflect_single_trend():
             assert not controls.is_dark_single_case
@@ -1478,7 +1465,8 @@ class TestAnalysis:
         assert but.is_light
         but.fire_event("click", None)
 
-        assert not but.is_light and not but.is_dark
+        assert not but.is_light
+        assert not but.is_dark
         verify_controls_reflect_single_trend()
         assert len(gui._rulers) == 2
 
@@ -1535,7 +1523,8 @@ class TestAnalysis:
         controls.but_prev.fire_event("click", None)
 
         # changing trend should not change rulers...
-        assert limit_rule in gui._rulers and break_rule in gui._rulers
+        assert limit_rule in gui._rulers
+        assert break_rule in gui._rulers
         # although but should go light
         assert but.is_light
         verify_controls_reflect_single_trend()
@@ -1545,9 +1534,11 @@ class TestAnalysis:
         controls.but_wide.fire_event("click", None)  # make sure can see all on plot
 
         move = movements.cases[2]
-        assert limit_rule not in gui._rulers and break_rule not in gui._rulers
+        assert limit_rule not in gui._rulers
+        assert break_rule not in gui._rulers
 
-        assert not but.is_light and not but.is_dark
+        assert not but.is_light
+        assert not but.is_dark
         verify_controls_reflect_single_trend()
         assert len(gui._rulers) == 2
 
@@ -1558,7 +1549,8 @@ class TestAnalysis:
         limit_rule = (r for r in gui._rulers if r.color == ["skyblue"]).__next__()
         verify_limit_rule(limit_rule, move)
 
-        assert not but.is_light and not but.is_dark
+        assert not but.is_light
+        assert not but.is_dark
         but.fire_event("click", None)
 
         assert not gui._rulers
@@ -1572,7 +1564,7 @@ class TestAnalysis:
         assert controls.is_dark_single_case
         assert controls.but_show_all.is_light
         assert charts.Groups.CASE not in gui.chart.added_marks
-        assert all([s.visible for s in scats])
+        assert all(s.visible for s in scats)
         assert gui.chart.current_case is None
         assert gui.current_case is None
 
@@ -2180,8 +2172,9 @@ class TestCompare:
         assert gui.chart.axes[1].orientation == "horizontal"
         assert gui.chart.axes[1].orientation == "horizontal"
 
-        start, end = pd.Timestamp("2023-01-06 09:51:00"), pd.Timestamp(
-            "2023-01-10 11:15:00"
+        start, end = (
+            pd.Timestamp("2023-01-06 09:51:00"),
+            pd.Timestamp("2023-01-10 11:15:00"),
         )
         assert start == gui.chart.data.index[0].left
         assert end == gui.chart.data.index[-1].right
@@ -2614,13 +2607,13 @@ class TestCompare:
         gui = analy.plot(**intraday_pp, display=False)
 
         expected_dd_values = ("ATH", "365D", 125, 90, 60, 40, 20, 10)
-        _, values = zip(*gui._drawdown_selector.options)
-        values[:-1] == expected_dd_values
+        _, values = zip(*gui._drawdown_selector.options, strict=True)
+        assert values[:-1] == expected_dd_values
 
         def verify_prices(
             interval: mp.intervals.TDInterval, start: pd.Timestamp, end: pd.Timestamp
         ):
-            """verify `prices` attr as expected"""
+            """Verify `prices` attr as expected."""
             assert gui.prices.pt.interval == interval
             assert gui.prices.pt.first_ts == start
             assert gui.prices.pt.last_ts == end
@@ -2634,11 +2627,11 @@ class TestCompare:
             )
 
         def verify_prices_to_chart():
-            """verify 'prices' attr reconciles with plot x-axis."""
+            """Verify 'prices' attr reconciles with plot x-axis."""
             assert gui.chart.x_ticks.tz_localize(tz).equals(gui.prices.index.left)
 
         def verify_chart_mark_y2(window: str | int | None, slc: slice | None = None):
-            """Verify mark_y2 values as expected"""
+            """Verify mark_y2 values as expected."""
             assert isinstance(gui.chart.mark_y2, bq.Lines)
             assert (gui.chart.mark_y2.x == gui.chart.plotted_x_ticks.values).all()
             for i, symb in enumerate(["MSFT", "AZN.L", "9988.HK"]):
@@ -2659,7 +2652,7 @@ class TestCompare:
             prices_prev = gui.prices.copy()
             for v in expected_dd_values[window_slc]:
                 gui._drawdown_selector.value = v
-                v = None if v == "ATH" else v
+                v = None if v == "ATH" else v  # noqa: PLW2901
                 verify_chart_mark_y2(v, slc)
                 assert gui.prices.equals(prices_prev)
             gui._drawdown_selector.value = "ATH"
@@ -2733,7 +2726,7 @@ class TestCompare:
         assert gui.prices.equals(prices_initial)
 
         # verify effect of reset button
-        gui._interval_selector.value == mp.intervals.TDInterval.T15
+        assert gui._interval_selector.value == mp.intervals.TDInterval.T5
         assert gui._icon_row_top.children[1].tooltip == "Reset"
         gui._icon_row_top.children[1].click()
         assert gui._interval_selector.value == mp.intervals.TDInterval.T5

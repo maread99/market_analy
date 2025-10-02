@@ -1,15 +1,16 @@
 """Utility constants, functions and classes for bqplot."""
 
+import contextlib
 from collections.abc import Iterable
 from copy import copy
 from itertools import cycle
 from typing import Literal
 
 import bqplot as bq
-import pandas as pd
 import numpy as np
+import pandas as pd
 from bqplot.interacts import FastIntervalSelector
-from traitlets import HasTraits, Any, dlink, link
+from traitlets import Any, HasTraits, dlink, link
 
 from market_analy.utils import UTC
 
@@ -153,7 +154,7 @@ class _LevelLine(bq.Lines):
         #         y = [[0, 1]] * len(level)
 
     def _draw_to_figure(self, figure: bq.Figure):
-        figure.marks = list(figure.marks) + [self]
+        figure.marks = [*list(figure.marks), self]
 
 
 class HLevelLine(_LevelLine):
@@ -388,7 +389,7 @@ class _LabeledLevelLine(_LevelLine):
         return [format_label(value[0], self._label_format)]
 
     def _draw_to_figure(self, figure: bq.Figure):
-        figure.marks = list(figure.marks) + [self, self.label]
+        figure.marks = [*list(figure.marks), self, self.label]
 
 
 class HLabeledLevelLine(_LabeledLevelLine):
@@ -598,7 +599,7 @@ class Crosshair(HasTraits):
             **kwargs,
         )
 
-        figure.marks = list(figure.marks) + [self.cross]
+        figure.marks = [*list(figure.marks), self.cross]
 
         line_kwargs["line_style"] = self._line_style
         if x is not None and "side" not in line_kwargs:
@@ -645,6 +646,7 @@ class Crosshair(HasTraits):
         for axis in self.figure.axes:
             if axis.orientation == orientation:
                 return axis.tick_format
+        return None
 
     @property
     def _x_tick_format(self):
@@ -670,7 +672,7 @@ class Crosshair(HasTraits):
         return x[len(x) // 2]
 
     def _get_y_center(self, y: list):
-        """Mid-point of y axis
+        """Mid-point of y axis.
 
         y: list
             Center assumed as coinciding with 'y' attribute of middle mark
@@ -913,13 +915,13 @@ class HFixedRule:
         Passed on to bq.Lines to create horizontal line.
     """
 
-    def __init__(
+    def __init__(  # noqa: PLR0915
         self,
         level,
         scales: dict,
         figure: bq.Figure,
         start: Any,
-        length: int | float,
+        length: float,
         color: str = "yellow",
         opacity: float = 1.0,
         draggable: bool = True,
@@ -1042,17 +1044,15 @@ class HFixedRule:
         )
 
         def grip_r_on_drag_start_handler(*_):
-            try:
+            # pass if not linked
+            with contextlib.suppress(ValueError):
                 l_to_r_lnk.unlink()
-            except ValueError:  # not linked
-                pass
             r_to_l_lnk.link()
 
         def grip_l_on_drag_start_handler(*_):
-            try:
+            # pass if not linked
+            with contextlib.suppress(ValueError):
                 r_to_l_lnk.unlink()
-            except ValueError:  # not linked
-                pass
             l_to_r_lnk.link()
 
         self.grip_r.on_drag_start(grip_r_on_drag_start_handler)
@@ -1223,7 +1223,7 @@ class TrendRule:
     def __init__(
         self,
         x: np.datetime64,
-        y: float | int,
+        y: float,
         length: int,
         factors: np.ndarray,
         scales: dict,
@@ -1423,7 +1423,7 @@ class TrendRule:
         return 1 / fctrs[::-1]
 
     def _get_y_from_start(
-        self, y: int | float | None = None, length: int | None = None
+        self, y: float | None = None, length: int | None = None
     ) -> list[int | float]:
         """Get y values from leftmost y value."""
         if y is None:

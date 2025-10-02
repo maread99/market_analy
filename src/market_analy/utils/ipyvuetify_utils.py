@@ -7,6 +7,8 @@ import ipyvuetify as vue  # type: ignore[import]
 
 from .list_utils import SelectableList
 
+# ruff: noqa: ARG002  # unused-method-argument. Allow to provide for event handling calls.
+
 DARK = "grey darken-4"
 LIGHT = "grey lighten-4"
 
@@ -25,7 +27,7 @@ def border_comp(
 
     NOTE: will erase any existing _style attribute.
     """
-    style_string = " ".join(["border:", border_width, style, color])
+    style_string = f"border: {border_width} {style} {color}"
     component.style_ = style_string
 
 
@@ -84,8 +86,8 @@ def tooltip_decorator(func: Callable) -> Callable:
     """
 
     def wrapper(self, *args, **kwargs):
-        tooltip = kwargs.get("tooltip", None)
-        tt_kwargs = kwargs.get("tt_kwargs", None)
+        tooltip = kwargs.get("tooltip")
+        tt_kwargs = kwargs.get("tt_kwargs")
 
         if tooltip is not None:
             kwargs["v_on"] = "ttip.on"
@@ -536,7 +538,12 @@ class ToggleIcons(SelectableList):
 
         icon_buts = []
         for name, color, d_color, tt, tt_kwargs in zip(
-            icon_names, selected_colors, deselected_colors, tooltips, tts_kwargs
+            icon_names,
+            selected_colors,
+            deselected_colors,
+            tooltips,
+            tts_kwargs,
+            strict=True,
         ):
             icon_but = IconBut(
                 name,
@@ -551,10 +558,7 @@ class ToggleIcons(SelectableList):
             icon_buts.append(icon_but)
 
         if initial_selection is None and not allow_no_selection:
-            if select_by == "index":
-                initial_selection = 0
-            else:
-                initial_selection = names[0]
+            initial_selection = 0 if select_by == "index" else names[0]
 
         super().__init__(
             icon_buts,
