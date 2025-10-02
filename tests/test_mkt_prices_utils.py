@@ -79,10 +79,14 @@ def test_range_string():
     # test when shand should have no effect
     for shand in [True, False]:
         assert (
-            f(index, close=False) == f(index) == "2022-12-20 14:45 to 2023-01-06 15:30"
+            f(index, close=False, shand=shand)
+            == f(index)
+            == "2022-12-20 14:45 to 2023-01-06 15:30"
         )
     for shand in [True, False]:
-        assert f(index, close=True) == "2022-12-20 15:00 to 2023-01-06 15:30"
+        assert (
+            f(index, close=True, shand=shand) == "2022-12-20 15:00 to 2023-01-06 15:30"
+        )
 
     intervals = [
         pd.Interval(pd.Timestamp("2023-01-06 14:45"), pd.Timestamp("2023-01-06 15:00")),

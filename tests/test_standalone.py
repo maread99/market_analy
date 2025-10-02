@@ -272,18 +272,18 @@ def test_get_highs():
         pd.testing.assert_series_equal(rtrn, pd.Series(expected_td4f, index=index))
 
     # test get_pct_off_high
-    expected = [-100 * (h - c) / h for h, c in zip(expected_ath, values)]
+    expected = [-100 * (h - c) / h for h, c in zip(expected_ath, values, strict=True)]
     expected_df = pd.DataFrame(expected, index=index, columns=pd.Index(["ath"]))
     rtrn = m.get_pct_off_high(df, None)
     pd.testing.assert_frame_equal(rtrn, expected_df)
 
-    expected = [-100 * (h - c) / h for h, c in zip(expected_4, values)]
+    expected = [-100 * (h - c) / h for h, c in zip(expected_4, values, strict=True)]
     expected_df = pd.DataFrame(expected, index=index, columns=pd.Index(["4_high"]))
     rtrn = m.get_pct_off_high(df, 4)
     pd.testing.assert_frame_equal(rtrn, expected_df)
 
     # check passing through window and include_current
-    expected = [-100 * (h - c) / h for h, c in zip(expected_td4f, values)]
+    expected = [-100 * (h - c) / h for h, c in zip(expected_td4f, values, strict=True)]
     expected_df = pd.DataFrame(expected, index=index, columns=pd.Index(["4D_high"]))
-    rtrn = m.get_pct_off_high(df, "4D", False)
+    rtrn = m.get_pct_off_high(df, "4D", include_current=False)
     pd.testing.assert_frame_equal(rtrn, expected_df)

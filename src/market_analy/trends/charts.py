@@ -9,12 +9,17 @@ import ipywidgets as w
 import numpy as np
 import pandas as pd
 
-from ..cases import CaseSupportsChartAnaly
-from ..charts import STYLE_TOOLTIP, Groups, OHLCCaseBase, tooltip_html_style
-from ..config import COL_ADV, COL_DEC
-from ..formatters import formatter_datetime, formatter_float, formatter_percent
-from ..utils import bq_utils as ubq
-from .movements import MovementBase, MovementsSupportChartAnaly, Movement, MovementAlt
+from market_analy.cases import CaseSupportsChartAnaly
+from market_analy.charts import STYLE_TOOLTIP, Groups, OHLCCaseBase, tooltip_html_style
+from market_analy.config import COL_ADV, COL_DEC
+from market_analy.formatters import (
+    formatter_datetime,
+    formatter_float,
+    formatter_percent,
+)
+from market_analy.utils import bq_utils as ubq
+
+from .movements import Movement, MovementAlt, MovementBase, MovementsSupportChartAnaly
 
 
 class TrendsChart(OHLCCaseBase):
@@ -97,7 +102,7 @@ class TrendsChart(OHLCCaseBase):
 
     @cached_property
     def _y_trend(self) -> pd.Series:
-        """y data for all points on trend line."""
+        """Y data for all points on trend line."""
         # set starts of advances as day low, starts of declines as day high, ends
         # of advances (that do not conincide with a subsequent trend start) as day
         # high, ends of declines (that do not conincide with a subsequent trend
@@ -115,7 +120,7 @@ class TrendsChart(OHLCCaseBase):
 
     @cached_property
     def _cols_trend(self) -> list[str]:
-        """color data for all points on trend line."""
+        """Color data for all points on trend line."""
         return [self.COLOR_MAP[t] for t in self.cases.trend.values]
 
     def _create_scales(self) -> dict[ubq.ScaleKeys, bq.Scale]:
@@ -124,7 +129,7 @@ class TrendsChart(OHLCCaseBase):
         return scales
 
     create_scatter = partialmethod(OHLCCaseBase.create_scatter, opacities=[0.65])
-    _add_scatter = partialmethod(OHLCCaseBase._add_scatter, opacities=[0.65])
+    _add_scatter = partialmethod(OHLCCaseBase._add_scatter, opacities=[0.65])  # noqa: SLF001
 
     @property
     def current_case(self) -> MovementBase | None:
@@ -258,20 +263,22 @@ class TrendsChart(OHLCCaseBase):
         self.mark_trend.x = self.plotted_x_ticks
         self.mark_trend.y = self._y_trend[self._domain_bv]
         self.mark_trend.colors = [
-            col for col, b in zip(self._cols_trend, self._domain_bv) if b
+            col for col, b in zip(self._cols_trend, self._domain_bv, strict=True) if b
         ]
 
         index = next(
             (i for i, m in enumerate(self.figure.marks) if m.name == "Flexible lines")
         )
         self.figure.marks = [m for m in self.figure.marks if m.name != "Flexible lines"]
-        self.figure.marks = (
-            self.figure.marks[:index] + [self.mark_trend] + self.figure.marks[index:]
-        )
+        self.figure.marks = [
+            *self.figure.marks[:index],
+            self.mark_trend,
+            *self.figure.marks[index:],
+        ]
 
     def select_case(self, case: CaseSupportsChartAnaly):
         """Select a specific case."""
-        case = typing.cast(MovementBase, case)
+        case = typing.cast("MovementBase", case)
         i = self.cases.get_index_for_direction(case)
         scatter_index = 0 if case.is_adv else 1
         self._simulate_click_case(i, scatter_index)
@@ -311,7 +318,7 @@ class TrendsChart(OHLCCaseBase):
     ) -> bq.Lines:
         """Create a `bq.Lines` mark."""
         tooltip_str = f"<p {tooltip_html_style(color=color_)}>{desc}</p>"
-        line = bq.Lines(
+        return bq.Lines(
             x=data.index,
             y=data,
             scales=self.scales,
@@ -320,7 +327,6 @@ class TrendsChart(OHLCCaseBase):
             tooltip=w.HTML(value=tooltip_str),
             tooltip_style=STYLE_TOOLTIP,
         )
-        return line
 
     show_added_marks_all = partialmethod(OHLCCaseBase.show_added_marks_all, 0.65)
     opacate_added_marks = partialmethod(OHLCCaseBase.opacate_added_marks, opacity=0.65)
@@ -373,7 +379,7 @@ class TrendsChart(OHLCCaseBase):
 
     def _add_case_marks(self, case: CaseSupportsChartAnaly, mark: bq.Scatter):
         """Add marks to represent specific case."""
-        case = typing.cast(Movement, case)
+        case = typing.cast("Movement", case)
         self._add_case_rectangle(case, mark)
 
         color_break, color_limit = "white", "slategray"
@@ -393,7 +399,7 @@ class TrendsChart(OHLCCaseBase):
 
         Adds scatters and lines to represent specific case.
         """
-        case = typing.cast(Movement, case)
+        case = typing.cast("Movement", case)
         self.remove_case_marks()
         self.reset_marks()
         idx = self.cases.get_index_for_direction(case)
@@ -401,7 +407,7 @@ class TrendsChart(OHLCCaseBase):
             self._SCATTER_INDEXES_DEC if case.is_adv else self._SCATTER_INDEXES_ADV
         )
         self.show_only_one_cases_scatter_point(idx, exclude_scatters=exclude_scatters)
-        for i, mark in enumerate(self.added_marks[Groups.CASES_SCATTERS]):
+        for i, mark in enumerate(self.added_marks[Groups.CASES_SCATTERS]):  # noqa: PLR1704
             if i in exclude_scatters:
                 mark.visible = False
         self._add_case_marks(case, mark)
@@ -416,7 +422,7 @@ class TrendsAltChart(TrendsChart):
 
     def _add_case_marks(self, case: CaseSupportsChartAnaly, mark: bq.Scatter):
         """Add marks to represent specific case."""
-        case = typing.cast(MovementAlt, case)
+        case = typing.cast("MovementAlt", case)
         self._add_case_rectangle(case, mark)
 
         marks = []
@@ -447,7 +453,7 @@ class TrendsAltChart(TrendsChart):
         rvr_arr = case.rvr_arr
         xs, ys, texts = [end_line_rvr.x[0]], [end_line_rvr.y[0]], [str(rvr_arr[0])]
         for i, (x, y, rvr_) in enumerate(
-            zip(end_line_rvr.x[1:], end_line_rvr.y[1:], rvr_arr[1:])
+            zip(end_line_rvr.x[1:], end_line_rvr.y[1:], rvr_arr[1:], strict=True)
         ):
             if rvr_ == rvr_arr[i]:
                 continue

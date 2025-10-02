@@ -1,6 +1,4 @@
-"""Dictionay-related utility functions and classes"""
-
-# pylint: disable=line-too-long
+"""Dictionay-related utility functions and classes."""
 
 
 def set_kwargs_from_dflt(passed: dict, dflt: dict, deep: bool = False) -> dict:
@@ -40,7 +38,7 @@ def set_kwargs_from_dflt(passed: dict, dflt: dict, deep: bool = False) -> dict:
     ... }
     >>> set_kwargs_from_dflt(passed, default, deep=True)
     {'one': 1.7, 'two': {'two.one': '2.1.1', 'two.three': '2.3.1', 'two.two': 2.2}, 'four': 4, 'three': 3}
-    """
+    """  # noqa: E501
     for key, value in dflt.items():
         if isinstance(value, dict) and deep and key in passed:
             set_kwargs_from_dflt(passed[key], value)
@@ -101,7 +99,7 @@ def update_deep(d: dict, u: dict, /) -> dict:
     {'one': 1.7, 'two': {'two.one': '2.1.1', 'two.two': 2.2, 'two.three': '2.3.1'}, 'three': 3, 'four': 4}
     >>> default
     {'one': 1.7, 'two': {'two.one': '2.1.1', 'two.two': 2.2, 'two.three': '2.3.1'}, 'three': 3, 'four': 4}
-    """
+    """  # noqa: E501
     for k, v in u.items():
         if isinstance(v, dict):
             d[k] = update_deep(d.get(k, {}), v)

@@ -51,30 +51,37 @@ approach.
 from __future__ import annotations
 
 from abc import ABCMeta, abstractmethod
-from collections.abc import Callable
 from contextlib import contextmanager
 from copy import deepcopy
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
-import bqplot as bq
-from bqplot.interacts import Selector
-import exchange_calendars as xcals
 import IPython
 import ipyvuetify as v
 import ipywidgets as w
 import market_prices as mp
-from market_prices.intervals import TDInterval, PTInterval, to_ptinterval, ONE_DAY
 import pandas as pd
+from market_prices.intervals import ONE_DAY, PTInterval, TDInterval, to_ptinterval
 
-from market_analy import charts, gui_parts, analysis as ma_analysis
-from market_analy.standalone import get_pct_off_high
-from market_analy.utils.bq_utils import Crosshairs, FastIntervalSelectorDD
-from market_analy.utils.dict_utils import set_kwargs_from_dflt
 import market_analy.utils.ipyvuetify_utils as vu
 import market_analy.utils.ipywidgets_utils as wu
 import market_analy.utils.pandas_utils as upd
+from market_analy import analysis as ma_analysis
+from market_analy import charts, gui_parts
+from market_analy.standalone import get_pct_off_high
+from market_analy.utils.bq_utils import Crosshairs, FastIntervalSelectorDD
+from market_analy.utils.dict_utils import set_kwargs_from_dflt
 
-from .cases import CasesSupportsChartAnaly, CaseSupportsChartAnaly
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    import bqplot as bq
+    import exchange_calendars as xcals
+    from bqplot.interacts import Selector
+
+    from .cases import CasesSupportsChartAnaly, CaseSupportsChartAnaly
+
+# ruff: noqa: ARG002  # unused-method-argument. Allow to provide for event handling calls.
+# ruff: noqa: N802  # invalid-function-name.  Allow Camelcase properties that return types
 
 # CONSTANTS
 HIGHLIGHT_COLOR = "lightyellow"
@@ -195,7 +202,8 @@ class Base(metaclass=ABCMeta):
         """
         self.chart = self._create_chart(data, title=title, **kwargs)
         # Attributes set by --_create_gui--.
-        # NB Furthertype[charts.Base] attributes will be set by subclass via _create_gui_parts
+        # NB Furthertype[charts.Base] attributes will be set by subclass via
+        # _create_gui_parts
         self._widgets: list[w.Widget]
         self.slctr: Selector
         self._gui: w.Box
@@ -208,7 +216,7 @@ class Base(metaclass=ABCMeta):
     @property
     @abstractmethod
     def ChartCls(self):
-        """A class of charts module. For example, charts.Line
+        """A class of charts module. For example, charts.Line.
 
         Notes
         -----
@@ -237,7 +245,8 @@ class Base(metaclass=ABCMeta):
 
         Notes
         -----
-        Subclass must implement. Return None if selector not required."""
+        Subclass must implement. Return None if selector not required.
+        """
         return None
 
     @property
@@ -245,18 +254,18 @@ class Base(metaclass=ABCMeta):
         """Selected interval. None if no selector or no selection."""
         if self.SelectorCls is None or self.slctr.interval is None:
             return None
-        else:
-            left = self.slctr.interval[0]
-            right_tick = self.slctr.interval[1]
-            last_interval = self.chart.date_interval_containing(right_tick)
-            return pd.Interval(left, last_interval.right, closed="left")
+        left = self.slctr.interval[0]
+        right_tick = self.slctr.interval[1]
+        last_interval = self.chart.date_interval_containing(right_tick)
+        return pd.Interval(left, last_interval.right, closed="left")
 
     def _create_selector(self, **kwargs) -> type[Selector] | None:
         """Create selector.
 
         Notes
         -----
-        Subclass can optionally extend to pass through kwargs."""
+        Subclass can optionally extend to pass through kwargs.
+        """
         if self.SelectorCls is None:
             return None
         kwargs.setdefault("color", "crimson")
@@ -271,7 +280,8 @@ class Base(metaclass=ABCMeta):
 
         Notes
         -----
-        Subclass should not overwrite or extend this method."""
+        Subclass should not overwrite or extend this method.
+        """
         self._widgets = []
         w.Widget.on_widget_constructed(lambda w: self._widgets.append(w))
         self.slctr: Selector = self._create_selector()
@@ -317,7 +327,7 @@ class Base(metaclass=ABCMeta):
     @property
     @abstractmethod
     def _gui_box_contents(self) -> list[w.Widget]:
-        """Gui box contents
+        """Gui box contents.
 
         Notes
         -----
@@ -331,7 +341,8 @@ class Base(metaclass=ABCMeta):
 
         Notes
         -----
-        Subclass may extend to pass through kwargs for Layout."""
+        Subclass may extend to pass through kwargs for Layout.
+        """
         base_contents = [self._dialog, self._loading_overlay]
         contents = self._gui_box_contents + base_contents
         dflt_kwargs = {
@@ -374,7 +385,7 @@ class Base(metaclass=ABCMeta):
         data: dict | None = None,
     ):
         """Handle a request to cycle chart legend to next position."""
-        self.chart._cycle_legend()
+        self.chart._cycle_legend()  # noqa: SLF001
 
 
 class BaseVariableDates(Base):
@@ -767,7 +778,7 @@ class BasePrice(BaseVariableDates):
         -----
         Implement on subclass to return chart title.
         """
-        raise NotImplementedError()
+        raise NotImplementedError
 
     @property
     def _plot_close_only(self) -> bool:
@@ -949,7 +960,7 @@ class BasePrice(BaseVariableDates):
     def _create_intrvl_slctr(self) -> gui_parts.IntervalSelector:
         left = self.chart.plottable_interval.left
         right = self.chart.plottable_interval.right
-        intervals = zip(self.TICK_INTERVALS, self.TICK_INTERVALS_PT)
+        intervals = zip(self.TICK_INTERVALS, self.TICK_INTERVALS_PT, strict=True)
         labels = []
         for label, pt in intervals:
             to = (
@@ -1139,7 +1150,7 @@ class BasePrice(BaseVariableDates):
 
     # ZOOM and UNZOOM
     def _zoom_to_selection(self):
-        """Zoom to selection
+        """Zoom to selection.
 
         If no selection then zooms to x_ticks currently shown on plot.
         """
@@ -1159,8 +1170,7 @@ class BasePrice(BaseVariableDates):
         """
         if self.slctd_interval is not None:
             return self.slctd_interval
-        else:
-            return self.chart.plotted_interval
+        return self.chart.plotted_interval
 
     # MAX ADV/DEC
     def _get_max_chg(
@@ -1314,14 +1324,14 @@ class BasePrice(BaseVariableDates):
         Raises `ValueError` if either side of one interval at `new` would
         lie outside of `plotted_interval`.
         """
-        ERROR_MSG = (
+        msg_err = (
             f"Interval '{new.as_pdfreq}' unavailable: the currently plotted"
             f" range is shorther than the requested interval."
         )
         left, right = plotted_interval.left, plotted_interval.right
         if new.is_intraday:
             if old.is_intraday and (right - left < new):
-                raise ValueError(ERROR_MSG)
+                raise ValueError(msg_err)
             return  # if new intraday and old > intraday then all ok
 
         if old.is_intraday:
@@ -1334,7 +1344,7 @@ class BasePrice(BaseVariableDates):
         if new.is_monthly:
             right = new.as_offset_ms.rollback(right)
             if right - new < left:
-                raise ValueError(ERROR_MSG)
+                raise ValueError(msg_err)
             return
 
         assert new.is_daily
@@ -1342,9 +1352,9 @@ class BasePrice(BaseVariableDates):
             if old.is_daily:
                 right -= ONE_DAY  # `plotted_interval.right` is last session + one day
             if cal.session_offset(left, new.days - 1) > right:
-                raise ValueError(ERROR_MSG)
+                raise ValueError(msg_err)
 
-    def _change_tick_interval(self, old: PTInterval, new: PTInterval):
+    def _change_tick_interval(self, old: PTInterval, new: PTInterval):  # noqa: C901, PLR0912
         """Change interval of price data.
 
         old
@@ -1385,7 +1395,7 @@ class BasePrice(BaseVariableDates):
                 end=end,
                 **self._initial_price_params_non_period,
             )
-        except Exception as err:
+        except Exception as err:  # noqa: BLE001
             raise ValueError(str(err)) from None
         data, data2 = self._prices_to_chart_data(prices)
         if data.isna().any(axis=None):
@@ -1601,7 +1611,7 @@ class GuiMultLine(BasePrice):
         self.chart.rebase(date)
 
     def _zoom_to_selection(self):
-        """Zoom to selection
+        """Zoom to selection.
 
         If no selection then to x_ticks currently shown on plot.
         """
@@ -1777,7 +1787,7 @@ class GuiOHLC(BasePrice):
         higher, lower = False, False
         i = 0
         data = self.chart.mark.y
-        while higher and lower or (not higher and not lower):
+        while (higher and lower) or (not higher and not lower):
             i += 1
             higher = data[index][1] > data[index - i][1]
             lower = data[index][2] < data[index - i][2]
@@ -1788,7 +1798,7 @@ class GuiOHLC(BasePrice):
         self.add_crosshair(x=x, y=y, existing_mark=mark)
 
     def _display_mark_data(self, mark: bq.OHLC, event: dict):
-        s = self.chart._tooltip_value(mark, event)
+        s = self.chart._tooltip_value(mark, event)  # noqa: SLF001
         self.html_output.display(s)
 
     @property
@@ -1924,7 +1934,7 @@ class GuiPctChgMult(GuiPctChg):
 
     @property
     def _gui_box_contents(self) -> list[w.Widget]:
-        return super()._gui_box_contents + [self._icon_row]
+        return [*super()._gui_box_contents, self._icon_row]
 
 
 class GuiOHLCCaseBase(GuiOHLC):
@@ -2051,8 +2061,8 @@ class GuiOHLCCaseBase(GuiOHLC):
         if self.current_case is None:
             return
         index = self.cases.data.index
-        start = max(index.get_loc(self.current_case._start) - bars, 0)
-        end = self.current_case._end
+        start = max(index.get_loc(self.current_case._start) - bars, 0)  # noqa: SLF001
+        end = self.current_case._end  # noqa: SLF001
         if end is None:
             stop = len(index) - 1
         else:
@@ -2094,14 +2104,13 @@ class GuiOHLCCaseBase(GuiOHLC):
 
     @property
     def _gui_box_contents(self) -> list[w.Widget]:
-        contents = [
+        return [
             self._icon_row_top,
             self.chart.figure,
             self.date_slider,
             self._controls_container,
             self.html_output,
         ]
-        return contents
 
     def _create_date_slider(self, **kwargs):
         ds = super()._create_date_slider(**kwargs)

@@ -43,15 +43,15 @@ PctChgIconRowMult:
     Percent change bar chart options for multiple instruments.
 """
 
-from collections.abc import Callable
 import re
+from collections.abc import Callable
 
-import ipywidgets as w
 import ipyvuetify as v
+import ipywidgets as w
 from market_prices import intervals
 
-import market_analy.utils.ipywidgets_utils as wu
 import market_analy.utils.ipyvuetify_utils as vu
+import market_analy.utils.ipywidgets_utils as wu
 from market_analy.utils.dict_utils import set_kwargs_from_dflt
 
 ICON_DIM = "35px"
@@ -159,7 +159,7 @@ class DrawdownSelector(wu.ToggleButtonsHandled):
         value: str | int | None = None,
     ):
         labels_ = ["ATH", "52wk"] + [str(lbl) for lbl in labels] + ["x"]
-        values = ["ATH", "365D"] + [lbl for lbl in labels] + [False]
+        values = ["ATH", "365D", *list(labels), False]
         tooltips = (
             ["All-time high", "52 week high"]
             + [f"{lbl} bar high" for lbl in labels]
@@ -276,7 +276,7 @@ class TabsControl(v.Tabs):
         for kwargs in tts_kwargs:
             kwargs["open_delay"] = TT_KWARGS_DFLT["open_delay"]
         tab_tt_list = []
-        for text, tt, tt_kwargs in zip(texts, tooltips, tts_kwargs):
+        for text, tt, tt_kwargs in zip(texts, tooltips, tts_kwargs, strict=True):
             tab_tt = vu.TabTt(
                 children=[text], class_=tab_class_, tooltip=tt, tt_kwargs=tt_kwargs
             ).tt
@@ -339,7 +339,7 @@ class TabsControl(v.Tabs):
         )
 
         cursor_buts = [self.but_lightbulb.tt, self.but_trash.tt]
-        children = self.cursor_toggle.contain_me + [divider] + cursor_buts
+        children = [*self.cursor_toggle.contain_me, divider, *cursor_buts]
         self.cursor_objs = v.Layout(
             children=children, class_=self._tab_container_class_
         )
@@ -442,7 +442,7 @@ class HtmlOutput(w.HBox):
         self._html.value = ""
         self._hide_close_button()
 
-    def _close_button_handler(self, widget):
+    def _close_button_handler(self, widget):  # noqa: ARG002
         self.clear()
 
 
@@ -776,7 +776,7 @@ class TrendControls(CaseControls):
 
         super().__init__()
 
-    def but_ruler_handler(self, but: vu.IconBut, event: str, data: dict):
+    def but_ruler_handler(self, but: vu.IconBut, event: str, data: dict):  # noqa: ARG002
         """Handler to toggle ruler but color light/red if group not dark."""
         if but.is_dark:
             return

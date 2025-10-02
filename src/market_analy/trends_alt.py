@@ -5,7 +5,9 @@ interface and to unpickle test resources that looked here for the Movement
 class when pickled.
 """
 
-from .trends.analy import TrendsAlt  # noqa: F401
-from .trends.guis import TrendsAltGui as TrendsGui  # noqa: F401
-from .trends.movements import MovementAlt as Movement  # noqa: F401
-from .trends.movements import MovementsAlt as Movements  # noqa: F401
+# ruff: noqa: F401
+
+from .trends.analy import TrendsAlt
+from .trends.guis import TrendsAltGui as TrendsGui
+from .trends.movements import MovementAlt as Movement
+from .trends.movements import MovementsAlt as Movements

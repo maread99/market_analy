@@ -3,8 +3,8 @@
 from typing import Any, Literal
 from zoneinfo import ZoneInfo
 
-import pandas as pd
 import numpy as np
+import pandas as pd
 
 
 def rebase_to_cell(
@@ -269,7 +269,7 @@ def interval_index_new_tz(
     for indx in [index.left, index.right]:
         try:
             indices.append(indx.tz_localize(tz))
-        except TypeError:
+        except TypeError:  # noqa: PERF203
             indices.append(indx.tz_convert(tz))
     return pd.IntervalIndex.from_arrays(indices[0], indices[1], closed=index.closed)
 

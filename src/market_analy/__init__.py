@@ -21,9 +21,11 @@ utils subpackage
     Various utility modules
 """
 
+import contextlib
+
 from .analysis import Analysis, Compare
 
-__all__ = [Analysis, Compare]
+__all__ = [Analysis, Compare]  # noqa: PLE0604
 
 __copyright__ = "Copyright (c) 2023 Marcus Read"
 
@@ -33,17 +35,15 @@ __version__ = None
 
 from importlib.metadata import version
 
-try:
+with contextlib.suppress(ImportError):
     # get version from installed package
     __version__ = version("market_analy")
-except ImportError:
-    pass
 
 if __version__ is None:
     try:
         # if package not installed, get version as set when package built
         from ._version import version
-    except Exception:
+    except Exception:  # noqa: BLE001, S110
         # If package not installed and not built, leave __version__ as None
         pass
     else:

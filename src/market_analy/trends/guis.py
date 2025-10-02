@@ -3,27 +3,32 @@
 from __future__ import annotations
 
 import typing
-from collections import abc
-from collections.abc import Callable
 
 import bqplot as bq
-import ipyvuetify as v
-import market_prices as mp
 import pandas as pd
 
 import market_analy
+from market_analy.gui_parts import TrendControls
+from market_analy.guis import GuiOHLCCaseBase
+from market_analy.utils.bq_utils import HFixedRule
 
-from ..guis import GuiOHLCCaseBase
-from ..gui_parts import TrendControls
-from ..utils import ipyvuetify_utils as vu
-from ..utils.bq_utils import HFixedRule
 from . import charts
 from .analy import RvrAlt, Trends, TrendsAlt
 
 if typing.TYPE_CHECKING:
-    from .. import analysis as ma_analysis
+    from collections import abc
+    from collections.abc import Callable
+
+    import ipyvuetify as v
+    import market_prices as mp
+
+    from market_analy import analysis as ma_analysis
+    from market_analy.utils import ipyvuetify_utils as vu
+
     from . import TrendsProto
     from .movements import Movement, MovementAlt, Movements, MovementsAlt
+
+# ruff: noqa: N802  # invalid-function-name.  Allow Camelcase properties that return types
 
 
 class TrendsGuiBase(GuiOHLCCaseBase):
@@ -144,7 +149,7 @@ class TrendsGuiBase(GuiOHLCCaseBase):
 
     @property
     def current_case(self) -> Movement | MovementAlt | None:
-        """Current selected case"""
+        """Current selected case."""
         case = super().current_case
         if case is None:
             return None

@@ -57,17 +57,17 @@ select = ["ALL"]
 ignore = [
     "ANN",  # flake8-annotations. TODO: fix / tighten up ignore.
     "D",  # pydocstyle. TODO: fix / tighten up ignore.
-    # "PT",  # flake8-pytest-style. TODO: fix / tighten up ignore.
-    "S",  # flake8-bandit. TODO: fix / tighten up ignore.
-    "TRY",  # tryceratops. TODO: fix / tighten up ignore.
     "EM",  # flake8-errmsg. TODO: fix / tighten up ignore.
-    "DTZ",  # flake8-datetimez. TODO: fix / tighten up ignore.
-    "RUF012", # mutable-class-default. TODO: Fix.
-    "FBT001", # boolean-type-hint-position-argument. TODO: Review. Maybe tighten up with fixes and inline noqa.
-    "FBT002", # boolean-default-value-position-argument. TODO: Fix.
-    "PLR2004", # magic-value-comparison. TODO: Review. Maybe tighten up with fixes and inline noqa.
+    "TRY003",  # raise-vanilla-args. TODO: Could Fix, or wilfully ignore.
+    "PT022",  # pytest-useless-yield-fixtgure.  TODO: Fix.
+    "RUF012",  # mutable-class-default. TODO: Fix.
+    "FBT001",  # boolean-type-hint-position-argument. TODO: Review. Maybe tighten up with fixes and inline noqa.
+    "FBT002",  # boolean-default-value-position-argument. TODO: Fix.
+    "PLR2004",  # magic-value-comparison. TODO: Review. Maybe tighten up with fixes and inline noqa.
     "ERA001",  # commented-out-code. TODO: Fix.
     "PD011",  # pandas-use-of-dot-values. TODO: Fix.
+    "PGH003",  # blanket-type-ignore. TODO: Fix.
+    "S301",  # suspicious-pickle-usage. TODO: Review / Fix.
     # Global wilful ignores...
     "COM812",  # missing-trailing-comma.  As recommended by ruff as conflicts with formatter.
     "TD002",  # missing-todo-author
@@ -75,10 +75,7 @@ ignore = [
     "FIX002",  # line-contains-todo.  Ignore here to pass CI tests.
     "PLR0913",  # too-many-arguments
     # Package-specific wilful ignores...
-    # "C408",  # unnecessary-collection-call.  Ignore as prefer dict() when defining kwargs, particularly in tests.
-    # "B019",  # cached-instance-method.  Happy to use functools.cache and functools.lru_cache
-    # "PLR0915",  # too-many-statements.
-    # "N817",  # camelcase-imported-as-acronym
+    "S101",  # assert.  Happy to assert whilst Beta.
 ]
 
 [lint.per-file-ignores]
@@ -88,7 +85,9 @@ ignore = [
     "N806",  # non-lowercase-variable-in-function
     "SLF001",  # private-member-access
     "PLR0912",  # too-many-branches
+    "PLR0915",  # too-many-statements
     "C901",  # complex-structure. Mccabe.
+    "S101",  # assert
 ]
 
 [lint.pydocstyle]

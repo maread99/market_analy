@@ -170,7 +170,7 @@ class NamedChildren:
         """
         assert len(names) == len(children)
         assert w.Widget in type(self).__mro__
-        self._mapping = dict(zip(names, children))
+        self._mapping = dict(zip(names, children, strict=True))
 
     @property
     def mapping(self) -> dict[str, w.Widget]:
@@ -445,27 +445,26 @@ class DateRangeSlider(w.Box):
     def _label_format(self, dti: pd.DatetimeIndex):
         if self._passed_label_format is not None:
             fmt = self._passed_label_format
+        elif all(dti == dti.normalize()):
+            fmt = "%y/%m/%d"
+        elif dti[0] + pd.DateOffset(years=1) <= dti[-1]:
+            # errors triggered in slider if %y not present when range >= 1 year
+            fmt = "%y/%m/%d/%H:%M"
+        elif dti[-1] - dti[0] > pd.Timedelta(days=28):
+            fmt = "%m/%d/%H:%M"
         else:
-            if all(dti == dti.normalize()):
-                fmt = "%y/%m/%d"
-            elif dti[0] + pd.DateOffset(years=1) <= dti[-1]:
-                # errors triggered in slider if %y not present when range >= 1 year
-                fmt = "%y/%m/%d/%H:%M"
-            elif dti[-1] - dti[0] > pd.Timedelta(days=28):
-                fmt = "%m/%d/%H:%M"
-            else:
-                fmt = "%d/%H:%M"
+            fmt = "%d/%H:%M"
         return " " + fmt + " "
 
     def _options(self, dates: pd.DatetimeIndex):
         values = dates
         labels = dates.strftime(self._label_format(dates))
-        return list(zip(labels, values))
+        return list(zip(labels, values, strict=True))
 
     @property
     def dates(self) -> pd.DatetimeIndex:
         """Dates defining range from which interval can be selected."""
-        labels, dates = zip(*self.slider.options)
+        _labels, dates = zip(*self.slider.options, strict=True)
         return pd.DatetimeIndex(dates)
 
     @dates.setter
@@ -593,7 +592,7 @@ class ToggleButtonsHandled(w.ToggleButtons):
         layout_kwargs.setdefault("margin", "15px 0 0 0")
         kwargs["layout"] = w.Layout(**layout_kwargs)
 
-        super().__init__(options=list(zip(labels, values)), **kwargs)
+        super().__init__(options=list(zip(labels, values, strict=True)), **kwargs)
 
         if value is not None:
             self.value = value

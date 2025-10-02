@@ -21,7 +21,6 @@ from __future__ import annotations
 import functools
 import operator
 import typing
-from collections import abc
 from dataclasses import dataclass
 from functools import cached_property
 
@@ -30,6 +29,9 @@ import numpy as np
 import pandas as pd
 
 from .movements import Movement, MovementAlt, Movements, MovementsAlt
+
+if typing.TYPE_CHECKING:
+    from collections import abc
 
 
 class TrendParams(typing.TypedDict):
@@ -178,7 +180,7 @@ class Trends:
             "min_bars": self.min_bars,
         }
 
-    @functools.lru_cache
+    @functools.lru_cache  # noqa: B019
     def base_intact(self, is_adv: bool) -> pd.Series:
         """Query if base was broken over any `self.prd` bars.
 
@@ -205,7 +207,7 @@ class Trends:
         bv[bv.isna()] = 0
         return bv.astype("bool")
 
-    @functools.lru_cache
+    @functools.lru_cache  # noqa: B019
     def limit_extended(self, is_adv: bool) -> pd.Series:
         """Query if limit is extended over any `self.prd` bars.
 
@@ -232,7 +234,7 @@ class Trends:
         bv[bv.isna()] = 0
         return bv.astype("bool")
 
-    @functools.lru_cache
+    @functools.lru_cache  # noqa: B019
     def start_confs_all(self, is_adv: bool) -> pd.DatetimeIndex:
         """All bars on which a movement could be confirmed as having started."""
         bv = self.base_intact(is_adv) & self.limit_extended(is_adv)
@@ -393,9 +395,9 @@ class Trends:
         frms = pd.Series(start_confs).apply(self.start_from_start_conf)
         tos = frms.shift(-1)
         srss = []
-        for frm, to in zip(frms, tos):
+        for frm, to in zip(frms, tos, strict=True):
             if pd.isna(to):
-                to = None
+                to = None  # noqa: PLW2901
             subset = col[frm:to]
             line = self.get_line(subset, is_adv, limit=False)
             bv = subset < line if is_adv else subset > line
@@ -535,8 +537,8 @@ class Trends:
 
     def get_movements(self) -> Movements:
         """Return all movements."""
-        advs = self._get_movements(True)
-        decs = self._get_movements(False)
+        advs = self._get_movements(is_adv=True)
+        decs = self._get_movements(is_adv=False)
         moves = sorted(advs + decs)
 
         # sanity check that moves do not overlap except end/start
@@ -623,9 +625,12 @@ class RvrAlt:
             raise ValueError(
                 "`rvr` must have a length one greater than the length of `multiples`."
             )
-        if self.start_limit is not None and self.end_limit is not None:
-            if not self.end_limit[1] > self.start_limit[1]:
-                raise ValueError("`end_limit` must commence after `start_limit`.")
+        if (
+            (self.start_limit is not None)
+            and (self.end_limit is not None)
+            and (self.start_limit[1] <= self.end_limit[1])
+        ):
+            raise ValueError("`end_limit` must commence after `start_limit`.")
 
 
 class TrendAltParams(typing.TypedDict):
@@ -1162,7 +1167,7 @@ class TrendsAlt:
             subset = df.iloc[idx_conf - self.prd : idx_conf]
             vals = self.factors_break_pos_rev * subset.high
             if not (vals > px).any():
-                start, _, _ = self.get_start(minstart_conf, high, True)
+                start, _, _ = self.get_start(minstart_conf, high, is_adv=True)
                 idx_start = df.index.get_loc(start)
                 if idx_conf - idx_start + 1 < self.min_bars:
                     continue
@@ -1207,7 +1212,7 @@ class TrendsAlt:
             subset = df.iloc[idx_conf - self.prd : idx_conf]
             vals = self.factors_break_neg_rev * subset.low
             if not (vals < px).any():
-                start, _, _ = self.get_start(minstart_conf, low, False)
+                start, _, _ = self.get_start(minstart_conf, low, is_adv=False)
                 idx_start = df.index.get_loc(start)
                 if idx_conf - idx_start + 1 < self.min_bars:
                     continue
@@ -1680,7 +1685,7 @@ class TrendsAlt:
             end, end_px, eel = self.get_movement_end(start, end_conf, is_adv, by_consol)
             duration = df.index.get_loc(end) - df.index.get_loc(start) + 1
 
-        movement = MovementAlt(
+        return MovementAlt(
             is_adv,
             start,
             start_px,
@@ -1703,7 +1708,6 @@ class TrendsAlt:
             rvr,
             rvr_arr,
         )
-        return movement
 
     def get_movements(self) -> MovementsAlt:
         """Evaluate all movements."""
@@ -1712,7 +1716,7 @@ class TrendsAlt:
         minstart_conf = df.index[self.prd]
         move = self.get_movement(df, minstart_conf, df.index[0])
         if move is None:
-            return MovementsAlt(tuple(), self.data.copy(), self.interval)
+            return MovementsAlt((), self.data.copy(), self.interval)
         moves.append(move)
         end = move.end
 

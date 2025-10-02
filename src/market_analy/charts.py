@@ -27,14 +27,14 @@ PctChgBarMult(_PctChgBarBase):
     Bar Chart displaying precentage changes of multiple instruments.
 """
 
+import enum
+import itertools
 from abc import ABCMeta, abstractmethod
 from collections import defaultdict
 from collections.abc import Callable, Sequence
 from copy import copy, deepcopy
-import enum
 from functools import lru_cache, partialmethod
-import itertools
-from typing import Any, Literal, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Literal
 
 import bqplot as bq
 import IPython
@@ -43,17 +43,18 @@ import numpy as np
 import pandas as pd
 from pandas import DataFrame, Series
 
-from market_analy.formatters import FORMATTERS, formatter_datetime
 import market_analy.utils.bq_utils as ubq
 import market_analy.utils.pandas_utils as upd
+from market_analy.formatters import FORMATTERS, formatter_datetime
 from market_analy.utils.dict_utils import set_kwargs_from_dflt
 
 from .cases import (
-    CaseSupportsChartAnaly,
     CasesSupportsChartAnaly,
+    CaseSupportsChartAnaly,
     ChartSupportsCasesGui,
 )
 
+# ruff: noqa: N802  # invalid-function-name.  Allow Camelcase properties that return types
 
 COLOR_CHART_TEXT = "lightyellow"
 STYLE_CHART_TITLE = {"font-size": "20px", "fill": COLOR_CHART_TEXT}
@@ -78,16 +79,14 @@ class Groups(enum.Enum):
     CASES_OTHER_2 = enum.auto()
 
 
-CASES_OTHER = set(
-    (
-        Groups.CASES_OTHER_0,
-        Groups.CASES_OTHER_1,
-        Groups.CASES_OTHER_2,
-    )
-)
+CASES_OTHER = {
+    Groups.CASES_OTHER_0,
+    Groups.CASES_OTHER_1,
+    Groups.CASES_OTHER_2,
+}
 
 # Groups representing multiple cases
-CASES_GROUPS = set([Groups.CASES_SCATTERS]) | CASES_OTHER
+CASES_GROUPS = {Groups.CASES_SCATTERS} | CASES_OTHER
 
 # type aliases
 AddedMarkKeys = (
@@ -121,10 +120,9 @@ def tooltip_html_style(**kwargs) -> str | None:
         return None
     s = 'style="'
     for k, v in kwargs.items():
-        k = k.replace("_", "-")
-        s += f"{k}: {str(v)}; "
-    s = s + '"'
-    return s
+        k = k.replace("_", "-")  # noqa: PLW2901
+        s += f"{k}: {v}; "
+    return s + '"'
 
 
 def hold_mark_update(func) -> Callable:
@@ -393,7 +391,7 @@ class Base(metaclass=ABCMeta):
     @property
     def _has_y2_plot(self) -> bool:
         """Query if chart has data to plot against the y2 axes."""
-        return not (self.data_y2 is None)
+        return self.data_y2 is not None
 
     @property
     def _no_y2_plot(self) -> bool:
@@ -457,7 +455,7 @@ class Base(metaclass=ABCMeta):
 
     # CHART CREATION
     def _create_chart(self):
-        """Create chart,
+        """Create chart.
 
         Notes
         -----
@@ -569,7 +567,7 @@ class Base(metaclass=ABCMeta):
         return axes_kwargs_
 
     def _create_axes(self) -> list[bq.BaseAxis]:
-        """Create axes
+        """Create axes.
 
         Notes
         -----
@@ -592,8 +590,8 @@ class Base(metaclass=ABCMeta):
             axis_kwargs = axes_kwargs.pop(axis_name, None)
             if axis_kwargs is None:
                 continue
-            Cls = bq.ColorAxis if axis_name == "color" else bq.Axis
-            axis = Cls(**axis_kwargs)
+            cls = bq.ColorAxis if axis_name == "color" else bq.Axis
+            axis = cls(**axis_kwargs)
             axes.append(axis)
 
         return axes
@@ -665,11 +663,8 @@ class Base(metaclass=ABCMeta):
         """True if subclass handles mark hover."""
         try:
             return bool(self._tooltip_value())
-        except BaseException as err:
-            if isinstance(err, NotImplementedError):
-                return False
-            else:
-                return True
+        except BaseException as err:  # noqa: BLE001
+            return not isinstance(err, NotImplementedError)
 
     @abstractmethod
     def _create_mark(self, **kwargs) -> bq.Mark:
@@ -710,8 +705,7 @@ class Base(metaclass=ABCMeta):
         kwargs["scales"]["y"] = kwargs["scales"]["y2"]
         del kwargs["scales"]["y2"]
 
-        mark = self.MarkY2Cls(**kwargs)
-        return mark
+        return self.MarkY2Cls(**kwargs)
 
     @abstractmethod
     def _create_figure(self, **kwargs) -> bq.Figure:
@@ -872,9 +866,9 @@ class Base(metaclass=ABCMeta):
         """
         self._added_marks[group].extend(marks)
         if under:
-            self.figure.marks = marks + [m for m in self.figure.marks]
+            self.figure.marks = marks + list(self.figure.marks)
         else:
-            self.figure.marks = [m for m in self.figure.marks] + marks
+            self.figure.marks = list(self.figure.marks) + marks
 
     @property
     def added_marks(self) -> AddedMarks:
@@ -923,11 +917,11 @@ class Base(metaclass=ABCMeta):
             for m in marks:
                 m.visible = visible
 
-    hide_added_marks = partialmethod(_set_added_marks_visibility, False)
+    hide_added_marks = partialmethod(_set_added_marks_visibility, False)  # noqa: FBT003
 
     def show_added_marks(self, groups: AddedMarkKeys | Sequence[AddedMarkKeys]):
-        """Show added marks, by group"""
-        self._set_added_marks_visibility(True, groups)
+        """Show added marks, by group."""
+        self._set_added_marks_visibility(True, groups)  # noqa: FBT003
         self.opacate_added_marks(groups)
 
     def hide_added_marks_all(self):
@@ -1173,7 +1167,7 @@ class BaseSubsetDD(Base):
 
     @property
     def x_ticks(self) -> pd.DatetimeIndex:
-        """All plottable x-ticks"""
+        """All plottable x-ticks."""
         return self._x_data
 
     @property
@@ -1188,16 +1182,16 @@ class BaseSubsetDD(Base):
         right = self.date_intervals[-1].right
         return pd.Interval(left, right, closed="left")
 
-    @lru_cache
+    @lru_cache  # noqa: B019
     def _x_ticks_s(self) -> pd.Series:
-        """x ticks as pd.Series"""
+        """X ticks as pd.Series."""
         return pd.Series(self.x_ticks)
 
-    @lru_cache
+    @lru_cache  # noqa: B019
     def _x_ticks_posix_raw(self) -> np.ndarray:
         return ubq.dates_to_posix(self.x_ticks)
 
-    @lru_cache
+    @lru_cache  # noqa: B019
     def _x_ticks_posix_l(self) -> list[np.int64]:
         return list(self._x_ticks_posix_raw())
 
@@ -1228,11 +1222,10 @@ class BaseSubsetDD(Base):
         ii = self.date_intervals[self.date_intervals.contains(date)]
         if len(ii) == 1:
             return ii[0]
-        elif ii.empty:
+        if ii.empty:
             return None
-        else:
-            msg = "Multiple date intervals contain" + str(date) + ":" + str(ii)
-            raise ValueError(msg)
+        msg = "Multiple date intervals contain" + str(date) + ":" + str(ii)
+        raise ValueError(msg)
 
     def x_ticks_bv(self, dates: pd.DatetimeIndex | pd.Interval) -> np.ndarray:
         """Boolean vector indicating x_ticks included within specific dates.
@@ -1250,8 +1243,7 @@ class BaseSubsetDD(Base):
         """
         if isinstance(dates, pd.DatetimeIndex):
             return np.isin(self.x_ticks, dates)
-        else:
-            return self._x_ticks_s().apply(lambda x: x in dates)
+        return self._x_ticks_s().apply(lambda x: x in dates)
 
     def x_ticks_subset(self, interval: pd.Interval) -> pd.DatetimeIndex:
         """x_ticks that fall within an interval."""
@@ -1289,14 +1281,14 @@ class BaseSubsetDD(Base):
 
     @property
     def _domain_slice(self) -> slice:
-        """slice of indices of `dates` that currently comprise `_domain`."""
+        """Slice of indices of `dates` that currently comprise `_domain`."""
         search = np.array([self._domain_start, self._domain_end])
         a = np.searchsorted(self._x_ticks_posix_raw(), search)
         return slice(a[0], a[1] + 1)
 
     @property
     def _domain_bv(self) -> np.ndarray:
-        """Boolean vector indciating dates that currently comprise domain"""
+        """Boolean vector indciating dates that currently comprise domain."""
         return np.isin(self._x_ticks_posix_raw(), self._domain)
 
     # PLOTTED
@@ -1334,10 +1326,7 @@ class BaseSubsetDD(Base):
             limit. If not passed interval will be assued as currently
             plotted x_ticks.
         """
-        if visible_x_ticks is not None:
-            pi = visible_x_ticks
-        else:
-            pi = self.plotted_interval
+        pi = visible_x_ticks if visible_x_ticks is not None else self.plotted_interval
 
         if self.max_ticks is not None:
             x_ticks = self.x_ticks_subset(pi)
@@ -1391,15 +1380,13 @@ class BaseSubsetDD(Base):
         interval = self.plotted_interval.length
         if interval > pd.Timedelta(days=365):
             return "%y-%b-%d"
-        elif interval > pd.Timedelta(days=28):
+        if interval > pd.Timedelta(days=28):
             return "%b-%d"
-        elif interval > pd.Timedelta(days=1):
+        if interval > pd.Timedelta(days=1):
             if self.x_ticks.resolution == "minute":
                 return "%d %H%M"
-            else:
-                return "%d"
-        else:
-            return "%H%M"
+            return "%d"
+        return "%H%M"
 
     def _set_x_tick_format(self):
         fmt = self._x_axis_tick_format
@@ -1420,9 +1407,9 @@ class BaseSubsetDD(Base):
 
         Notes
         -----
-        Subclass should extend method to add at least a 'y' scale."""
-        scales = {"x": bq.OrdinalScale(domain=self._x_ticks_posix)}
-        return scales
+        Subclass should extend method to add at least a 'y' scale.
+        """
+        return {"x": bq.OrdinalScale(domain=self._x_ticks_posix)}
 
     # UPDATE CHART
     @property
@@ -1500,16 +1487,12 @@ class BaseSubsetDD(Base):
 
         mark_y_data = self._get_mark_y_data()
         if multiple_symbols:
-            plotted = []
-            for lst in mark_y_data:
-                plotted.append(lst[self._domain_slice])
-            return plotted
-        else:
-            try:  # if pandas object
-                plotted = mark_y_data[self._domain_bv]
-            except AttributeError:  # if list
-                plotted = mark_y_data[self._domain_slice]
-            return plotted
+            return [lst[self._domain_slice] for lst in mark_y_data]
+        try:  # if pandas object
+            plotted = mark_y_data[self._domain_bv]
+        except AttributeError:  # if list
+            plotted = mark_y_data[self._domain_slice]
+        return plotted
 
     def _get_mark_y2_plotted_data(
         self, multiple_symbols: bool = False
@@ -1534,10 +1517,7 @@ class BaseSubsetDD(Base):
 
         mark_y2_data = self._get_mark_y2_data()
         if multiple_symbols:
-            plotted = []
-            for lst in mark_y2_data:
-                plotted.append(lst[self._domain_slice])
-            return plotted
+            return [lst[self._domain_slice] for lst in mark_y2_data]
         return mark_y2_data[self._domain_slice]
 
     def _set_mark_y_to_plotted(self):
@@ -1555,7 +1535,7 @@ class BaseSubsetDD(Base):
         self._set_mark_y2_y_to_plotted()
 
     @hold_mark_update
-    def _x_domain_chg_handler(self, event):
+    def _x_domain_chg_handler(self, event):  # noqa: ARG002
         if self._update_mark_data_attr_to_reflect_plotted:
             self._set_mark_to_plotted()
         if self._has_y2_plot and self._update_mark_y2_data_attr_to_reflect_plotted:
@@ -1567,7 +1547,7 @@ class BaseSubsetDD(Base):
         super().update_x_axis_presentation()
 
     @hold_mark_update
-    def _update_data(
+    def _update_data(  # noqa: C901
         self,
         data: pd.DataFrame | pd.Series | None,
         data_y2: list[float | int | list[float | int]] | None = None,
@@ -1880,7 +1860,6 @@ class BasePrice(BaseSubsetDD):
         Percentage returned as float.
         """
         if not self.logscale:
-            print("y axis is not a log scale")
             return None
         return round(self._y_log_tick_increment() - 1, 3)
 
@@ -1888,9 +1867,7 @@ class BasePrice(BaseSubsetDD):
         # If log scale, define labels at regular percentage intervals.
         if self.logscale:
             tick_increment = self._y_log_tick_increment()
-            tick_values = [
-                self.low_plotted_price * tick_increment**i for i in range(0, 8)
-            ]
+            tick_values = [self.low_plotted_price * tick_increment**i for i in range(8)]
             self.axes[1].tick_values = tick_values
         super().update_y_axis_presentation()
         self._update_y_scale()
@@ -1976,8 +1953,7 @@ class Line(BasePrice):
     def _y_data(self) -> Series:
         if isinstance(self.data, Series):
             return self.data
-        else:
-            return self.data.iloc[:, 0]  # single df column as Series
+        return self.data.iloc[:, 0]  # single df column as Series
 
     def _get_mark_y_data(self) -> Series:
         return self._y_data
@@ -1998,7 +1974,7 @@ class Line(BasePrice):
         axes_kwargs = self._add_axes_kwargs(dflt_axes_kwargs, axes_kwargs)
         return super()._axes_kwargs(axes_kwargs, **general_kwargs)
 
-    def _create_mark(self, **kwargs) -> bq.Lines:
+    def _create_mark(self, **__) -> bq.Lines:
         return super()._create_mark(
             colors=["DarkOrange"],
             stroke_width=1.2,
@@ -2007,7 +1983,7 @@ class Line(BasePrice):
             fill_opacities=[0.35],
         )
 
-    def _create_y2_mark(self, **kwargs) -> bq.Lines:
+    def _create_y2_mark(self, **__) -> bq.Lines:
         # assumes require to represent drawdown
         return super()._create_y2_mark(
             colors=["LightSkyBlue"],
@@ -2218,7 +2194,7 @@ class MultLine(BasePrice):
     def show_one_y2_line(self, index: int):
         """Show only one of any y2 lines.
 
-        See also
+        See Also
         --------
         show_all_y2_lines
         """
@@ -2236,7 +2212,7 @@ class MultLine(BasePrice):
     def show_all_y2_lines(self):
         """Show all y2 lines.
 
-        See also
+        See Also
         --------
         show_one_y2_line
         """
@@ -2389,7 +2365,7 @@ class OHLC(BasePrice):
         kwargs.setdefault("colors", ["SkyBlue", "DarkOrange"])
         return super()._create_mark(format="ohlc", marker="candle", **kwargs)
 
-    def _create_y2_mark(self, **kwargs) -> bq.Lines:
+    def _create_y2_mark(self, **__) -> bq.Lines:
         return super()._create_y2_mark(
             colors=["LightSkyBlue"],
             stroke_width=0.7,
@@ -2533,8 +2509,7 @@ class _PctChgBarBase(BaseSubsetDD):
     def _y_tick_format(self):
         if self._y_range > 0.2:
             return "0.0%"
-        else:
-            return self.TICK_FORMAT_PCT
+        return self.TICK_FORMAT_PCT
 
     def update_y_axis_presentation(self):
         # required to concrete the abstract base method.
@@ -2652,9 +2627,9 @@ class PctChgBar(_PctChgBarBase):
 
     def _set_figure_for_direction(self, direction: Direction):
         if direction == "vertical":
-            self.figure.fig_margin = dict(top=70, bottom=60, left=60, right=80)
+            self.figure.fig_margin = {"top": 70, "bottom": 60, "left": 60, "right": 80}
         else:
-            self.figure.fig_margin = dict(top=70, bottom=80, left=60, right=50)
+            self.figure.fig_margin = {"top": 70, "bottom": 80, "left": 60, "right": 50}
         super()._set_figure_for_direction(direction)
 
     def _set_direction(self, direction: Direction):
@@ -2827,7 +2802,7 @@ class OHLCCaseBase(OHLC, ChartSupportsCasesGui):
         hover_handler: Callable | None,
         click_handler: Callable | None = None,
         *,
-        opacities: list[int] = [1],
+        opacities: list[int] | None = None,
     ) -> bq.Scatter:
         """Convenience method to create a scatter mark.
 
@@ -2864,8 +2839,11 @@ class OHLCCaseBase(OHLC, ChartSupportsCasesGui):
             `x`. Each index represents opacity of scatter point at
             corresponding index of `x`. If length is less than that length
             of x then pattern will repeat, e.g. passing as [1] will result
-            in all points being fully opaque.
+            in all points being fully opaque. Defaults to [1].
         """
+        if opacities is None:
+            opacities = [1]
+
         if isinstance(colors, str):
             colors = [colors]
         mark = bq.Scatter(
@@ -2898,7 +2876,7 @@ class OHLCCaseBase(OHLC, ChartSupportsCasesGui):
         hover_handler: Callable | None,
         click_handler: Callable | None = None,
         *,
-        opacities=[1],
+        opacities: list[int] | None = None,
         group: str | Literal[Groups.CASES_SCATTERS] = Groups.CASES_SCATTERS,
     ) -> bq.Scatter:
         """Add a scatter mark to a `group`."""
@@ -2959,9 +2937,7 @@ class OHLCCaseBase(OHLC, ChartSupportsCasesGui):
             be excluded. Visibility of all points of these scatter marks
             will not be altered.
         """
-        for i, scatter in enumerate(
-            self.added_marks.get(Groups.CASES_SCATTERS, list())
-        ):
+        for i, scatter in enumerate(self.added_marks.get(Groups.CASES_SCATTERS, [])):
             if exclude_scatters is not None and i in exclude_scatters:
                 continue
             self.show_only_one_scatter_point(index, scatter)
@@ -2979,7 +2955,7 @@ class OHLCCaseBase(OHLC, ChartSupportsCasesGui):
         """
         marks = self.added_marks[group]
         arr = np.array([1 if i == index else 0 for i in range(len(marks))])
-        for mark, opacity in zip(marks, arr):
+        for mark, opacity in zip(marks, arr, strict=True):
             mark.opacities = [opacity]
 
     def show_only_one_cases_other_mark(self, index: int):
@@ -3002,7 +2978,6 @@ class OHLCCaseBase(OHLC, ChartSupportsCasesGui):
         Subclass can implement to add marks under the default
         implementation of `focus_current_case`.
         """
-        pass
 
     def focus_case(self, case: CaseSupportsChartAnaly, mark: bq.Scatter):
         """Focus on a give `case`.
@@ -3016,7 +2991,10 @@ class OHLCCaseBase(OHLC, ChartSupportsCasesGui):
         self._add_case_marks(case, mark)
 
     def handle_new_case(
-        self, case: CaseSupportsChartAnaly, mark: bq.Scatter, event: dict
+        self,
+        case: CaseSupportsChartAnaly,
+        mark: bq.Scatter,
+        event: dict,  # noqa: ARG002
     ):
         """Handles new case having been selected.
 
@@ -3060,7 +3038,6 @@ class OHLCCaseBase(OHLC, ChartSupportsCasesGui):
         subclass can customise if/as required to offer a specific solution
         for the marks added.
         """
-        pass
 
     def reset_marks(self):
         """Reset added marks to show all cases."""

@@ -1,8 +1,8 @@
-"""Tests for trends.analy.py module"""
+"""Tests for trends.analy.py module."""
 
-from collections import abc
 import pathlib
 import pickle
+from collections import abc
 from zoneinfo import ZoneInfo
 
 import pandas as pd
@@ -53,14 +53,14 @@ def data_dji_15T(path_res) -> abc.Iterator[pd.DataFrame]:
 
 
 def assert_moves_as_saved(path: pathlib.Path, moves: list[Movement]):
-    file = open(path, "rb")
-    for m in moves:
-        try:
-            loaded = pickle.load(file)
-        except EOFError:
-            break
-        assert m == loaded
-    file.close()
+    with path.open("rb") as file:
+        for m in moves:
+            try:
+                loaded = pickle.load(file)
+            except EOFError:
+                break
+            assert m == loaded
+        file.close()
 
 
 def test_dji_1D_prd60(path_res, data_dji_1D):
@@ -73,7 +73,7 @@ def test_dji_1D_prd60(path_res, data_dji_1D):
     Stored movements confirmed as required by inspection.
     """
     path = path_res / "dji_1D_prd60.dat"
-    with open(path, "rb") as file:
+    with path.open("rb") as file:
         move_saved = pickle.load(file)
     # Cannot simply use CustomDay of 'current' XNYS calendar as may have
     # changed since movements saved
@@ -99,7 +99,7 @@ def test_dji_1D_prd15(path_res, data_dji_1D):
     Stored movements confirmed as required by inspection.
     """
     path = path_res / "dji_1D_prd15.dat"
-    with open(path, "rb") as file:
+    with path.open("rb") as file:
         move_saved = pickle.load(file)
     # Cannot simply use CustomDay of 'current' XNYS calendar as may have
     # changed since movements saved
@@ -125,7 +125,7 @@ def test_dji_1D_prd15_minbars10(path_res, data_dji_1D):
     Stored movements confirmed as required by inspection.
     """
     path = path_res / "dji_1D_prd15_minbars10.dat"
-    with open(path, "rb") as file:
+    with path.open("rb") as file:
         move_saved = pickle.load(file)
     # Cannot simply use CustomDay of 'current' XNYS calendar as may have
     # changed since movements saved

@@ -83,15 +83,12 @@ TestCompare(_TestBase):
 from __future__ import annotations
 
 from abc import ABCMeta
-from collections.abc import Callable, Sequence
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Literal
 
 import market_prices as mp
-import matplotlib as mpl
 import pandas as pd
 from exchange_calendars import ExchangeCalendar
-from pandas.io.formats.style import Styler
 
 from market_analy import guis
 from market_analy.formatters import FORMATTERS, formatter_percent
@@ -101,17 +98,22 @@ from market_analy.utils.mkt_prices_utils import (
     request_daily_prices,
 )
 from market_analy.utils.pandas_utils import (
-    rebase_to_row,
-    interval_index_new_tz,
     index_dates_to_str,
+    interval_index_new_tz,
+    rebase_to_row,
 )
 
 if TYPE_CHECKING:
-    from .trends.movements import MovementsSupportChartAnaly
-    from .trends import TrendsProto
+    from collections.abc import Callable, Sequence
 
-from .trends.guis import TrendsGui, TrendsGuiBase
+    import matplotlib as mpl
+    from pandas.io.formats.style import Styler
+
+    from .trends import TrendsProto
+    from .trends.movements import MovementsSupportChartAnaly
+
 from .trends.analy import Trends
+from .trends.guis import TrendsGui, TrendsGuiBase
 
 Date = str | datetime | None
 Calendar = str | ExchangeCalendar
@@ -178,7 +180,7 @@ def add_summary(
 
     if axis == "row":
         return pd.concat((df, summary_row), axis=0)
-    elif axis == "column":
+    if axis == "column":
         return pd.concat([df, summary_column], axis=1)
     rtrn = pd.concat((df, summary_row), axis=0)
     return pd.concat([rtrn, summary_column], axis=1)
@@ -301,7 +303,7 @@ def max_decline(prices: pd.DataFrame, label: Any = None) -> pd.DataFrame:
     return pd.DataFrame(d, index=[label])
 
 
-def _color_chg(value: float | int) -> str:
+def _color_chg(value: float) -> str:
     """Return colour to represent sign of a value.
 
     Returns
@@ -336,9 +338,9 @@ def style_df(
 
 def style_df_grid(
     df: pd.DataFrame,
-    format: str | None = "{:.2%}",
+    format: str | None = "{:.2%}",  # noqa: A002
     na_rep: Any = "",
-    gradient_kwargs: dict | None = {"cmap": "RdBu"},
+    gradient_kwargs: dict | str | None = "default",
     caption: str | None = None,
 ) -> Styler:
     """Style `df` in a grid style."""
@@ -346,7 +348,8 @@ def style_df_grid(
     if format is not None:
         styler.format(format, na_rep=na_rep)
     if gradient_kwargs is not None:
-        styler.background_gradient(axis=None, **gradient_kwargs)
+        kwargs = {"cmap": "RdBu"} if gradient_kwargs == "default" else gradient_kwargs
+        styler.background_gradient(axis=None, **kwargs)
     if caption is not None:
         styler.set_caption(caption)
     return styler
@@ -370,7 +373,7 @@ CHG_SUMMARY_PERIODS = [
 
 
 # Classes
-class Base(metaclass=ABCMeta):
+class Base(metaclass=ABCMeta):  # noqa: B024
     """Base functionality for analysis of one or more instruments.
 
     Properties
@@ -500,8 +503,7 @@ class Base(metaclass=ABCMeta):
         if style:
             caption = "Price Change " + range_string(df.index, close=True)
             return style_df(res, caption=caption)
-        else:
-            return res
+        return res
 
     def pct_chg(self, style: bool = True, **kwargs) -> pd.DataFrame | Styler:
         """Percentage change over specified period.
@@ -530,8 +532,7 @@ class Base(metaclass=ABCMeta):
             range_str = range_string(df.index, close=True)
             caption = "Percentage Change " + range_str
             return style_df(res, caption=caption)
-        else:
-            return res
+        return res
 
     def summary_chg(
         self, periods: list[dict] | None = None, style: bool = True
@@ -559,8 +560,7 @@ class Base(metaclass=ABCMeta):
             )
             styler.format(formatter_percent)
             return styler
-        else:
-            return df
+        return df
 
     def chg(self, style: bool = True, **kwargs) -> pd.DataFrame | Styler:
         """Absolute and percentage price change over specified period.
@@ -652,14 +652,14 @@ class Base(metaclass=ABCMeta):
                 data=chgs, title=caption, direction=direction, display=_display
             )
 
-        elif style:
+        if style:
             if isinstance(chgs.index, pd.DatetimeIndex):
                 chgs.index = index_dates_to_str(chgs.index)
             else:
                 chgs.index = interval_index_new_tz(chgs.index, None)
             symbol_cols = chgs.columns
             styler = style_df(chgs.reset_index(), chg_cols=symbol_cols, caption=caption)
-            styler.format({c: formatter_percent for c in symbol_cols})
+            styler.format(dict.fromkeys(symbol_cols, formatter_percent))
             styler.hide(axis="index")
             return styler
         return chgs
@@ -731,8 +731,7 @@ class Base(metaclass=ABCMeta):
         """
         if ts is None or mp.helpers.is_date(pd.Timestamp(ts)):
             return self.price_on(ts, style)
-        else:
-            return self.price_at(ts)
+        return self.price_at(ts)
 
     def price_range(self, **kwargs) -> pd.DataFrame:
         """OHLCV over period.
@@ -849,12 +848,11 @@ class Analysis(Base):
         """
         if engine == "bqplot":
             kwargs["interval"] = interval
-            Cls = guis.GuiOHLC if chart_type == "candle" else guis.GuiLine
-            return Cls(self, log_scale=log_scale, max_ticks=max_ticks, **kwargs)
-        else:
-            interval = "1d" if interval is None else interval
-            subset = self.prices.get(close_only=True, **kwargs)
-            return subset.plot()
+            cls = guis.GuiOHLC if chart_type == "candle" else guis.GuiLine
+            return cls(self, log_scale=log_scale, max_ticks=max_ticks, **kwargs)
+        interval = "1d" if interval is None else interval
+        subset = self.prices.get(close_only=True, **kwargs)
+        return subset.plot()
 
     def max_adv(self, style: bool = True, **kwargs) -> pd.DataFrame | Styler:
         """Maximum percentage advance over specified period.
@@ -914,11 +912,10 @@ class Analysis(Base):
         if style:
             caption = f"Maximum Decline {period_string(**kwargs)}"
             return style_df(df, caption=caption)
-        else:
-            return df
+        return df
 
     def corr(
-        self, other: "Analysis", method: str = "pearson", style: bool = True, **kwargs
+        self, other: Analysis, method: str = "pearson", style: bool = True, **kwargs
     ) -> float | pd.Styler:
         """Correlation with another Analysis object.
 
@@ -945,7 +942,7 @@ class Analysis(Base):
         df = pd.DataFrame([corr], index=[self.symbol], columns=[other.symbol])
         caption = (
             f"Correlation {period_string(**kwargs)} "
-            + f" ({range_string(subset.index, shand=True)})"
+            f" ({range_string(subset.index, shand=True)})"
         )
         return style_df_grid(
             df,
@@ -1127,24 +1124,24 @@ class Compare(Base):
         func = max_advance if direction == "advance" else max_decline
         dfs = []
         for symbol, s_prices in prices.T.groupby(level="symbol"):
-            s_prices = s_prices.T
+            s_prices = s_prices.T  # noqa: PLW2901
             s_prices.columns = s_prices.columns.droplevel(level=0)
             if isinstance(s_prices.index, pd.IntervalIndex):
-                s_prices = s_prices.pt.indexed_left
+                s_prices = s_prices.pt.indexed_left  # noqa: PLW2901
             dfs.append(func(s_prices, label=symbol))
         df = pd.concat(dfs)
 
         dur_cols = [c for c in DURATION_COLUMNS if c in df]
         for col in dur_cols:
             if col in df:
-                df.fillna({col: 0}, inplace=True)
+                df = df.fillna({col: 0})
             if col == "days":
                 df[col] = df[col].astype("int64")
 
         if direction == "advance":
-            df = df[["start", "low", "end", "high", "pct_chg"] + dur_cols]
+            df = df[["start", "low", "end", "high", "pct_chg", *dur_cols]]
         else:
-            df = df[["start", "high", "end", "low", "pct_chg"] + dur_cols]
+            df = df[["start", "high", "end", "low", "pct_chg", *dur_cols]]
         if not style:
             return df
         if len(df.index) > 1:
@@ -1209,7 +1206,7 @@ class Compare(Base):
             df = add_summary(df, "mean", axis="column", label="Av.")
         caption = (
             f"Relative Strength {period_string(**kwargs)} "
-            + f"({range_string(subset.index, close=True, shand=True)})"
+            f"({range_string(subset.index, close=True, shand=True)})"
         )
         return style_df_grid(df, caption=caption)
 
@@ -1257,10 +1254,9 @@ class Compare(Base):
             return guis.GuiMultLine(
                 self, interval, rebase_on_zoom, max_ticks, log_scale, **kwargs
             )
-        else:
-            interval = "1d" if interval is None else interval
-            subset = self.prices.get(close_only=True, **kwargs)
-            return rebase_to_row(subset).plot()
+        interval = "1d" if interval is None else interval
+        subset = self.prices.get(close_only=True, **kwargs)
+        return rebase_to_row(subset).plot()
 
     def _max_chg(self, direction: Literal["advance", "decline"], style=True, **kwargs):
         """Maximum change over specified period."""

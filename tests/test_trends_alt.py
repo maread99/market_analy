@@ -1,7 +1,7 @@
-"""Tests for trends_alt.py module"""
+"""Tests for trends_alt.py module."""
 
-from collections import abc
 import pickle
+from collections import abc
 
 import pandas as pd
 import pytest
@@ -41,7 +41,7 @@ def test_dji_1D(path_res, data_dji_1D_alt):
     """
     filename_dat = "dji_1D.dat"
     path = path_res / filename_dat
-    with open(path, "rb") as file:
+    with path.open("rb") as file:
         move_saved = pickle.load(file)
     # Cannot simply use CustomDay of 'current' XNYS calendar as may have
     # changed since movements saved
@@ -58,11 +58,10 @@ def test_dji_1D(path_res, data_dji_1D_alt):
         min_bars=3,
     ).get_movements()
 
-    file = open(path, "rb")
-    for move in moves.cases:
-        try:
-            loaded = pickle.load(file)
-        except EOFError:
-            break
-        assert move == loaded
-    file.close()
+    with path.open("rb") as file:
+        for move in moves.cases:
+            try:
+                loaded = pickle.load(file)
+            except EOFError:
+                break
+            assert move == loaded

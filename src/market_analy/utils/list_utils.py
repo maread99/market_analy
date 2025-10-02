@@ -1,7 +1,7 @@
 """Utility functions and classes for lists."""
 
-from typing import Any, Literal
 from copy import copy
+from typing import Any, Literal
 
 
 # DEVELOPMENT NOTE: _SelectableList
@@ -63,7 +63,7 @@ class _SelectableList(list):
         assert len(elements) == len(self._names), (
             "'elements' and 'names' must have same length"
         )
-        self._named_elements = dict(zip(self._names, self))
+        self._named_elements = dict(zip(self._names, self, strict=True))
 
         self._selected: list[Any] = []
 
@@ -103,12 +103,11 @@ class _SelectableList(list):
         return self.is_selected_element(self.get_element(name))
 
     def _add_err_msg(self, elements: Any):
-        msg = (
+        return (
             "'" + str(elements) + "' cannot be added to selection as it "
             "is an object or includes an object that is not an element "
             "of the selectable list. Selectable elements are " + str(self) + "."
         )
-        return msg
 
     def _add_element_to_selection(self, element: Any):
         """Add element to selection."""
@@ -157,7 +156,7 @@ class _SelectableList(list):
             for elem in elements:
                 try:
                     self._selected.remove(elem)
-                except ValueError:
+                except ValueError:  # noqa: PERF203
                     if pass_silently:
                         pass
                     else:
@@ -443,16 +442,14 @@ class SelectableListMult(_SelectableList):
         """Indices of selected elements. None if no selection."""
         if not self.has_selection:
             return None
-        else:
-            return [self.index(e) for e in self.selected_elements]
+        return [self.index(e) for e in self.selected_elements]
 
     @property
     def selected_names(self) -> None | list[str | int]:
         """Names of selected elements. None if no selection."""
         if not self.has_selection:
             return None
-        else:
-            return [self._names[i] for i in self.selected_indices]
+        return [self._names[i] for i in self.selected_indices]
 
     @property
     def selected(self) -> None | list[Any]:
@@ -501,7 +498,8 @@ class SelectableListMult(_SelectableList):
     def are_selected(self, references: list[Any]) -> bool:
         """Check if all passed elements are selected.
 
-        references
+        References
+        ----------
             Elements to check for selection, referenced as default
             preference.
         """

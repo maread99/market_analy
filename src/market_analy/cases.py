@@ -20,10 +20,10 @@ by any cases class that is to be displayed on a chart.
 navigating between cases.
 """
 
+import typing
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from dataclasses import dataclass
-import typing
 
 import bqplot as bq
 import numpy as np
@@ -83,7 +83,7 @@ class CasesSupportsChartAnaly(typing.Protocol):
         ...
 
     def get_index(self, case: CaseSupportsChartAnaly) -> int:
-        """Get index position of a case"""
+        """Get index position of a case."""
         ...
 
     @staticmethod
@@ -119,17 +119,17 @@ class ChartSupportsCasesGui(typing.Protocol):
     def reset_x_ticks(self): ...
 
 
-class CaseBase(ABC):
+class CaseBase(ABC):  # noqa: PLW1641
     """Base for classes defining a case.
 
     Defines dunder methods allowing for comparison of attributes that have
     pd.Series and pd.DataFrame values.
     """
 
-    def __eq__(self, other):
+    def __eq__(self, other):  # noqa: C901, PLR0911, PLR0912
         if not isinstance(self, type(other)):
             return False
-        for name in self.__dataclass_fields__.keys():
+        for name in self.__dataclass_fields__:
             v, v_other = getattr(self, name), getattr(other, name)
             if isinstance(v, pd.DataFrame):
                 try:
@@ -188,7 +188,6 @@ class CaseBase(ABC):
     @abstractmethod
     def _start(self) -> pd.Timestamp:
         """Bar when case considered to start."""
-        pass
 
 
 @dataclass(frozen=True)
@@ -208,7 +207,7 @@ class CasesBase(ABC, CasesSupportsChartAnaly):
     cases: Sequence[CaseSupportsChartAnaly]
     data: pd.DataFrame
 
-    def event_to_case(self, mark: bq.Scatter, event: dict) -> CaseSupportsChartAnaly:
+    def event_to_case(self, mark: bq.Scatter, event: dict) -> CaseSupportsChartAnaly:  # noqa: ARG002
         """Get case corresonding to an event for mark representing a case.
 
         Parameters as those passed to event handler on clicking a point of
