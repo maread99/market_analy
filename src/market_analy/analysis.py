@@ -1370,7 +1370,7 @@ class Compare(Base):
             df = add_summary(df, "sum", axis="column", label="Av.")
         df["Av."] = (df["Av."] - 1) / (len(df.columns) - 2)
         caption = (
-            f"Correlation {period_string(**kwargs)}" f" ({range_string(subset.index)})"
+            f"Correlation {period_string(**kwargs)} ({range_string(subset.index)})"
         )
         return style_df_grid(
             df,

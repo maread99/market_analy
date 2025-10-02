@@ -639,8 +639,9 @@ class TestAnalysis:
         assert gui.chart.axes[1].orientation == "horizontal"
         assert gui.chart.axes[1].orientation == "horizontal"
 
-        start, end = pd.Timestamp("2023-01-06 15:00:00"), pd.Timestamp(
-            "2023-01-10 16:03:00"
+        start, end = (
+            pd.Timestamp("2023-01-06 15:00:00"),
+            pd.Timestamp("2023-01-10 16:03:00"),
         )
         assert start == gui.chart.data.index[0].left
         assert end == gui.chart.data.index[-1].right
@@ -2180,8 +2181,9 @@ class TestCompare:
         assert gui.chart.axes[1].orientation == "horizontal"
         assert gui.chart.axes[1].orientation == "horizontal"
 
-        start, end = pd.Timestamp("2023-01-06 09:51:00"), pd.Timestamp(
-            "2023-01-10 11:15:00"
+        start, end = (
+            pd.Timestamp("2023-01-06 09:51:00"),
+            pd.Timestamp("2023-01-10 11:15:00"),
         )
         assert start == gui.chart.data.index[0].left
         assert end == gui.chart.data.index[-1].right

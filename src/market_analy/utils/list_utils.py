@@ -60,9 +60,9 @@ class _SelectableList(list):
     def __init__(self, elements: list, names: list[str | int] | None = None):
         super().__init__(elements)
         self._names = names if names is not None else list(range(len(self)))
-        assert len(elements) == len(
-            self._names
-        ), "'elements' and 'names' must have same length"
+        assert len(elements) == len(self._names), (
+            "'elements' and 'names' must have same length"
+        )
         self._named_elements = dict(zip(self._names, self))
 
         self._selected: list[Any] = []
