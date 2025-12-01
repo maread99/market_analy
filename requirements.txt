@@ -38,7 +38,7 @@ exchange-calendars==4.11.1
     #   market-prices
 executing==2.2.1
     # via stack-data
-fonttools==4.60.1
+fonttools==4.61.0
     # via matplotlib
 idna==3.10
     # via requests
