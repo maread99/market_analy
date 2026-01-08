@@ -167,7 +167,7 @@ tzdata==2025.2
     #   market-analy
     #   market-prices
     #   pandas
-urllib3==2.5.0
+urllib3==2.6.3
     # via requests
 valimp==0.3
     # via market-prices
