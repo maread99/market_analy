@@ -103,6 +103,17 @@ def _unpickle_prices(path: pathlib.Path, class_mocker) -> mp.PricesYahoo:
         for bi in prices.bis:
             data = prices._pdata[bi]
             data._ranges, data._ll, data._rl, data._table = pickle.load(file)
+            if data._table is not None:
+                # Requried as pickled with previous version of pandas when Index was
+                # inferred as having 'object' dtype. NB if test suit run with pandas
+                # 2.3.3 then columns will be inferred as 'object' regardless of
+                # astype("str") here
+                df = data._table
+                arrays = [
+                    df.columns.get_level_values(i).astype("str")
+                    for i in range(df.columns.nlevels)
+                ]
+                data._table.columns = pd.MultiIndex.from_arrays(arrays)
 
     return prices
 

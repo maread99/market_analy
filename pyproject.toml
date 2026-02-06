@@ -56,7 +56,7 @@ dependencies = [
     "market-prices",
     "matplotlib",
     "numpy",
-    "pandas",   
+    "pandas",
     "traitlets",
     "tzdata",
     "ipyvuetify",
