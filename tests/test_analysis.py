@@ -16,7 +16,6 @@ import market_prices as mp
 import numpy as np
 import pandas as pd
 import pytest
-from pandas import Timestamp as T  # noqa: N817
 from pandas.testing import assert_frame_equal, assert_index_equal, assert_series_equal
 
 from market_analy import analysis, charts, guis
@@ -28,6 +27,10 @@ from market_analy.utils import bq_utils as bqu
 
 # ruff: noqa: C408  # unnecessary-collection-call. Happy using dict() here.
 # ruff: noqa: E501  # line-too-long
+
+
+def T(arg: str, **kwargs) -> pd.Timestamp:
+    return pd.Timestamp(arg, **kwargs).as_unit("ns")
 
 
 def verify_app(f, cls, *args, **kwargs):
@@ -334,7 +337,7 @@ class TestAnalysis:
                     T("2023-01-09 00:00:00"): 1989665.0,
                     T("2023-01-10 00:00:00"): 3318361.0,
                 },
-            }
+            },
         )
 
         expected.columns.name = ""

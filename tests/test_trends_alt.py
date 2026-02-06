@@ -64,4 +64,21 @@ def test_dji_1D(path_res, data_dji_1D_alt):
                 loaded = pickle.load(file)
             except EOFError:
                 break
+
+            if pd.__version__ >= "3.0.0":
+                loaded.sel.index = loaded.sel.index.as_unit("us")
+                loaded.start_conf_line.index = loaded.start_conf_line.index.as_unit(
+                    "us"
+                )
+                loaded.end_line_consol.index = loaded.end_line_consol.index.as_unit(
+                    "us"
+                )
+                loaded.end_line_rvr.index = loaded.end_line_rvr.index.as_unit("us")
+                if loaded.end_line_rvr_opp is not None:
+                    loaded.end_line_rvr_opp.index = (
+                        loaded.end_line_rvr_opp.index.as_unit("us")
+                    )
+                if loaded.eel is not None:
+                    loaded.eel.index = loaded.eel.index.as_unit("us")
+
             assert move == loaded

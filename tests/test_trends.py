@@ -59,6 +59,11 @@ def assert_moves_as_saved(path: pathlib.Path, moves: list[Movement]):
                 loaded = pickle.load(file)
             except EOFError:
                 break
+
+            if pd.__version__ >= "3.0.0":
+                loaded.line_break.index = loaded.line_break.index.as_unit("us")
+                loaded.line_limit.index = loaded.line_limit.index.as_unit("us")
+
             assert m == loaded
         file.close()
 
