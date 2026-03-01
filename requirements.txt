@@ -6,7 +6,7 @@ beautifulsoup4==4.14.3
     # via yahooquery
 bqplot==0.12.45
     # via market-analy
-certifi==2026.1.4
+certifi==2026.2.25
     # via
     #   curl-cffi
     #   requests
@@ -48,7 +48,7 @@ ipython==9.10.0 ; python_full_version >= '3.11'
     # via ipywidgets
 ipython-pygments-lexers==1.1.1 ; python_full_version >= '3.11'
     # via ipython
-ipyvue==1.11.3
+ipyvue==1.12.0
     # via ipyvuetify
 ipyvuetify==1.11.3
     # via market-analy
@@ -104,11 +104,11 @@ pandas==2.3.3
     #   market-analy
     #   market-prices
     #   yahooquery
-parso==0.8.5
+parso==0.8.6
     # via jedi
 pexpect==4.9.0 ; sys_platform != 'emscripten' and sys_platform != 'win32'
     # via ipython
-pillow==12.1.0
+pillow==12.1.1
     # via matplotlib
 prompt-toolkit==3.0.52
     # via ipython
@@ -171,7 +171,7 @@ urllib3==2.6.3
     # via requests
 valimp==0.4
     # via market-prices
-wcwidth==0.5.3
+wcwidth==0.6.0
     # via prompt-toolkit
 widgetsnbextension==4.0.15
     # via ipywidgets
