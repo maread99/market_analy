@@ -38,44 +38,42 @@ class PositionBase(CaseBase, CaseSupportsChartAnaly):
     Attributes
     ----------
     data
-        OHLC daily prices.
+        OHLC prices.
 
-        Index should represent all sessions over which the
-        position was open, inclusive of both the session during
-        which it was opened and the session during which it was
-        closed.
+        Index should represent all bars over which the position
+        was open, inclusive of both the bar during which it was
+        opened and the bar during which it was closed.
 
         The OHLC columns should represent:
 
-            'open' - price as at session open, except for session
-            during which position opened, for which should be
-            price at which position was opened.
+            'open' - price as at bar open, except for bar during
+            which position opened, for which should be price at
+            which position was opened.
 
-            'high'/'low' - price as at session high/low except on
-            sessions when position opened or closed, in which
-            case should not include any information outside of
-            the period during which the position was held. For
-            session when position was opened the 'high'/'low'
-            should be session high/low following the position's
-            open. For session when position was closed the
-            'high'/'low' should be session high/low as at the
-            time the position was closed. If it is not possible
-            to evaluate either value then the value should be
-            defined as 'np.NaN'.
-            NOTE: 'high' for session when position is closed is
-            ASSUMED as that sessions' high. Without this
-            assumption the `max_date` and `max_px` properties
-            would be otherwise inaccurate whenever the maximum
-            price was registered prior to a reversal on the
-            session the position was closed. With this assumption
-            the `max_date` and `max_px` properties will be
-            inaccurate whenever following a position being closed
-            the price moves back to and extends the high before
-            the end of the session.
+            'high'/'low' - price as at bar high/low except on
+            bars when position opened or closed, in which case
+            should not include any information outside of the
+            period during which the position was held. For the
+            bar when position was opened the 'high'/'low' should
+            be bar high/low following the position's open. For
+            the bar when position was closed the 'high'/'low'
+            should be bar high/low as at the time the position
+            was closed. If it is not possible to evaluate either
+            value then the value should be defined as 'np.NaN'.
+            NOTE: 'high' for the bar when position is closed is
+            ASSUMED as that bar's high. Without this assumption
+            the `max_bar` and `max_px` properties would be
+            otherwise inaccurate whenever the maximum price was
+            registered prior to a reversal on the bar the
+            position was closed. With this assumption the
+            `max_bar` and `max_px` properties will be inaccurate
+            whenever following a position being closed the price
+            moves back to and extends the high before the end of
+            the bar.
 
-            'close' - price as at session close, except of
-            session during which position closed, in which should
-            should be price at which position was closed.
+            'close' - price as at bar close, except of bar
+            during which position closed, in which should should
+            be price at which position was closed.
 
     closed
         True - position closed as at end of available data.
@@ -92,29 +90,29 @@ class PositionBase(CaseBase, CaseSupportsChartAnaly):
     spread: float
 
     @property
-    def sessions(self) -> pd.DatetimeIndex:
-        """Sessions over which position was held.
+    def bars(self) -> pd.DatetimeIndex:
+        """Bars over which position was held.
 
-        Inclusive of session during which position opened and
-        session during which position closed.
+        Inclusive of bar during which position opened and bar
+        during which position closed.
         """
         index = self.data.index
         index = typing.cast("pd.DatetimeIndex", index)
         return index  # noqa: RET504
 
     @property
-    def open_date(self) -> pd.Timestamp:
-        """Session when position opened."""
-        return self.sessions[0]
+    def open_bar(self) -> pd.Timestamp:
+        """Bar when position opened."""
+        return self.bars[0]
 
     @property
-    def close_date(self) -> pd.Timestamp:
-        """Session when position closed.
+    def close_bar(self) -> pd.Timestamp:
+        """Bar when position closed.
 
-        If position not closed then most recent session of
-        analysis period.
+        If position not closed then most recent bar of analysis
+        period.
         """
-        return self.sessions[-1]
+        return self.bars[-1]
 
     @property
     def open_px(self) -> float:
@@ -167,9 +165,9 @@ class PositionBase(CaseBase, CaseSupportsChartAnaly):
         return self.rtrn_net > 0
 
     @property
-    def max_date(self) -> pd.Timestamp:
-        """Session when position reached highest registered price."""
-        return self.sessions[self.data.high == self.max_px][0]
+    def max_bar(self) -> pd.Timestamp:
+        """Bar when position reached highest registered price."""
+        return self.bars[self.data.high == self.max_px][0]
 
     @property
     def max_px(self) -> float:
@@ -196,7 +194,7 @@ class PositionBase(CaseBase, CaseSupportsChartAnaly):
 
     @property
     def duration(self) -> int:
-        """Position duration, in sessions, part or full."""
+        """Position duration, in bars, part or full."""
         return len(self.data)
 
     @property
@@ -206,16 +204,15 @@ class PositionBase(CaseBase, CaseSupportsChartAnaly):
         Returns
         -------
         pd.Series
-            DatetimeIndex represents sessions. Value (dtype
-            float) represents: For session during which position
-            was opened, the price the position was opened at and
-            the price as at the end of the session. The two
-            prices are provided by way of consecutive rows with
-            the same index value, with the first representing the
-            price at which the position was opened. For session
-            during which position was closed, the price the
-            position was closed at. For all other sessions, the
-            price as at the end of that session.
+            Index represents bars. Value (dtype float)
+            represents: For bar during which position was opened,
+            the price the position was opened at and the price as
+            at the end of the bar. The two prices are provided by
+            way of consecutive rows with the same index value,
+            with the first representing the price at which the
+            position was opened. For bar during which position
+            was closed, the price the position was closed at. For
+            all other bars, the price as at the end of that bar.
         """
         srs = self.data["close"].copy()
         srs.name = "price"
@@ -225,7 +222,7 @@ class PositionBase(CaseBase, CaseSupportsChartAnaly):
     @property
     def _start(self) -> pd.Timestamp:
         """Bar when case considered to start."""
-        return self.open_date
+        return self.open_bar
 
     @property
     def _end(self) -> pd.Timestamp | None:
@@ -234,7 +231,7 @@ class PositionBase(CaseBase, CaseSupportsChartAnaly):
         None if case had not concluded as at end of available
         data.
         """
-        return self.close_date
+        return self.close_bar
 
 
 @dataclass(frozen=True)
@@ -265,9 +262,9 @@ class PositionsBase(CasesBase, CasesSupportsChartAnaly):
         return [pos.line for pos in self.cases]
 
     @property
-    def open_dates(self) -> list[pd.Timestamp]:
-        """Open dates of all positions."""
-        return [pos.open_date for pos in self.cases]
+    def open_bars(self) -> list[pd.Timestamp]:
+        """Open bars of all positions."""
+        return [pos.open_bar for pos in self.cases]
 
     @property
     def open_pxs(self) -> list[float]:
@@ -275,9 +272,9 @@ class PositionsBase(CasesBase, CasesSupportsChartAnaly):
         return [pos.open_px for pos in self.cases]
 
     @property
-    def close_dates(self) -> list[pd.Timestamp]:
-        """Close dates of all positions."""
-        return [pos.close_date for pos in self.cases]
+    def close_bars(self) -> list[pd.Timestamp]:
+        """Close bars of all positions."""
+        return [pos.close_bar for pos in self.cases]
 
     @property
     def close_pxs(self) -> list[float]:
@@ -285,9 +282,9 @@ class PositionsBase(CasesBase, CasesSupportsChartAnaly):
         return [pos.close_px for pos in self.cases]
 
     @property
-    def max_dates(self) -> list[pd.Timestamp]:
-        """Sessions when positions registered highest prices."""
-        return [pos.max_date for pos in self.cases]
+    def max_bars(self) -> list[pd.Timestamp]:
+        """Bars when positions registered highest prices."""
+        return [pos.max_bar for pos in self.cases]
 
     @property
     def max_pxs(self) -> list[float]:
@@ -339,16 +336,16 @@ class PositionsBase(CasesBase, CasesSupportsChartAnaly):
         case = typing.cast("PositionBase", case)
         color = "limegreen" if case.profitable else "crimson"
         style = tooltip_html_style(color=color, line_height=1.3)
-        s = f"<p {style}>Open: " + formatter_datetime(case.open_date)
+        s = f"<p {style}>Open: " + formatter_datetime(case.open_bar)
         s += f"<br>Open px: {formatter_float(case.open_px)}"
-        close = "None" if not case.closed else formatter_datetime(case.close_date)
+        close = "None" if not case.closed else formatter_datetime(case.close_bar)
         s += f"<br>Close: {close}"
         close_px = "None" if not case.closed else formatter_float(case.close_px)
         s += f"<br>Close px: {close_px}"
         s += f"<br>Chg: {formatter_float(case.chg_abs)}"
         s += f"<br>Rtrn (net): {formatter_percent(case.rtrn_net)}"
         s += f"<br>Duration: {case.duration}"
-        s += f"<br>Max date: {formatter_datetime(case.max_date)}"
+        s += f"<br>Max bar: {formatter_datetime(case.max_bar)}"
         s += f"<br>Max px: {formatter_float(case.max_px)}"
         s += f"<br>Max Rtrn (net): {formatter_percent(case.rtrn_net_max)}"
         return s

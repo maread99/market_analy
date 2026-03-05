@@ -107,7 +107,7 @@ class ChartPositionsBase(OHLCCaseBase, ChartSupportsCasesGui):
 
         # scatter for position opens
         self._add_scatter(
-            self.cases.open_dates,
+            self.cases.open_bars,
             self.cases.open_pxs,
             colors,
             "circle",
@@ -117,7 +117,7 @@ class ChartPositionsBase(OHLCCaseBase, ChartSupportsCasesGui):
 
         # scatters for closes
         self._add_scatter(
-            self.cases.close_dates,
+            self.cases.close_bars,
             self.cases.close_pxs,
             colors,
             "cross",
