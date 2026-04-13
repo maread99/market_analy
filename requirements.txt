@@ -108,7 +108,7 @@ parso==0.8.5
     # via jedi
 pexpect==4.9.0 ; sys_platform != 'emscripten' and sys_platform != 'win32'
     # via ipython
-pillow==12.1.0
+pillow==12.2.0
     # via matplotlib
 prompt-toolkit==3.0.52
     # via ipython
