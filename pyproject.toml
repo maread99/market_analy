@@ -93,6 +93,9 @@ documentation = "https://github.com/maread99/market_analy"
 [tool.setuptools_scm]
 write_to = "src/market_analy/_version.py"
 
+[tool.uv]
+exclude-newer = "2 days"
+
 [[tool.uv.index]]
 name = "testpypi"
 url = "https://test.pypi.org/simple/"
