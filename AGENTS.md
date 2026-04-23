@@ -23,28 +23,70 @@ See @pyproject.toml for project metadata and dependencies.
 ### Repository Layout
 
 ```
-src/market_analy/
-├── analysis.py        # Core Analysis and Compare classes
-├── charts.py          # bqplot figure creation
-├── guis.py            # Interactive GUI components
-├── gui_parts.py       # GUI building blocks
-├── trends/            # Trend analysis subpackage
-│   ├── analy.py
-│   ├── charts.py
-│   ├── guis.py
-│   └── movements.py
-└── utils/             # Utility subpackage
-    ├── bq_utils.py
-    ├── pandas_utils.py
-    ├── ipywidgets_utils.py
-    ├── ipyvuetify_utils.py
-    └── ...
-
+.agents/                       # LLM agent skill definitions
+├── skills/
+│   ├── create-pr/
+│   │   └── SKILL.md
+│   ├── dependencies-management/
+│   │   └── SKILL.md
+│   └── update-agents-md/
+│       └── SKILL.md
+.github/
+├── workflows/
+│   ├── build-test.yml
+│   ├── draft-release-notes.yml
+│   └── release.yml
+├── dependabot.yml
+└── release-drafter.yml
+docs/
+└── splash.png
+src/
+└── market_analy/              # Main package
+    ├── trends/                # Trend analysis subpackage
+    │   ├── analy.py           # Trend analysis classes
+    │   ├── charts.py          # Trend charting components
+    │   ├── guis.py            # Trend GUI components
+    │   └── movements.py       # Trend movement classes
+    ├── utils/                 # Utility subpackage
+    │   ├── bq_utils.py        # bqplot utilities
+    │   ├── dict_utils.py      # Dict utilities
+    │   ├── ipyvuetify_utils.py  # ipyvuetify utilities
+    │   ├── ipywidgets_utils.py  # ipywidgets utilities
+    │   ├── list_utils.py      # List utilities
+    │   ├── maths_utils.py     # Maths utilities
+    │   ├── mkt_prices_utils.py  # market_prices utilities
+    │   └── pandas_utils.py    # pandas utilities
+    ├── analysis.py            # Core Analysis and Compare classes
+    ├── cases.py               # Base classes for analysis result display over charts
+    ├── charts.py              # bqplot figure creation
+    ├── config.py              # Configuration constants
+    ├── formatters.py          # Formatter functions and mappings
+    ├── gui_parts.py           # GUI building blocks
+    ├── guis.py                # Interactive GUI components
+    ├── standalone.py          # Standalone analysis functions
+    └── trends_alt.py          # Deprecated; legacy trend analysis interface
 tests/
-├── test_analysis.py   # Main test suite
+├── resources/
+├── conftest.py
+├── test_analysis.py
+├── test_list_utils.py
+├── test_mkt_prices_utils.py
+├── test_standalone.py
 ├── test_trends.py
-├── conftest.py        # Fixtures and configuration
-└── resources/         # Test data
+└── test_trends_alt.py
+.pre-commit-config.yaml
+.python-version
+AGENTS.md
+CLAUDE.md                      # Claude Code-specific assistant context
+LICENSE.txt
+MANIFEST.in                    # Non-code files for source distribution
+README.md
+mypy.ini
+pyproject.toml
+pytest.ini
+requirements.txt
+ruff.toml
+uv.lock
 ```
 
 ## Technology Stack
