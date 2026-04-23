@@ -23,8 +23,8 @@ See @pyproject.toml for project metadata and dependencies.
 ### Repository Layout
 
 ```
-.agents/                       # LLM agent skill definitions
-├── skills/
+.agents/                       # instructions for LLM coding agents
+├── skills/                    # skills for LLM coding agents
 │   ├── create-pr/
 │   │   └── SKILL.md
 │   ├── dependencies-management/
@@ -41,30 +41,30 @@ See @pyproject.toml for project metadata and dependencies.
 docs/
 └── splash.png
 src/
-└── market_analy/              # Main package
-    ├── trends/                # Trend analysis subpackage
-    │   ├── analy.py           # Trend analysis classes
-    │   ├── charts.py          # Trend charting components
-    │   ├── guis.py            # Trend GUI components
-    │   └── movements.py       # Trend movement classes
-    ├── utils/                 # Utility subpackage
-    │   ├── bq_utils.py        # bqplot utilities
-    │   ├── dict_utils.py      # Dict utilities
-    │   ├── ipyvuetify_utils.py  # ipyvuetify utilities
-    │   ├── ipywidgets_utils.py  # ipywidgets utilities
-    │   ├── list_utils.py      # List utilities
-    │   ├── maths_utils.py     # Maths utilities
-    │   ├── mkt_prices_utils.py  # market_prices utilities
-    │   └── pandas_utils.py    # pandas utilities
-    ├── analysis.py            # Core Analysis and Compare classes
-    ├── cases.py               # Base classes for analysis result display over charts
-    ├── charts.py              # bqplot figure creation
-    ├── config.py              # Configuration constants
-    ├── formatters.py          # Formatter functions and mappings
-    ├── gui_parts.py           # GUI building blocks
-    ├── guis.py                # Interactive GUI components
-    ├── standalone.py          # Standalone analysis functions
-    └── trends_alt.py          # Deprecated; legacy trend analysis interface
+└── market_analy/                # Main package
+    ├── trends/                  # Trend analysis subpackage
+    │   ├── analy.py             # Trend analysis classes
+    │   ├── charts.py            # Trend charting components
+    │   ├── guis.py              # Trend GUI components
+    │   └── movements.py         # Trend movement classes
+    ├── utils/
+    │   ├── bq_utils.py
+    │   ├── dict_utils.py
+    │   ├── ipyvuetify_utils.py
+    │   ├── ipywidgets_utils.py
+    │   ├── list_utils.py
+    │   ├── maths_utils.py
+    │   ├── mkt_prices_utils.py
+    │   └── pandas_utils.py
+    ├── analysis.py              # Core `Analysis` and `Compare` classes
+    ├── cases.py                 # Base classes for displaying analyses over charts
+    ├── charts.py                # bqplot figure creation
+    ├── config.py                # Configuration constants
+    ├── formatters.py            # Formatter functions and mappings
+    ├── gui_parts.py             # GUI building blocks
+    ├── guis.py                  # Interactive GUI components
+    ├── standalone.py            # Standalone analysis functions
+    └── trends_alt.py            # Deprecated; legacy trend analysis interface
 tests/
 ├── resources/
 ├── conftest.py
@@ -77,9 +77,9 @@ tests/
 .pre-commit-config.yaml
 .python-version
 AGENTS.md
-CLAUDE.md                      # Claude Code-specific assistant context
+CLAUDE.md
 LICENSE.txt
-MANIFEST.in                    # Non-code files for source distribution
+MANIFEST.in
 README.md
 mypy.ini
 pyproject.toml

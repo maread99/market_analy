@@ -14,9 +14,7 @@ Update the 'Repository Layout' section to reflect the current layout. Remove all
 - do not include files and/or folders under the following directories (but do include the folders listed here):
     - @tests/resources
 List all folders before any files for any given hierarchal level.
-Include a minimalist comment offering a top-line explanation for the following files and directories:
-- all files and directories under @src
-- all other files and directories ONLY if their purpose is not reasonably evident from their name.
+If the purpose of a file or directory is not reasonably evident from its name then include a minimalist comment offering a top-line explanation.
 The comment should:
 - be placed alongside the file/directory name
 - not cause the length of the full line (including folder/directory name and all whitespace) to exceed 100 characters.
