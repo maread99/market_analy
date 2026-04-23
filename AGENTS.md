@@ -36,7 +36,6 @@ See @pyproject.toml for project metadata and dependencies.
 │   ├── build-test.yml
 │   ├── draft-release-notes.yml
 │   └── release.yml
-├── dependabot.yml
 └── release-drafter.yml
 docs/
 └── splash.png
