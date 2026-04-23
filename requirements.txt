@@ -6,7 +6,7 @@ beautifulsoup4==4.14.3
     # via yahooquery
 bqplot==0.12.45
     # via market-analy
-certifi==2026.2.25
+certifi==2026.4.22
     # via
     #   curl-cffi
     #   requests
@@ -40,7 +40,7 @@ executing==2.2.1
     # via stack-data
 fonttools==4.62.1
     # via matplotlib
-idna==3.11
+idna==3.13
     # via requests
 ipython==8.39.0 ; python_full_version < '3.11'
     # via ipywidgets
