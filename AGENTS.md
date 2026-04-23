@@ -93,7 +93,7 @@ uv.lock
 
 | Category | Tools |
 |---|---|
-| Python | 3.10–3.13 (`.python-version` pins 3.13) |
+| Python | 3.10–3.14 (`.python-version` pins 3.14) |
 | Package manager | `uv` |
 | Build backend | `setuptools` + `setuptools_scm` |
 | Testing | `pytest` |
