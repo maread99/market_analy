@@ -283,7 +283,7 @@ class Base(metaclass=ABCMeta):
         Subclass should not overwrite or extend this method.
         """
         self._widgets = []
-        w.Widget.on_widget_constructed(lambda w: self._widgets.append(w))
+        w.Widget.on_widget_constructed(self._widgets.append)
         self.slctr: Selector = self._create_selector()
         self._create_gui_parts()
         self._gui: v.App = self._create_gui_box()

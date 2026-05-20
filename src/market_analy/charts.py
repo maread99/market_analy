@@ -462,7 +462,7 @@ class Base(metaclass=ABCMeta):
         Subclass should NOT override or extend this method.
         """
         self._widgets = []
-        w.Widget.on_widget_constructed(lambda w: self._widgets.append(w))
+        w.Widget.on_widget_constructed(self._widgets.append)
         self.scales = self._create_scales()
         self.axes = self._create_axes()
         self.mark = self._create_mark()
