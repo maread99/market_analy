@@ -130,10 +130,10 @@ def get_period_high(
     window: int | str | datetime.timedelta,
     include_current: bool = True,
 ) -> pd.Series | pd.DataFrame:
-    """Return 52wk high as at each timestamp.
+    """Return high over a given period up to each timestamp.
 
-    NB: For sessions within the first 52 weeks of data, the high will
-    represent the high of prices since the start of the data.
+    NB: For rows within the first `window` ofdata points, the high will
+    represent the high since the start of the data.
 
     Parameters
     ----------
