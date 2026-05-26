@@ -2104,13 +2104,16 @@ class GuiOHLCCaseBase(GuiOHLC):
 
     @property
     def _gui_box_contents(self) -> list[w.Widget]:
-        return [
-            self._icon_row_top,
+        contents = [self._icon_row_top]
+        if self._selector_boxes is not None:
+            contents += [self._selector_boxes]
+        contents += [
             self.chart.figure,
             self.date_slider,
             self._controls_container,
             self.html_output,
         ]
+        return contents
 
     def _create_date_slider(self, **kwargs):
         ds = super()._create_date_slider(**kwargs)
