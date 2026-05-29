@@ -155,7 +155,11 @@ class NamedChildren:
                 NamedChildren.__init__(self, children, names)
     """
 
-    def __init__(self, children: list[w.Widget], names: list):
+    def __init__(
+        self,
+        children: list[w.Widget] | None = None,
+        names: list | None = None,
+    ):
         """Constructor.
 
         Parameters
@@ -168,6 +172,14 @@ class NamedChildren:
             Names to be associated with children. Must be of same length
             as children.
         """
+        # `children` and `names` are optional to accommodate cooperative
+        # multiple inheritance, where this `__init__` may be reached via
+        # `super().__init__()` calls in the MRO chain (e.g. from
+        # `traitlets.HasTraits`). When called via the super chain (with no
+        # args), do nothing — the mapping is set by the direct call from
+        # the inheriting class (see the implementation example above).
+        if children is None and names is None:
+            return
         assert len(names) == len(children)
         assert w.Widget in type(self).__mro__
         self._mapping = dict(zip(names, children, strict=True))
