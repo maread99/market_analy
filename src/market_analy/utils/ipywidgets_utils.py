@@ -29,7 +29,7 @@ from contextlib import contextmanager
 from time import time
 from typing import Any
 
-import ipywidgets as w  # type: ignore[import]
+import ipywidgets as w
 import pandas as pd
 
 
@@ -171,14 +171,20 @@ class NamedChildren:
         names
             Names to be associated with children. Must be of same length
             as children.
+
+        Notes
+        ------
+        `children` and `names` are optional to accommodate cooperative
+        multiple inheritance, where this `__init__` may be reached via
+        `super().__init__()` calls in the MRO chain (e.g. from
+        `traitlets.HasTraits`). When called via the super chain (with no
+        args) it doesnothing. (From at least taitlets 5.15 a deprecation
+        warning advised that in the future classes that can be reached in
+        the MRO chain must accommodate being called without any arguments.)
         """
-        # `children` and `names` are optional to accommodate cooperative
-        # multiple inheritance, where this `__init__` may be reached via
-        # `super().__init__()` calls in the MRO chain (e.g. from
-        # `traitlets.HasTraits`). When called via the super chain (with no
-        # args), do nothing — the mapping is set by the direct call from
-        # the inheriting class (see the implementation example above).
-        if children is None and names is None:
+        if children is None or names is None:
+            assert children is None
+            assert names is None
             return
         assert len(names) == len(children)
         assert w.Widget in type(self).__mro__
