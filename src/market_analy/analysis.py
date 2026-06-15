@@ -109,6 +109,8 @@ if TYPE_CHECKING:
     import matplotlib as mpl
     from pandas.io.formats.style import Styler
 
+    from market_analy.subplots import Subplot
+
     from .trends import TrendsProto
     from .trends.movements import MovementsSupportChartAnaly
 
@@ -814,6 +816,7 @@ class Analysis(Base):
         chart_type: Literal["line", "candle"] = "candle",
         max_ticks: int | None = None,
         log_scale: bool = True,
+        subplots: Sequence[str | Subplot] | None = None,
         **kwargs,
     ) -> guis.GuiOHLC | guis.GuiLine | mpl.artist.Artist:
         """Chart prices over specified period.
@@ -841,6 +844,14 @@ class Analysis(Base):
             can be shown via slider). None for no limit. Only implemented
             if `engine` is "bqplot".
 
+        subplots
+            Indicator sub-plots to stack beneath the price chart, each
+            sharing the price chart's x-axis. Each item can be either a
+            `str` naming a built-in sub-plot (for example "volume") or a
+            `market_analy.subplots.Subplot` instance describing a custom
+            sub-plot. Only implemented if `engine` is "bqplot". See
+            `market_analy.subplots`.
+
         **kwargs:
             Parameters to define period / price data to be analysed. See
             method doc with `help(analysis.__doc__)`. Cannot include
@@ -849,7 +860,13 @@ class Analysis(Base):
         if engine == "bqplot":
             kwargs["interval"] = interval
             cls = guis.GuiOHLC if chart_type == "candle" else guis.GuiLine
-            return cls(self, log_scale=log_scale, max_ticks=max_ticks, **kwargs)
+            return cls(
+                self,
+                log_scale=log_scale,
+                max_ticks=max_ticks,
+                subplots=subplots,
+                **kwargs,
+            )
         interval = "1d" if interval is None else interval
         subset = self.prices.get(close_only=True, **kwargs)
         return subset.plot()

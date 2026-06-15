@@ -68,11 +68,12 @@ import market_analy.utils.pandas_utils as upd
 from market_analy import analysis as ma_analysis
 from market_analy import charts, gui_parts
 from market_analy.standalone import get_pct_off_high
+from market_analy.subplots import Subplot, resolve_subplots
 from market_analy.utils.bq_utils import Crosshairs, FastIntervalSelectorDD
 from market_analy.utils.dict_utils import set_kwargs_from_dflt
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Sequence
 
     import bqplot as bq
     import exchange_calendars as xcals
@@ -710,6 +711,7 @@ class BasePrice(BaseVariableDates):
         log_scale: bool = True,
         display: bool = True,
         chart_kwargs: dict | None = None,
+        subplots: Sequence[str | Subplot] | None = None,
         **kwargs,
     ):
         """Create GUI.
@@ -737,6 +739,13 @@ class BasePrice(BaseVariableDates):
         chart_kwargs
             Any kwargs to pass on to the chart class.
 
+        subplots
+            Indicator sub-plots to stack beneath the price chart, each
+            sharing the price chart's x-axis. Each item can be either a
+            `str` naming a built-in sub-plot (for example "volume") or a
+            `market_analy.subplots.Subplot` instance describing a custom
+            sub-plot. See `market_analy.subplots`.
+
         **kwargs
             Period for which to plot prices. Passed as period parameters as
             described by market-prices documentation for 'PricesCls.get'
@@ -755,6 +764,12 @@ class BasePrice(BaseVariableDates):
         data, data2, _ = self._set_initial_data(analysis, ptinterval, kwargs)
 
         self._analysis = analysis
+        # resolved before super().__init__ as sub-plots are built during
+        # gui creation (which super().__init__ triggers).
+        self._subplot_specs: list[Subplot] = (
+            [] if subplots is None else resolve_subplots(subplots)
+        )
+        self._subplots: list[charts.BaseSubplot] = []
         super().__init__(
             data=data,
             title=self._chart_title,
@@ -1057,6 +1072,7 @@ class BasePrice(BaseVariableDates):
     # GUI BOX
     def _create_gui_parts(self):
         super()._create_gui_parts()
+        self._create_subplots()
         self._crosshairs = Crosshairs(self.chart.figure)
         self._set_mark_handlers()
         self._icon_row_top: gui_parts.IconRowTop = self._create_icon_row_top()
@@ -1065,18 +1081,89 @@ class BasePrice(BaseVariableDates):
         self._html_output: w.HTML = self._create_html_output()
         self.tabs_control: gui_parts.TabsControl = self._create_tabs_control()
 
+    # SUB-PLOTS
+    def _build_subplot(self, spec: Subplot) -> charts.BaseSubplot:
+        """Build a single sub-plot pane sharing the price chart's x-axis."""
+        chart_cls = charts.SUBPLOT_KINDS[spec.kind]
+        pane = chart_cls(
+            spec.producer(self._prices),
+            x_scale=self.chart.scales["x"],
+            visible_x_ticks=self.chart.plotted_interval,
+            max_ticks=self.chart.max_ticks,
+            name=spec.name,
+            colors=spec.colors,
+            height=spec.height,
+            ref_levels=spec.ref_levels,
+            y_tick_format=spec.y_tick_format,
+        )
+        pane.figure.layout.margin = "0px -10px -10px 0"
+        return pane
+
+    def _create_subplots(self):
+        """Build sub-plot panes and apply the x-tick-label policy.
+
+        Building a sub-plot constructs a chart, which clears the widget
+        capture set in `_create_gui`. The capture is re-armed so that
+        widgets created subsequently are tracked for `close`/`delete`.
+        """
+        self._subplots = [self._build_subplot(spec) for spec in self._subplot_specs]
+        if not self._subplots:
+            return
+        w.Widget.on_widget_constructed(self._widgets.append)
+        # classic convention: x-tick labels on the bottom-most pane only.
+        self.chart.set_x_labels_visible(False)
+        for pane in self._subplots[:-1]:
+            pane.set_x_labels_visible(False)
+        self._subplots[-1].set_x_labels_visible(True)
+
+    def _update_subplots(self, prices: pd.DataFrame):
+        """Recompute and update each sub-plot for new price data."""
+        for pane, spec in zip(self._subplots, self._subplot_specs, strict=True):
+            pane.update(spec.producer(prices))
+
+    def _update_chart(  # type: ignore[override]
+        self,
+        data: pd.DataFrame | pd.Series | None = None,
+        data2: list[float | int | list[float | int]] | None = None,
+        prices: pd.DataFrame | None = None,
+        title: str | None = None,
+        visible_x_ticks: pd.Interval | None = None,
+        reset_slider=False,
+    ):
+        """Extend to also update any sub-plots when prices change.
+
+        Refer to the corresponding `super` method for documentation of
+        parameters.
+        """
+        super()._update_chart(data, data2, prices, title, visible_x_ticks, reset_slider)
+        if prices is not None:
+            self._update_subplots(prices)
+
     @property
     def _gui_box_contents(self) -> list[w.Widget]:
         contents = [self._icon_row_top]
         if self._selector_boxes is not None:
             contents += [self._selector_boxes]
+        contents += [self.chart.figure]
+        contents += [pane.figure for pane in self._subplots]
         contents += [
-            self.chart.figure,
             self.date_slider,
             self.tabs_control,
             self.html_output,
         ]
         return contents
+
+    def close(self):
+        """Close all gui widgets, including any sub-plots."""
+        for pane in self._subplots:
+            pane.close()
+        super().close()
+
+    def delete(self):
+        """Delete all gui widgets, including any sub-plots."""
+        for pane in self._subplots:
+            pane.delete()
+        super().delete()
 
     # CROSSHAIRS
     @property
