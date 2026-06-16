@@ -241,6 +241,11 @@ class TestGuiMultLineSubplots:
         assert list(pane._plotted_y_extent()) == pytest.approx(list(stacked_totals))
         assert pane.scales["y"].max >= float(stacked_totals.max())
 
+    def test_volume_y_axis_min_is_zero(self, comp, pp):
+        """Multi-symbol volume y-axis anchors at zero (full stack in view)."""
+        gui = comp.plot(**pp, subplots=["volume"], display=False)
+        assert gui._subplots[0].scales["y"].min == 0
+
     def test_spec_colors_override_auto_match(self, comp, pp):
         """Explicit `Subplot.colors` take precedence over the auto-match."""
         colors = ["red", "lime", "cyan"]

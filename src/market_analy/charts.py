@@ -3316,6 +3316,15 @@ class BaseSubplot(BaseSubsetDD):
         """
         return np.asarray(self._plotted_y.values, dtype="float64").ravel()
 
+    def _y_axis_min(self, lo: float, excess: float) -> float:
+        """Lower limit for the y-axis.
+
+        The minimum sits marginally below the lowest displayed value,
+        albeit never below zero when the displayed values are
+        non-negative.
+        """
+        return max(0.0, lo - excess) if lo >= 0 else lo - excess
+
     def update_y_axis_presentation(self):
         plotted = self._plotted_y_extent()
         valid = plotted[~np.isnan(plotted)]
@@ -3328,7 +3337,7 @@ class BaseSubplot(BaseSubsetDD):
             hi = max(hi, *self._ref_levels)
         rnge = (hi - lo) or abs(hi) or 1.0
         excess = rnge * self.Y_AXIS_EXCESS
-        self.scales["y"].min = max(0.0, lo - excess) if lo >= 0 else lo - excess
+        self.scales["y"].min = self._y_axis_min(lo, excess)
         self.scales["y"].max = hi + excess
         super().update_y_axis_presentation()
 
@@ -3356,6 +3365,16 @@ class SubplotBars(BaseSubplot):
         if isinstance(self.data, pd.DataFrame):
             return np.asarray(self._plotted_y.sum(axis=1), dtype="float64")
         return super()._plotted_y_extent()
+
+    def _y_axis_min(self, lo: float, excess: float) -> float:
+        """Anchor the y-axis at zero for stacked (multi-symbol) bars.
+
+        The bars are stacked from a baseline of zero, so a minimum above
+        zero would clip a whole part of each stacked bar from view.
+        """
+        if isinstance(self.data, pd.DataFrame):
+            return 0.0
+        return super()._y_axis_min(lo, excess)
 
     def _tooltip_value(self, mark: bq.Bars, event: dict) -> str:
         """Show the date and value of the hovered bar.
