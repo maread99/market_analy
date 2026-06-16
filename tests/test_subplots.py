@@ -2,16 +2,19 @@
 
 from collections import abc
 
+import ipywidgets as w
 import pandas as pd
 import pytest
 
 from market_analy import analysis, charts
+from market_analy.formatters import formatter_datetime
 from market_analy.subplots import (
     SUBPLOT_REGISTRY,
     Subplot,
     _volume,
     resolve_subplots,
 )
+from market_analy.utils.ipywidgets_utils import capture_widgets
 
 
 def _close(prices: pd.DataFrame) -> pd.Series:
@@ -180,7 +183,61 @@ class TestGuiSubplots:
         pane = gui._subplots[0]
         assert len(pane.added_marks[charts.Groups.PERSIST]) == 1
 
+    def test_widget_capture_restored_after_subplots(self, analy, pp):
+        """GUI widgets built after the panes are still tracked in _widgets."""
+        gui = analy.plot(**pp, subplots=["volume"], display=False)
+        pane = gui._subplots[0]
+        # a widget created after the panes is tracked against the gui
+        assert gui.date_slider in gui._widgets
+        # the pane's own widgets live on the pane, not the gui
+        assert pane.figure in pane._widgets
+        assert pane.figure not in gui._widgets
+
+    def test_subplot_title_above_plot(self, analy, pp):
+        """The subplot title is the figure title, with room above the plot."""
+        gui = analy.plot(**pp, subplots=["volume"], display=False)
+        pane = gui._subplots[0]
+        assert pane.figure.title == "Volume"
+        # the title is no longer rendered as the y-axis label
+        assert pane.axes[1].label in (None, "")
+        # top margin reserves room so the title sits above the plot area
+        assert pane.figure.fig_margin["top"] >= 20
+
+    def test_volume_subplot_tooltip(self, analy, pp):
+        """Hovering a volume bar yields a tooltip with the bar's value."""
+        gui = analy.plot(**pp, subplots=["volume"], display=False)
+        pane = gui._subplots[0]
+        assert isinstance(pane, charts.SubplotBars)
+        assert pane._has_tooltip
+        assert pane.mark.tooltip is not None
+        y = float(pane.data.iloc[0])
+        html = pane._tooltip_value(pane.mark, {"data": {"index": 0, "y": y}})
+        assert "Volume" in html
+        assert f"{int(y):,}" in html
+        assert formatter_datetime(pane.x_ticks[0]) in html
+
     def test_close(self, analy, pp):
         """Closing the gui closes subplots without error."""
         gui = analy.plot(**pp, subplots=["volume"], display=False)
         gui.close()
+
+
+class TestCaptureWidgets:
+    """Tests for the `capture_widgets` context manager."""
+
+    def test_capture_and_restore(self):
+        initial = w.Widget._widget_construction_callback
+        outer: list[w.Widget] = []
+        inner: list[w.Widget] = []
+        with capture_widgets(outer):
+            a = w.HTML()
+            with capture_widgets(inner):
+                b = w.HTML()
+            c = w.HTML()
+        assert a in outer
+        # the outer capture resumes once the inner context exits
+        assert c in outer
+        assert b in inner
+        assert b not in outer
+        # the prior callback is restored (not simply cleared)
+        assert w.Widget._widget_construction_callback is initial

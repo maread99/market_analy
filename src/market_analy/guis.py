@@ -284,11 +284,10 @@ class Base(metaclass=ABCMeta):
         Subclass should not overwrite or extend this method.
         """
         self._widgets = []
-        w.Widget.on_widget_constructed(self._widgets.append)
-        self.slctr: Selector = self._create_selector()
-        self._create_gui_parts()
-        self._gui: v.App = self._create_gui_box()
-        w.Widget.on_widget_constructed(None)
+        with wu.capture_widgets(self._widgets):
+            self.slctr: Selector = self._create_selector()
+            self._create_gui_parts()
+            self._gui: v.App = self._create_gui_box()
 
     def _show_loading_overlay(self):
         """Show loading overlay over gui box."""
@@ -1098,11 +1097,15 @@ class BasePrice(BaseVariableDates):
         return pane
 
     def _create_subplots(self):
-        """Build subplot panes."""
+        """Build subplot panes.
+
+        `_create_chart` (called for each pane) restores this gui's widget
+        capture on completion, so widgets created subsequently continue to
+        be tracked against `self._widgets` (no re-arming required here).
+        """
         if not self._subplot_specs:
             return
         self._subplots = [self._build_subplot(spec) for spec in self._subplot_specs]
-        w.Widget.on_widget_constructed(self._widgets.append)
         # show x-tick labels on the bottom-most pane only.
         self.chart.set_x_labels_visible(False)
         for pane in self._subplots[:-1]:

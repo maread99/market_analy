@@ -53,6 +53,7 @@ import pandas as pd
 from pandas import DataFrame, Series
 
 import market_analy.utils.bq_utils as ubq
+import market_analy.utils.ipywidgets_utils as wu
 import market_analy.utils.pandas_utils as upd
 from market_analy.formatters import FORMATTERS, formatter_datetime
 from market_analy.utils.dict_utils import set_kwargs_from_dflt
@@ -67,6 +68,8 @@ from .cases import (
 
 COLOR_CHART_TEXT = "lightyellow"
 STYLE_CHART_TITLE = {"font-size": "20px", "fill": COLOR_CHART_TEXT}
+# smaller title for the compact subplot panes
+STYLE_SUBPLOT_TITLE = {"font-size": "14px", "fill": COLOR_CHART_TEXT}
 
 STYLE_TOOLTIP = {
     "opacity": 0.8,
@@ -471,13 +474,12 @@ class Base(metaclass=ABCMeta):
         Subclass should NOT override or extend this method.
         """
         self._widgets = []
-        w.Widget.on_widget_constructed(self._widgets.append)
-        self.scales = self._create_scales()
-        self.axes = self._create_axes()
-        self.mark = self._create_mark()
-        self.mark_y2 = None if self._no_y2_plot else self._create_y2_mark()
-        self.figure = self._create_figure()
-        w.Widget.on_widget_constructed(None)
+        with wu.capture_widgets(self._widgets):
+            self.scales = self._create_scales()
+            self.axes = self._create_axes()
+            self.mark = self._create_mark()
+            self.mark_y2 = None if self._no_y2_plot else self._create_y2_mark()
+            self.figure = self._create_figure()
 
     @abstractmethod
     def _create_scales(self) -> dict[ubq.ScaleKeys, bq.Scale]:
@@ -3266,9 +3268,12 @@ class BaseSubplot(BaseSubsetDD):
     def _create_figure(self, **kwargs) -> bq.Figure:
         kwargs.setdefault("padding_x", 0.005)
         kwargs.setdefault("padding_y", 0.05)
+        # top margin sized to hold the title clear above the plot area so
+        # that the title cannot obscure plotted data.
         kwargs.setdefault(
-            "fig_margin", {"top": 10, "bottom": 30, "left": 60, "right": 60}
+            "fig_margin", {"top": 28, "bottom": 30, "left": 60, "right": 60}
         )
+        kwargs.setdefault("title_style", STYLE_SUBPLOT_TITLE)
         kwargs.setdefault("interaction", None)
         fig = super()._create_figure(**kwargs)
         # relax aspect ratio constraints to allow a short, wide figure
@@ -3326,6 +3331,20 @@ class SubplotBars(BaseSubplot):
     @property
     def MarkCls(self) -> type[bq.Mark]:
         return bq.Bars
+
+    def _tooltip_value(self, mark: bq.Bars, event: dict) -> str:
+        """Show the date and value of the hovered bar.
+
+        See `Base._tooltip_value` for the hook's contract.
+        """
+        i = event["data"]["index"]
+        y = event["data"]["y"]
+        value = f"{int(y):,}" if float(y).is_integer() else f"{y:,.2f}"
+        color = mark.colors[0] if mark.colors else "white"
+        style = tooltip_html_style(color=color, line_height=1.3)
+        s = f"<p {style}>Date: " + formatter_datetime(self.x_ticks[i])
+        s += f"<br>{self.title or 'Value'}: {value}</p>"
+        return s
 
 
 class SubplotLines(BaseSubplot):

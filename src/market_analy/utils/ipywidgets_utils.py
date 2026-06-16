@@ -5,6 +5,11 @@ Decorators
 throttle:
     Reduces number of calls to callbacks.
 
+Context managers
+----------------
+capture_widgets:
+    Capture constructed widgets to a list.
+
 Classes
 --------
 NamedChildren:
@@ -24,13 +29,34 @@ DateRangeSlider:
 """
 
 import asyncio
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from time import time
 from typing import Any
 
 import ipywidgets as w
 import pandas as pd
+
+
+@contextmanager
+def capture_widgets(widgets: list[w.Widget]) -> Iterator[None]:
+    """Capture to `widgets` all widgets constructed within the context.
+
+    Appends to `widgets` every `ipywidgets.Widget` constructed whilst the
+    context is open.
+
+    On exit restores any callback that was registered with
+    `ipywidgets.Widget.on_widget_constructed` before the context was
+    entered (rather than simply clearing it). This makes the context safe
+    to nest: an inner `capture_widgets` block resumes capturing to the
+    outer block's `widgets` on exit.
+    """
+    prior = w.Widget._widget_construction_callback  # noqa: SLF001
+    w.Widget.on_widget_constructed(widgets.append)
+    try:
+        yield
+    finally:
+        w.Widget.on_widget_constructed(prior)
 
 
 class Timer:
