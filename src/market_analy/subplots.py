@@ -61,8 +61,9 @@ class Subplot:
         the subplot's x-ticks align with the shared x-axis.
 
     kind
-        Type of mark with which to plot the subplot data, as a
-        `market_analy.charts.SubplotKind` member or its string value:
+        Type of mark with which to plot data, as a
+        `market_analy.charts.SubplotKind` member or its string value.
+        Options include:
             `SubplotKind.BARS` ("bars") - a bar for each value (for
             example, volume).
             `SubplotKind.LINES` ("lines") - a line through the values.

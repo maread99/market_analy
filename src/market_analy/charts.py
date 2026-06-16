@@ -3315,10 +3315,7 @@ class BaseSubplot(BaseSubsetDD):
             hi = max(hi, *self._ref_levels)
         rnge = (hi - lo) or abs(hi) or 1.0
         excess = rnge * self.Y_AXIS_EXCESS
-        lo_marginal = lo - excess
-        # keep the y-axis minimum marginally below the lowest displayed value,
-        # albeit never below zero when all displayed values are non-negative.
-        self.scales["y"].min = max(0.0, lo_marginal) if lo >= 0 else lo_marginal
+        self.scales["y"].min = max(0.0, lo - excess) if lo >= 0 else lo - excess
         self.scales["y"].max = hi + excess
         super().update_y_axis_presentation()
 
@@ -3360,11 +3357,7 @@ class SubplotLines(BaseSubplot):
 
 
 class SubplotKind(str, enum.Enum):
-    """Kind of mark with which to plot subplot data.
-
-    Members are `str` subclasses so that a member compares equal to, and
-    can be used interchangeably with, its string value.
-    """
+    """Kind of mark with which to plot subplot data."""
 
     BARS = "bars"
     LINES = "lines"

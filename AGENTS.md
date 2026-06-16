@@ -63,11 +63,11 @@ src/
     ├── gui_parts.py             # GUI building blocks
     ├── guis.py                  # Interactive GUI components
     ├── standalone.py            # Standalone analysis functions
-    ├── subplots.py              # Indicator subplot specifications
+    ├── subplots.py              # Subplot specifications
     └── trends_alt.py            # Deprecated; legacy trend analysis interface
 tests/
 ├── resources/
-├── tests_utils/                # Tests for the `utils` subpackage
+├── tests_utils/                # Tests for `utils` subpackage
 │   ├── __init__.py
 │   ├── test_ipywidgets.py
 │   ├── test_list.py
