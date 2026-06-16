@@ -178,3 +178,25 @@ class TestGuiSubplots:
         """Closing the gui closes subplots without error."""
         gui = analy.plot(**pp, subplots=["volume"], display=False)
         gui.close()
+
+
+class TestGuiMultLineSubplots:
+    """Tests for subplots beneath a multi-symbol (Compare) price chart."""
+
+    @pytest.fixture
+    def comp(self, prices_compare) -> abc.Iterator[analysis.Compare]:
+        yield analysis.Compare(prices_compare)
+
+    @pytest.fixture
+    def pp(self) -> dict:
+        return {"start": pd.Timestamp("2023-01-06"), "end": pd.Timestamp("2023-01-10")}
+
+    def test_volume_colors_match_price_lines(self, comp, pp):
+        """Each symbol's volume bars take the symbol's price-line color."""
+        gui = comp.plot(**pp, subplots=["volume"], display=False)
+        pane = gui._subplots[0]
+        # one volume series per symbol, in symbol (and price-line) order
+        assert isinstance(pane.data, pd.DataFrame)
+        assert list(pane.data.columns) == comp.symbols
+        # volume bars share the main chart's per-symbol colors
+        assert list(pane.mark.colors) == list(gui.chart.mark.colors)

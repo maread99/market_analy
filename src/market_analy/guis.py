@@ -1082,19 +1082,38 @@ class BasePrice(BaseVariableDates):
     def _build_subplot(self, spec: Subplot) -> charts.BaseSubplot:
         """Build a single subplot pane sharing the price chart's x-axis."""
         chart_cls = charts.SUBPLOT_KINDS[charts.SubplotKind(spec.kind)]
+        data = spec.data_creator(self._prices)
         pane = chart_cls(
-            spec.data_creator(self._prices),
+            data,
             x_scale=self.chart.scales["x"],
             visible_x_ticks=self.chart.plotted_interval,
             max_ticks=self.chart.max_ticks,
             title=spec.title,
-            colors=spec.colors,
+            colors=self._subplot_colors(spec, data),
             height=spec.height,
             ref_levels=spec.ref_levels,
             y_tick_format=spec.y_tick_format,
         )
         pane.figure.layout.margin = "-10px -10px -10px 0"
         return pane
+
+    def _subplot_colors(
+        self, spec: Subplot, data: pd.DataFrame | pd.Series
+    ) -> Sequence[str] | None:
+        """Colors for a subplot's marks.
+
+        For a subplot that plots one series per symbol (multiple symbols)
+        and for which `spec` does not itself define a color for each
+        series, the colors of the main chart's marks are returned so that
+        each series is coloured to match the corresponding symbol on the
+        main chart.
+        """
+        n_series = data.shape[1] if isinstance(data, pd.DataFrame) else 1
+        if n_series > 1 and (spec.colors is None or len(spec.colors) < n_series):
+            main_colors = self.chart.mark.colors
+            if main_colors:
+                return list(main_colors)
+        return spec.colors
 
     def _create_subplots(self):
         """Build subplot panes."""
