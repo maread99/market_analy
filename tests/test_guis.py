@@ -159,12 +159,18 @@ class TestGuiSubplots:
         assert len(pane.mark.y) == len(pane.mark.x)
 
     def test_line_subplot_reflects_plotted_at_init(self, analy, pp):
-        """A line subplot whose initial window excludes the first date has
-        its mark reflect the plotted window from the outset."""
-        n = len(analy.plot(**pp, display=False).chart.x_ticks)
+        """Verify subplot bars When initial chart bars exclude first bar.
+
+        A line subplot whose initial window excludes the first date should
+        have it's mark reflect the plotted window from the outset.
+        """
+        x_ticks = analy.plot(**pp, display=False).chart.x_ticks
+        n = len(x_ticks)
         custom = Subplot(data_creator=_close, kind="lines", title="Close")
         gui = analy.plot(**pp, subplots=[custom], max_ticks=n - 1, display=False)
         pane = gui._subplots[0]
+        assert pane.plotted_x_ticks[0] != x_ticks[0]
+        assert pane.plotted_x_ticks[0] == x_ticks[1]
         assert len(pane.plotted_x_ticks) == n - 1  # first date excluded
         assert len(pane.mark.x) == len(pane.plotted_x_ticks)
 
