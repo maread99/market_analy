@@ -142,6 +142,32 @@ class TestGuiSubplots:
         # the rendered axis can extend below zero given the bar baseline at 0)
         assert pane.scales["y"].allow_padding is False
 
+    def test_line_subplot_reflects_plotted(self, analy, pp):
+        """Line subplot mark data tracks the plotted window.
+
+        (So the line keeps rendering when the first date is excluded.)
+        """
+        custom = Subplot(data_creator=_close, kind="lines", title="Close")
+        gui = analy.plot(**pp, subplots=[custom], display=False)
+        pane = gui._subplots[0]
+        assert pane._update_mark_data_attr_to_reflect_plotted is True
+        x_ticks = gui.chart.x_ticks
+        # narrow the window so the first date is excluded
+        gui.chart.plotted_x_ticks = pd.Interval(x_ticks[1], x_ticks[-1], closed="left")
+        assert pane.plotted_x_ticks[0] == x_ticks[1]
+        assert len(pane.mark.x) == len(pane.plotted_x_ticks)
+        assert len(pane.mark.y) == len(pane.mark.x)
+
+    def test_line_subplot_reflects_plotted_at_init(self, analy, pp):
+        """A line subplot whose initial window excludes the first date has
+        its mark reflect the plotted window from the outset."""
+        n = len(analy.plot(**pp, display=False).chart.x_ticks)
+        custom = Subplot(data_creator=_close, kind="lines", title="Close")
+        gui = analy.plot(**pp, subplots=[custom], max_ticks=n - 1, display=False)
+        pane = gui._subplots[0]
+        assert len(pane.plotted_x_ticks) == n - 1  # first date excluded
+        assert len(pane.mark.x) == len(pane.plotted_x_ticks)
+
     def test_close(self, analy, pp):
         """Closing the gui closes subplots without error."""
         gui = analy.plot(**pp, subplots=["volume"], display=False)

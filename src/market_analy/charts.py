@@ -3233,6 +3233,13 @@ class BaseSubplot(BaseSubsetDD):
             display=False,
             data_y2=None,
         )
+        # The shared x-scale may already sit at the target domain (set by the
+        # accompanying price chart), in which case assigning `plotted_x_ticks`
+        # within the base constructor will not have triggered the domain
+        # handler. Fire it so that a mark which reflects only plotted data is
+        # initialised for the current window.
+        if self._update_mark_data_attr_to_reflect_plotted:
+            self._x_domain_chg_handler(event=None)
         if display:
             self.display()
 
@@ -3354,6 +3361,25 @@ class SubplotLines(BaseSubplot):
     @property
     def MarkCls(self) -> type[bq.Mark]:
         return bq.Lines
+
+    @property
+    def _update_mark_data_attr_to_reflect_plotted(self) -> bool:
+        """Reflect only plotted data in the mark's data attributes.
+
+        Notes
+        -----
+        `bq.Lines` fails to render the line whenever the first plotted
+        date is not the first available date unless the mark's data
+        attributes reflect only the plotted data (as also overcome by
+        `Line`).
+        """
+        return True
+
+    def _get_mark_y_plotted_data(self):
+        # `_get_mark_y_data` returns a 1d array for a `pd.Series` and a
+        # list-of-lists (one per column) for a `pd.DataFrame`.
+        multiple_symbols = isinstance(self.data, pd.DataFrame)
+        return super()._get_mark_y_plotted_data(multiple_symbols=multiple_symbols)
 
 
 class SubplotKind(str, enum.Enum):
