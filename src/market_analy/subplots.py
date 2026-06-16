@@ -71,6 +71,12 @@ class Subplot:
     title
         Name of the subplot, shown as the subplot's title.
 
+    colors
+        Colors to apply to the subplot marks. If None then, for a subplot
+        of multiple symbols, the colors of the main chart's marks are used
+        so that each series matches the corresponding symbol on the main
+        chart.
+
     height
         Height of the subplot, in pixels.
 
@@ -89,6 +95,7 @@ class Subplot:
     data_creator: SubplotDataCreator
     kind: Annotated[str | SubplotKind, Coerce(SubplotKind)] = SubplotKind.LINES
     title: str | None = None
+    colors: Sequence[str] | None = None
     height: int = 140
     ref_levels: Sequence[float] | None = None
     y_tick_format: str | None = None

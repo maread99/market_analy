@@ -211,7 +211,11 @@ class TestGuiMultLineSubplots:
         assert list(pane.mark.colors) == list(gui.chart.mark.colors)
 
     def test_volume_tooltip_identifies_hovered_symbol(self, comp, pp):
-        """Hovering a stacked part shows that symbol's value, in its color."""
+        """Hovering a stacked part shows that symbol's value, in its color.
+
+        The 'bar' (date) line takes a common color; only the symbol line
+        takes the hovered symbol's color.
+        """
         gui = comp.plot(**pp, subplots=["volume"], display=False)
         pane = gui._subplots[0]
         ci = 1  # the second symbol's part of the stack
@@ -219,6 +223,27 @@ class TestGuiMultLineSubplots:
         symbol = comp.symbols[ci]
         color = list(gui.chart.mark.colors)[ci]
         value = int(pane.data.iloc[0, ci])
-        assert symbol in html
-        assert f"{value:,}" in html
-        assert f"color: {color}" in html
+        bar_line, symbol_line = html.split("<br>")
+        # the date line takes the common bar color, not the symbol's color
+        assert f"color: {charts.SubplotBars.TOOLTIP_BAR_COLOR}" in bar_line
+        assert color not in bar_line
+        # the symbol line shows the symbol and value, in the symbol's color
+        assert symbol in symbol_line
+        assert f"{value:,}" in symbol_line
+        assert f"color: {color}" in symbol_line
+
+    def test_volume_y_axis_spans_stacked_totals(self, comp, pp):
+        """The y-axis spans the stacked bar totals (sum across symbols)."""
+        gui = comp.plot(**pp, subplots=["volume"], display=False)
+        pane = gui._subplots[0]
+        stacked_totals = pane._plotted_y.sum(axis=1)
+        # the extent considered is the per-bar stacked total, not each part
+        assert list(pane._plotted_y_extent()) == pytest.approx(list(stacked_totals))
+        assert pane.scales["y"].max >= float(stacked_totals.max())
+
+    def test_spec_colors_override_auto_match(self, comp, pp):
+        """Explicit `Subplot.colors` take precedence over the auto-match."""
+        colors = ["red", "lime", "cyan"]
+        custom = Subplot(data_creator=_volume, kind="bars", title="Vol", colors=colors)
+        gui = comp.plot(**pp, subplots=[custom], display=False)
+        assert list(gui._subplots[0].mark.colors) == colors
