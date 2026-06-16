@@ -3247,7 +3247,11 @@ class BaseSubplot(BaseSubsetDD):
 
     # CHART CREATION
     def _create_scales(self) -> dict[ubq.ScaleKeys, bq.Scale]:
-        return {"x": self._x_scale_shared, "y": bq.LinearScale()}
+        # `allow_padding=False` so that the figure honours exactly the y-axis
+        # min/max set by `update_y_axis_presentation`. Otherwise the figure
+        # pads the scale beyond those limits which, given the `bq.Bars`
+        # baseline lies at 0, can extend the rendered y-axis below zero.
+        return {"x": self._x_scale_shared, "y": bq.LinearScale(allow_padding=False)}
 
     def _axes_kwargs(
         self, axes_kwargs: AxesKwargs | None = None, **general_kwargs

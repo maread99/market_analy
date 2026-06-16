@@ -138,6 +138,9 @@ class TestGuiSubplots:
         lo = float(pane._plotted_y.values.min())
         assert y_min >= 0
         assert y_min <= lo
+        # the figure must not pad the y-scale beyond the set min/max (else
+        # the rendered axis can extend below zero given the bar baseline at 0)
+        assert pane.scales["y"].allow_padding is False
 
     def test_close(self, analy, pp):
         """Closing the gui closes subplots without error."""
