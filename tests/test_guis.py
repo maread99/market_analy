@@ -130,6 +130,15 @@ class TestGuiSubplots:
         pane = gui._subplots[0]
         assert len(pane.added_marks[charts.Groups.PERSIST]) == 1
 
+    def test_volume_y_axis_min_non_negative(self, analy, pp):
+        """Volume subplot y-axis min is below the lowest bar but never < 0."""
+        gui = analy.plot(**pp, subplots=["volume"], display=False)
+        pane = gui._subplots[0]
+        y_min = pane.scales["y"].min
+        lo = float(pane._plotted_y.values.min())
+        assert y_min >= 0
+        assert y_min <= lo
+
     def test_close(self, analy, pp):
         """Closing the gui closes subplots without error."""
         gui = analy.plot(**pp, subplots=["volume"], display=False)

@@ -1081,7 +1081,7 @@ class BasePrice(BaseVariableDates):
     # SUB-PLOTS
     def _build_subplot(self, spec: Subplot) -> charts.BaseSubplot:
         """Build a single subplot pane sharing the price chart's x-axis."""
-        chart_cls = charts.SUBPLOT_KINDS[spec.kind]
+        chart_cls = charts.SUBPLOT_KINDS[charts.SubplotKind(spec.kind)]
         pane = chart_cls(
             spec.data_creator(self._prices),
             x_scale=self.chart.scales["x"],

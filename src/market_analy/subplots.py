@@ -24,18 +24,16 @@ from __future__ import annotations
 
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
-from typing import Literal
+from typing import Annotated
 
 import pandas as pd
-from valimp import parse, parse_cls
+from valimp import Coerce, parse, parse_cls
+
+from market_analy.charts import SubplotKind
 
 # A Data Creator evaluates the data for a subplot from the price data on
 # which the accompanying price chart is based.
 SubplotDataCreator = Callable[[pd.DataFrame], pd.Series | pd.DataFrame]
-
-# AIDEV-TODO: no need to define this, just use the enum to be set up towards end of
-# the charts module...
-SubplotKind = Literal["bars", "lines"]
 
 
 @parse_cls
@@ -63,10 +61,11 @@ class Subplot:
         the subplot's x-ticks align with the shared x-axis.
 
     kind
-        # AIDEV-TODO: this should take a value of the new SubplotKind enum
-        Type of mark with which to plot the subplot data.
-            "bars" - a bar for each value (for example, volume).
-            "lines" - a line through the values.
+        Type of mark with which to plot the subplot data, as a
+        `market_analy.charts.SubplotKind` member or its string value:
+            `SubplotKind.BARS` ("bars") - a bar for each value (for
+            example, volume).
+            `SubplotKind.LINES` ("lines") - a line through the values.
 
     title
         Name of the subplot, shown as the subplot's title.
@@ -90,7 +89,7 @@ class Subplot:
     """
 
     data_creator: SubplotDataCreator
-    kind: SubplotKind = "lines"
+    kind: Annotated[str | SubplotKind, Coerce(SubplotKind)] = SubplotKind.LINES
     title: str | None = None
     colors: Sequence[str] | None = None
     height: int = 140
@@ -125,7 +124,7 @@ def _volume_subplot() -> Subplot:
     """Built-in 'volume' subplot."""
     return Subplot(
         data_creator=_volume,
-        kind="bars",
+        kind=SubplotKind.BARS,
         title="Volume",
         colors=["steelblue"],
         height=140,
@@ -160,7 +159,7 @@ def resolve_subplots(subplots: Sequence[str | Subplot]) -> list[Subplot]:
     Examples
     --------
     >>> resolved = resolve_subplots(["volume"])
-    >>> [(s.title, s.kind) for s in resolved]
+    >>> [(s.title, s.kind.value) for s in resolved]
     [('Volume', 'bars')]
     """
     resolved: list[Subplot] = []

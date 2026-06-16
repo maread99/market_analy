@@ -63,14 +63,21 @@ src/
     ├── gui_parts.py             # GUI building blocks
     ├── guis.py                  # Interactive GUI components
     ├── standalone.py            # Standalone analysis functions
+    ├── subplots.py              # Indicator subplot specifications
     └── trends_alt.py            # Deprecated; legacy trend analysis interface
 tests/
 ├── resources/
+├── tests_utils/                # Tests for the `utils` subpackage
+│   ├── __init__.py
+│   ├── test_ipywidgets.py
+│   ├── test_list.py
+│   └── test_mkt_prices.py
+├── __init__.py
 ├── conftest.py
 ├── test_analysis.py
-├── test_list_utils.py
-├── test_mkt_prices_utils.py
+├── test_guis.py
 ├── test_standalone.py
+├── test_subplots.py
 ├── test_trends.py
 └── test_trends_alt.py
 .pre-commit-config.yaml

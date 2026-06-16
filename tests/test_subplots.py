@@ -3,6 +3,7 @@
 import pandas as pd
 import pytest
 
+from market_analy.charts import SubplotKind
 from market_analy.subplots import (
     SUBPLOT_REGISTRY,
     Subplot,
@@ -42,6 +43,20 @@ class TestSubplotSpec:
     def test_resolve_unknown_raises(self):
         with pytest.raises(ValueError, match="not a valid built-in subplot"):
             resolve_subplots(["not_a_subplot"])
+
+    def test_kind_coerced_to_enum(self):
+        """`kind` accepts the enum or its string value, stored as the enum."""
+        assert Subplot(data_creator=_close, kind="bars").kind is SubplotKind.BARS
+        assert (
+            Subplot(data_creator=_close, kind=SubplotKind.LINES).kind
+            is SubplotKind.LINES
+        )
+        # the default kind is the enum
+        assert Subplot(data_creator=_close).kind is SubplotKind.LINES
+
+    def test_invalid_kind_raises(self):
+        with pytest.raises(ValueError, match="not a valid SubplotKind"):
+            Subplot(data_creator=_close, kind="scatter")
 
 
 class TestVolumeDataCreator:
