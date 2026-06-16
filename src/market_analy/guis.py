@@ -740,11 +740,11 @@ class BasePrice(BaseVariableDates):
             Any kwargs to pass on to the chart class.
 
         subplots
-            Indicator sub-plots to stack beneath the price chart, each
+            Indicator subplots to stack beneath the price chart, each
             sharing the price chart's x-axis. Each item can be either a
-            `str` naming a built-in sub-plot (for example "volume") or a
+            `str` naming a built-in subplot (for example "volume") or a
             `market_analy.subplots.Subplot` instance describing a custom
-            sub-plot. See `market_analy.subplots`.
+            subplot. See `market_analy.subplots`.
 
         **kwargs
             Period for which to plot prices. Passed as period parameters as
@@ -764,8 +764,6 @@ class BasePrice(BaseVariableDates):
         data, data2, _ = self._set_initial_data(analysis, ptinterval, kwargs)
 
         self._analysis = analysis
-        # resolved before super().__init__ as sub-plots are built during
-        # gui creation (which super().__init__ triggers).
         self._subplot_specs: list[Subplot] = (
             [] if subplots is None else resolve_subplots(subplots)
         )
@@ -1083,14 +1081,14 @@ class BasePrice(BaseVariableDates):
 
     # SUB-PLOTS
     def _build_subplot(self, spec: Subplot) -> charts.BaseSubplot:
-        """Build a single sub-plot pane sharing the price chart's x-axis."""
+        """Build a single subplot pane sharing the price chart's x-axis."""
         chart_cls = charts.SUBPLOT_KINDS[spec.kind]
         pane = chart_cls(
-            spec.producer(self._prices),
+            spec.data_creator(self._prices),
             x_scale=self.chart.scales["x"],
             visible_x_ticks=self.chart.plotted_interval,
             max_ticks=self.chart.max_ticks,
-            name=spec.name,
+            title=spec.title,
             colors=spec.colors,
             height=spec.height,
             ref_levels=spec.ref_levels,
@@ -1100,26 +1098,21 @@ class BasePrice(BaseVariableDates):
         return pane
 
     def _create_subplots(self):
-        """Build sub-plot panes and apply the x-tick-label policy.
-
-        Building a sub-plot constructs a chart, which clears the widget
-        capture set in `_create_gui`. The capture is re-armed so that
-        widgets created subsequently are tracked for `close`/`delete`.
-        """
-        self._subplots = [self._build_subplot(spec) for spec in self._subplot_specs]
-        if not self._subplots:
+        """Build subplot panes."""
+        if not self._subplot_specs:
             return
+        self._subplots = [self._build_subplot(spec) for spec in self._subplot_specs]
         w.Widget.on_widget_constructed(self._widgets.append)
-        # classic convention: x-tick labels on the bottom-most pane only.
+        # show x-tick labels on the bottom-most pane only.
         self.chart.set_x_labels_visible(False)
         for pane in self._subplots[:-1]:
             pane.set_x_labels_visible(False)
         self._subplots[-1].set_x_labels_visible(True)
 
     def _update_subplots(self, prices: pd.DataFrame):
-        """Recompute and update each sub-plot for new price data."""
+        """Recompute and update each subplot for new price data."""
         for pane, spec in zip(self._subplots, self._subplot_specs, strict=True):
-            pane.update(spec.producer(prices))
+            pane.update(spec.data_creator(prices))
 
     def _update_chart(  # type: ignore[override]
         self,
@@ -1130,7 +1123,7 @@ class BasePrice(BaseVariableDates):
         visible_x_ticks: pd.Interval | None = None,
         reset_slider=False,
     ):
-        """Extend to also update any sub-plots when prices change.
+        """Extend to also update any subplots when prices change.
 
         Refer to the corresponding `super` method for documentation of
         parameters.
@@ -1154,15 +1147,19 @@ class BasePrice(BaseVariableDates):
         return contents
 
     def close(self):
-        """Close all gui widgets, including any sub-plots."""
-        for pane in self._subplots:
-            pane.close()
+        """Close all gui widgets, including any subplots."""
+        # Necessary to independenty close self._subplots as each subplot figture
+        # and associated widgets are stored in subplot._widgets, not self._widgets.
+        for subplot in self._subplots:
+            subplot.close()
         super().close()
 
     def delete(self):
-        """Delete all gui widgets, including any sub-plots."""
-        for pane in self._subplots:
-            pane.delete()
+        """Delete all gui widgets, including any subplots."""
+        # Necessary to independenty delete self._subplots as the subplot figture
+        # and associated widgets are stored in subplot._widgets, not self._widgets.
+        for subplot in self._subplots:
+            subplot.delete()
         super().delete()
 
     # CROSSHAIRS

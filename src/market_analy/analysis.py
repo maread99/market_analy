@@ -845,11 +845,11 @@ class Analysis(Base):
             if `engine` is "bqplot".
 
         subplots
-            Indicator sub-plots to stack beneath the price chart, each
+            Indicator subplots to stack beneath the price chart, each
             sharing the price chart's x-axis. Each item can be either a
-            `str` naming a built-in sub-plot (for example "volume") or a
+            `str` naming a built-in subplot (for example "volume") or a
             `market_analy.subplots.Subplot` instance describing a custom
-            sub-plot. Only implemented if `engine` is "bqplot". See
+            subplot. Only implemented if `engine` is "bqplot". See
             `market_analy.subplots`.
 
         **kwargs:

@@ -1,10 +1,9 @@
-"""Tests for the `subplots` module and sub-plot integration with GUIs."""
+"""Tests for the `subplots` module and subplot integration with GUIs."""
 
 from collections import abc
 
 import pandas as pd
 import pytest
-import valimp
 
 from market_analy import analysis, charts
 from market_analy.subplots import (
@@ -16,7 +15,7 @@ from market_analy.subplots import (
 
 
 def _close(prices: pd.DataFrame) -> pd.Series:
-    """Producer returning close price as a single series."""
+    """DataCreator returning close price as a single series."""
     return prices.xs("close", axis=1, level=-1).iloc[:, 0].rename("close")
 
 
@@ -28,36 +27,28 @@ class TestSubplotSpec:
         spec = SUBPLOT_REGISTRY["volume"]()
         assert isinstance(spec, Subplot)
         assert spec.kind == "bars"
-        assert spec.name == "Volume"
-        assert spec.producer is _volume
+        assert spec.title == "Volume"
+        assert spec.data_creator is _volume
 
     def test_resolve_builtin(self):
         resolved = resolve_subplots(["volume"])
         assert len(resolved) == 1
         assert isinstance(resolved[0], Subplot)
-        assert resolved[0].name == "Volume"
+        assert resolved[0].title == "Volume"
 
     def test_resolve_passthrough(self):
-        custom = Subplot(producer=_close, kind="lines", name="Close")
+        custom = Subplot(data_creator=_close, kind="lines", title="Close")
         resolved = resolve_subplots([custom, "volume"])
         assert resolved[0] is custom
-        assert resolved[1].name == "Volume"
+        assert resolved[1].title == "Volume"
 
     def test_resolve_unknown_raises(self):
-        with pytest.raises(ValueError, match="not a valid built-in sub-plot"):
+        with pytest.raises(ValueError, match="not a valid built-in subplot"):
             resolve_subplots(["not_a_subplot"])
 
-    def test_validation_bad_producer(self):
-        with pytest.raises(valimp.InputsError):
-            Subplot(producer="not_callable")
 
-    def test_validation_bad_kind(self):
-        with pytest.raises(valimp.InputsError):
-            Subplot(producer=_close, kind="scatter")
-
-
-class TestVolumeProducer:
-    """Tests for the built-in `_volume` producer."""
+class TestVolumeDataCreator:
+    """Tests for the built-in `_volume` data_creator."""
 
     def test_volume_single_symbol(self, prices_analysis):
         prices = prices_analysis.get(
@@ -78,7 +69,7 @@ class TestVolumeProducer:
 
 
 class TestGuiSubplots:
-    """Tests for sub-plots stacked beneath a price chart GUI."""
+    """Tests for subplots stacked beneath a price chart GUI."""
 
     @pytest.fixture
     def analy(self, prices_analysis) -> abc.Iterator[analysis.Analysis]:
@@ -89,15 +80,15 @@ class TestGuiSubplots:
         return {"start": pd.Timestamp("2023-01-06"), "end": pd.Timestamp("2023-01-10")}
 
     def test_no_subplots_default(self, analy, pp):
-        """Without `subplots` the gui has no sub-plots."""
+        """Without `subplots` the gui has no subplots."""
         gui = analy.plot(**pp, display=False)
         assert gui._subplots == []
         assert gui.chart.figure in gui._gui_box_contents
         # x-tick labels remain visible on the price chart
-        assert "display" not in (gui.chart.axes[0].tick_style or {})
+        assert "display" not in gui.chart.axes[0].tick_style
 
     def test_subplots_shared_scale(self, analy, pp):
-        """Sub-plot reuses the price chart's x-axis scale."""
+        """Subplot reuses the price chart's x-axis scale."""
         gui = analy.plot(**pp, subplots=["volume"], display=False)
         assert len(gui._subplots) == 1
         pane = gui._subplots[0]
@@ -106,7 +97,7 @@ class TestGuiSubplots:
         assert pane.x_ticks.equals(gui.chart.x_ticks)
 
     def test_subplots_in_gui_box(self, analy, pp):
-        """Sub-plot figure sits between the price chart and the date slider."""
+        """Subplot figure sits between the price chart and the date slider."""
         gui = analy.plot(**pp, subplots=["volume"], display=False)
         contents = gui._gui_box_contents
         i_chart = contents.index(gui.chart.figure)
@@ -114,16 +105,17 @@ class TestGuiSubplots:
         i_slider = contents.index(gui.date_slider)
         assert i_chart < i_pane < i_slider
 
+    # TODO: still to review tests from here...
     def test_subplots_data(self, analy, pp):
-        """Sub-plot data reflects the producer output."""
+        """Subplot data reflects the data_creator output."""
         gui = analy.plot(**pp, subplots=["volume"], display=False)
         pane = gui._subplots[0]
         expected = _volume(gui.prices)
         assert (pane.data.values == expected.values).all()
 
     def test_subplots_multiple_ordered(self, analy, pp):
-        """Multiple sub-plots stack, in order, all sharing the x scale."""
-        custom = Subplot(producer=_close, kind="lines", name="Close")
+        """Multiple subplots stack, in order, all sharing the x scale."""
+        custom = Subplot(data_creator=_close, kind="lines", title="Close")
         gui = analy.plot(**pp, subplots=["volume", custom], display=False)
         assert len(gui._subplots) == 2
         assert isinstance(gui._subplots[0], charts.SubplotBars)
@@ -137,14 +129,14 @@ class TestGuiSubplots:
 
     def test_x_label_policy(self, analy, pp):
         """X-tick labels show only on the bottom-most pane."""
-        custom = Subplot(producer=_close, kind="lines", name="Close")
+        custom = Subplot(data_creator=_close, kind="lines", title="Close")
         gui = analy.plot(**pp, subplots=["volume", custom], display=False)
         assert gui.chart.axes[0].tick_style.get("display") == "none"
         assert gui._subplots[0].axes[0].tick_style.get("display") == "none"
         assert "display" not in (gui._subplots[-1].axes[0].tick_style or {})
 
     def test_shared_scale_lockstep(self, analy, pp):
-        """Changing the price chart's plotted window moves the sub-plot too."""
+        """Changing the price chart's plotted window moves the subplot too."""
         gui = analy.plot(**pp, subplots=["volume"], display=False)
         pane = gui._subplots[0]
         x_ticks = gui.chart.x_ticks
@@ -153,7 +145,7 @@ class TestGuiSubplots:
         assert pane.plotted_x_ticks.equals(gui.chart.plotted_x_ticks)
 
     def test_update_subplots(self, analy, pp):
-        """Recomputing sub-plots from new prices refreshes the pane data."""
+        """Recomputing subplots from new prices refreshes the pane data."""
         gui = analy.plot(**pp, subplots=["volume"], display=False)
         pane = gui._subplots[0]
         new_prices = gui.prices * 2
@@ -162,7 +154,7 @@ class TestGuiSubplots:
         assert (pane.data.values == expected.values).all()
 
     def test_update_chart_funnel_refreshes_subplots(self, analy, pp):
-        """The `_update_chart` funnel refreshes sub-plots when prices change."""
+        """The `_update_chart` funnel refreshes subplots when prices change."""
         gui = analy.plot(**pp, subplots=["volume"], display=False)
         pane = gui._subplots[0]
         new_prices = gui.prices * 2
@@ -172,7 +164,7 @@ class TestGuiSubplots:
         assert (pane.data.values == expected.values).all()
 
     def test_reset_chart_keeps_subplots(self, analy, pp):
-        """Resetting the chart leaves the sub-plot data intact."""
+        """Resetting the chart leaves the subplot data intact."""
         gui = analy.plot(**pp, subplots=["volume"], display=False)
         pane = gui._subplots[0]
         gui._reset_chart()
@@ -180,13 +172,15 @@ class TestGuiSubplots:
         assert (pane.data.values == expected.values).all()
 
     def test_ref_levels_add_marks(self, analy, pp):
-        """A sub-plot with `ref_levels` adds persistent reference marks."""
-        custom = Subplot(producer=_close, kind="lines", name="Close", ref_levels=[1.0])
+        """A subplot with `ref_levels` adds persistent reference marks."""
+        custom = Subplot(
+            data_creator=_close, kind="lines", title="Close", ref_levels=[1.0]
+        )
         gui = analy.plot(**pp, subplots=[custom], display=False)
         pane = gui._subplots[0]
         assert len(pane.added_marks[charts.Groups.PERSIST]) == 1
 
     def test_close(self, analy, pp):
-        """Closing the gui closes sub-plots without error."""
+        """Closing the gui closes subplots without error."""
         gui = analy.plot(**pp, subplots=["volume"], display=False)
         gui.close()

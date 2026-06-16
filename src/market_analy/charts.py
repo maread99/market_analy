@@ -27,13 +27,13 @@ PctChgBarMult(_PctChgBarBase):
     Bar Chart displaying precentage changes of multiple instruments.
 
 BaseSubplot(BaseSubsetDD):
-    Base for an indicator sub-plot stacked beneath a price chart.
+    Base for an indicator subplot stacked beneath a price chart.
 
 SubplotBars(BaseSubplot):
-    Indicator sub-plot plotting data as bars.
+    Indicator subplot plotting data as bars.
 
 SubplotLines(BaseSubplot):
-    Indicator sub-plot plotting data as lines.
+    Indicator subplot plotting data as lines.
 """
 
 import enum
@@ -3161,55 +3161,49 @@ class OHLCCaseBase(OHLC, ChartSupportsCasesGui):
 
 
 class BaseSubplot(BaseSubsetDD):
-    """Base for an indicator sub-plot stacked beneath a price chart.
+    """Base for an indicator subplot stacked beneath a price chart.
 
-    A sub-plot shares the x-axis of an accompanying price chart by reusing
-    that chart's x-axis scale (passed as `x_scale`). Sub-plot data is
+    A subplot shares the x-axis of an accompanying price chart by reusing
+    that chart's x-axis scale (passed as `x_scale`). Subplot data is
     plotted against an independent linear y-axis that auto-scales to the
     data currently visible.
 
-    This class adds the following to those methods and attributes
-    documented for the base classes (refer to `Base` and `BaseSubsetDD`
-    for documentation of inherited methods and attributes).
+    This class adds the following parameters to those documented for the
+    base classes `Base` and `BaseSubsetDD`.
 
     Parameters
     ----------
     x_scale
         x-axis scale of the accompanying price chart. Reusing this scale
-        keeps the sub-plot's visible x-range in lock-step with the price
+        keeps the subplot's visible x-range in lock-step with the price
         chart (panning, zooming and interval changes propagate via the
         shared scale).
 
-    name
-        Sub-plot name, shown as the y-axis label.
-
     colors
-        Colors to apply to the sub-plot marks.
+        Colors to apply to the subplot marks.
 
     height
-        Height of the sub-plot figure, in pixels.
+        Height of the subplot figure, in pixels.
 
     ref_levels
         Values at which to plot horizontal reference lines. The y-axis is
         extended as required to ensure all reference levels are visible.
 
     y_tick_format
-        Format for the y-axis tick labels, as a d3-format specifier.
+        Format for the y-axis tick labels, as a d3-format specifier, for
+        example ".1%" -> 12.3%, i.e. multiply by 100 and state to 1 decimal
+        place.
 
     Notes
     -----
     Subclasses must implement `MarkCls` to return the bqplot Mark class
-    with which to plot the data (see `SubplotBars` and `SubplotLines`).
-
-    A subclass can set the `_anchor_zero` class attribute to True to
-    anchor the y-axis at zero (appropriate for bars).
+    with which to plot the data (see `SubplotBars` and `SubplotLines` as
+    examples).
     """
 
-    # %age to extend y-scale by beyond the visible data range.
+    # %age to extend y-scale by beyond the visible data range (NB that if there
+    # are no negative y values then y-scale will not be extended below zero).
     Y_AXIS_EXCESS = 0.05
-
-    # True to anchor the y-axis at zero when the visible data is positive.
-    _anchor_zero = False
 
     def __init__(
         self,
@@ -3218,7 +3212,6 @@ class BaseSubplot(BaseSubsetDD):
         title: str | None = None,
         visible_x_ticks: pd.Interval | None = None,
         max_ticks: int | None = None,
-        name: str | None = None,
         colors: Sequence[str] | None = None,
         height: int | None = None,
         ref_levels: Sequence[float] | None = None,
@@ -3227,13 +3220,10 @@ class BaseSubplot(BaseSubsetDD):
     ):
         # set before super().__init__ as required by chart creation
         self._x_scale_shared = x_scale
-        self._name = name
         self._colors = None if colors is None else list(colors)
         self._height = height
         self._ref_levels = [] if ref_levels is None else list(ref_levels)
         self._y_tick_format = y_tick_format
-        # bqplot Figure.title requires a string (the sub-plot name is shown
-        # as the y-axis label rather than as a figure title).
         super().__init__(
             data,
             "" if title is None else title,
@@ -3264,8 +3254,6 @@ class BaseSubplot(BaseSubsetDD):
         y_kwargs: dict[str, Any] = {"num_ticks": 4}
         if self._y_tick_format is not None:
             y_kwargs["tick_format"] = self._y_tick_format
-        if self._name is not None:
-            y_kwargs["label"] = self._name
         dflt_axes_kwargs: AxesKwargs = {"x": {"num_ticks": 6}, "y": y_kwargs}
         axes_kwargs = self._add_axes_kwargs(dflt_axes_kwargs, axes_kwargs)
         return super()._axes_kwargs(axes_kwargs, **general_kwargs)
@@ -3321,7 +3309,7 @@ class BaseSubplot(BaseSubsetDD):
             hi = max(hi, *self._ref_levels)
         rnge = (hi - lo) or abs(hi) or 1.0
         excess = rnge * self.Y_AXIS_EXCESS
-        if self._anchor_zero and lo >= 0:
+        if lo >= 0:
             self.scales["y"].min = 0.0
         else:
             self.scales["y"].min = lo - excess
@@ -3330,12 +3318,10 @@ class BaseSubplot(BaseSubsetDD):
 
 
 class SubplotBars(BaseSubplot):
-    """Sub-plot plotting data as bars (for example, volume).
+    """Subplot plotting data as bars (for example, volume).
 
     See `BaseSubplot` for documentation of methods and attributes.
     """
-
-    _anchor_zero = True
 
     @property
     def MarkCls(self) -> type[bq.Mark]:
@@ -3343,7 +3329,7 @@ class SubplotBars(BaseSubplot):
 
 
 class SubplotLines(BaseSubplot):
-    """Sub-plot plotting data as lines (for example, an oscillator).
+    """Subplot plotting data as lines.
 
     See `BaseSubplot` for documentation of methods and attributes.
     """
@@ -3353,7 +3339,8 @@ class SubplotLines(BaseSubplot):
         return bq.Lines
 
 
-# Map a `subplots.Subplot.kind` to the corresponding sub-plot chart class.
+# AIDEV-TODO: define keys as members of an Enum, `SubplotKind`, also defined here
+# Map a `subplots.Subplot.kind` to the corresponding subplot chart class.
 SUBPLOT_KINDS: dict[str, type[BaseSubplot]] = {
     "bars": SubplotBars,
     "lines": SubplotLines,

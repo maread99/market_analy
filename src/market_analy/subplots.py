@@ -1,25 +1,23 @@
-"""Specification of indicator sub-plots to accompany a price chart.
+"""Specification of indicator subplots to accompany a price chart.
 
-A "sub-plot" is a separate, customisable chart stacked beneath a price
+A "subplot" is a separate, customisable chart stacked beneath a price
 chart and sharing the price chart's x-axis (for example a classic volume
-pane). Multiple sub-plots can be shown simultaneously.
+pane). Multiple subplots can be shown simultaneously.
 
-This module defines:
+This module includes:
 
 `Subplot`:
-    A declarative, validated specification of a single sub-plot.
+    A declarative, validated specification to create a single subplot.
 
 `SUBPLOT_REGISTRY`:
-    Registry of named built-in sub-plots (currently only "volume").
+    Registry of named built-in subplots.
 
-`resolve_subplots`:
-    Resolve a sequence of sub-plot specifications, mapping any string to
-    the corresponding built-in.
-
-The actual charting of a sub-plot is undertaken by the sub-plot chart
-classes defined in `market_analy.charts` (resolved from `Subplot.kind`),
-whilst the stacking and coordination of sub-plots beneath a price chart
-is undertaken by the price GUIs defined in `market_analy.guis`.
+Notes
+-----
+The actual charting of a subplot is undertaken by the subplot chart
+classes defined in `market_analy.charts`, whilst the stacking and
+coordination of subplots within a gui is implemented within the `BasePrice`
+gui class defined in `market_analy.guis`.
 """
 
 from __future__ import annotations
@@ -31,25 +29,27 @@ from typing import Literal
 import pandas as pd
 from valimp import parse, parse_cls
 
-# A producer evaluates the data for a sub-plot from the price data on
+# A Data Creator evaluates the data for a subplot from the price data on
 # which the accompanying price chart is based.
-SubplotProducer = Callable[[pd.DataFrame], pd.Series | pd.DataFrame]
+SubplotDataCreator = Callable[[pd.DataFrame], pd.Series | pd.DataFrame]
 
+# AIDEV-TODO: no need to define this, just use the enum to be set up towards end of
+# the charts module...
 SubplotKind = Literal["bars", "lines"]
 
 
 @parse_cls
 @dataclass
 class Subplot:
-    """Specification of a single indicator sub-plot.
+    """Specification of a single indicator subplot.
 
-    A sub-plot is charted beneath a price chart, sharing the price
+    A subplot is charted beneath a price chart, sharing the price
     chart's x-axis.
 
     Parameters
     ----------
-    producer
-        Callable to evaluate the sub-plot data from the price data on
+    data_creator
+        Callable to evaluate the subplot data from the price data on
         which the accompanying price chart is based.
 
         The callable will receive the price data as a single positional
@@ -60,37 +60,38 @@ class Subplot:
         The callable must return a `pd.Series` (single set of values) or
         a `pd.DataFrame` (one column per set of values) indexed with the
         same index as the received price data. This requirement ensures
-        the sub-plot's x-ticks align with the shared x-axis.
+        the subplot's x-ticks align with the shared x-axis.
 
     kind
-        Type of mark with which to plot the sub-plot data:
+        # AIDEV-TODO: this should take a value of the new SubplotKind enum
+        Type of mark with which to plot the subplot data.
             "bars" - a bar for each value (for example, volume).
-            "lines" - a line through the values (for example, an
-            oscillator such as RSI or MACD).
+            "lines" - a line through the values.
 
-    name
-        Name of the sub-plot, shown as the sub-plot's y-axis label.
+    title
+        Name of the subplot, shown as the subplot's title.
 
     colors
-        Colors to apply to the sub-plot marks.
+        Colors to apply to the subplot marks.
 
     height
-        Height of the sub-plot, in pixels.
+        Height of the subplot, in pixels.
 
     ref_levels
-        Values at which to plot horizontal reference lines, for example
-        [30, 70] to plot reference lines for an oscillator. The sub-plot
+        Values at which to plot horizontal reference lines. The subplot
         y-axis will be extended as required to ensure all reference
         levels are visible.
 
     y_tick_format
-        Format for the sub-plot y-axis tick labels, as a d3-format
-        specifier (for example "~s" for SI-prefixed values).
+        Format for the subplot y-axis tick labels, as a d3-format
+        specifier (for example ".1%" -> 12.3%, i.e. multiply by 100 and
+        state to 1 decimal place, or ".1s" to format a number using SI
+        prefixes with one significant decimal place).
     """
 
-    producer: SubplotProducer
+    data_creator: SubplotDataCreator
     kind: SubplotKind = "lines"
-    name: str | None = None
+    title: str | None = None
     colors: Sequence[str] | None = None
     height: int = 140
     ref_levels: Sequence[float] | None = None
@@ -121,18 +122,18 @@ def _volume(prices: pd.DataFrame) -> pd.Series | pd.DataFrame:
 
 
 def _volume_subplot() -> Subplot:
-    """Built-in 'volume' sub-plot."""
+    """Built-in 'volume' subplot."""
     return Subplot(
-        producer=_volume,
+        data_creator=_volume,
         kind="bars",
-        name="Volume",
+        title="Volume",
         colors=["steelblue"],
         height=120,
-        y_tick_format="~s",
+        y_tick_format=".1s",
     )
 
 
-# Registry of named built-in sub-plots. Each value is a factory that
+# Registry of named built-in subplots. Each value is a factory that
 # returns a new `Subplot` instance. The registry is extensible: further
 # built-ins can be added without any change to the public API.
 SUBPLOT_REGISTRY: dict[str, Callable[[], Subplot]] = {
@@ -142,14 +143,14 @@ SUBPLOT_REGISTRY: dict[str, Callable[[], Subplot]] = {
 
 @parse
 def resolve_subplots(subplots: Sequence[str | Subplot]) -> list[Subplot]:
-    """Resolve a sequence of sub-plot specifications.
+    """Resolve a sequence of subplot specifications.
 
     Parameters
     ----------
     subplots
-        Sub-plot specifications. Each item can be either:
-            A `str` naming a built-in sub-plot (see `SUBPLOT_REGISTRY`).
-            A `Subplot` instance describing a custom sub-plot.
+        Subplot specifications. Each item can be either:
+            A `str` naming a built-in subplot (see `SUBPLOT_REGISTRY`).
+            A `Subplot` instance describing a custom subplot.
 
     Returns
     -------
@@ -159,7 +160,7 @@ def resolve_subplots(subplots: Sequence[str | Subplot]) -> list[Subplot]:
     Examples
     --------
     >>> resolved = resolve_subplots(["volume"])
-    >>> [(s.name, s.kind) for s in resolved]
+    >>> [(s.title, s.kind) for s in resolved]
     [('Volume', 'bars')]
     """
     resolved: list[Subplot] = []
@@ -170,7 +171,7 @@ def resolve_subplots(subplots: Sequence[str | Subplot]) -> list[Subplot]:
             except KeyError:
                 valid = sorted(SUBPLOT_REGISTRY)
                 raise ValueError(
-                    f"'{spec}' is not a valid built-in sub-plot. Valid"
+                    f"'{spec}' is not a valid built-in subplot. Valid"
                     f" options are {valid}."
                 ) from None
             resolved.append(factory())
