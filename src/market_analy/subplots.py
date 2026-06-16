@@ -128,7 +128,7 @@ def _volume_subplot() -> Subplot:
         kind="bars",
         title="Volume",
         colors=["steelblue"],
-        height=120,
+        height=140,
         y_tick_format=".1s",
     )
 

@@ -1093,16 +1093,11 @@ class BasePrice(BaseVariableDates):
             ref_levels=spec.ref_levels,
             y_tick_format=spec.y_tick_format,
         )
-        pane.figure.layout.margin = "0px -10px -10px 0"
+        pane.figure.layout.margin = "-10px -10px -10px 0"
         return pane
 
     def _create_subplots(self):
-        """Build subplot panes.
-
-        `_create_chart` (called for each pane) restores this gui's widget
-        capture on completion, so widgets created subsequently continue to
-        be tracked against `self._widgets` (no re-arming required here).
-        """
+        """Build subplot panes."""
         if not self._subplot_specs:
             return
         self._subplots = [self._build_subplot(spec) for spec in self._subplot_specs]

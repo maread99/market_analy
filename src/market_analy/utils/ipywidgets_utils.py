@@ -47,9 +47,13 @@ def capture_widgets(widgets: list[w.Widget]) -> Iterator[None]:
 
     On exit restores any callback that was registered with
     `ipywidgets.Widget.on_widget_constructed` before the context was
-    entered (rather than simply clearing it). This makes the context safe
-    to nest: an inner `capture_widgets` block resumes capturing to the
-    outer block's `widgets` on exit.
+    entered. This makes the context safe to nest (an outer context will
+    resume capturing after an inner block has exited).
+
+    Notes
+    -----
+    NOTE: Accesses a private `Widget` attribute to get any pre-exising
+    callback.
     """
     prior = w.Widget._widget_construction_callback  # noqa: SLF001
     w.Widget.on_widget_constructed(widgets.append)

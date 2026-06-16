@@ -68,8 +68,7 @@ from .cases import (
 
 COLOR_CHART_TEXT = "lightyellow"
 STYLE_CHART_TITLE = {"font-size": "20px", "fill": COLOR_CHART_TEXT}
-# smaller title for the compact subplot panes
-STYLE_SUBPLOT_TITLE = {"font-size": "14px", "fill": COLOR_CHART_TEXT}
+STYLE_SUBPLOT_TITLE = {"font-size": "16px", "fill": COLOR_CHART_TEXT}
 
 STYLE_TOOLTIP = {
     "opacity": 0.8,
@@ -3268,10 +3267,8 @@ class BaseSubplot(BaseSubsetDD):
     def _create_figure(self, **kwargs) -> bq.Figure:
         kwargs.setdefault("padding_x", 0.005)
         kwargs.setdefault("padding_y", 0.05)
-        # top margin sized to hold the title clear above the plot area so
-        # that the title cannot obscure plotted data.
         kwargs.setdefault(
-            "fig_margin", {"top": 28, "bottom": 30, "left": 60, "right": 60}
+            "fig_margin", {"top": 10, "bottom": 30, "left": 60, "right": 60}
         )
         kwargs.setdefault("title_style", STYLE_SUBPLOT_TITLE)
         kwargs.setdefault("interaction", None)
@@ -3314,10 +3311,7 @@ class BaseSubplot(BaseSubsetDD):
             hi = max(hi, *self._ref_levels)
         rnge = (hi - lo) or abs(hi) or 1.0
         excess = rnge * self.Y_AXIS_EXCESS
-        if lo >= 0:
-            self.scales["y"].min = 0.0
-        else:
-            self.scales["y"].min = lo - excess
+        self.scales["y"].min = min(0.0, lo - excess)
         self.scales["y"].max = hi + excess
         super().update_y_axis_presentation()
 
@@ -3342,7 +3336,7 @@ class SubplotBars(BaseSubplot):
         value = f"{int(y):,}" if float(y).is_integer() else f"{y:,.2f}"
         color = mark.colors[0] if mark.colors else "white"
         style = tooltip_html_style(color=color, line_height=1.3)
-        s = f"<p {style}>Date: " + formatter_datetime(self.x_ticks[i])
+        s = f"<p {style}>Bar: " + formatter_datetime(self.x_ticks[i])
         s += f"<br>{self.title or 'Value'}: {value}</p>"
         return s
 
