@@ -174,6 +174,15 @@ class TestGuiSubplots:
         assert len(pane.plotted_x_ticks) == n - 1  # first date excluded
         assert len(pane.mark.x) == len(pane.plotted_x_ticks)
 
+    def test_volume_tooltip_single_symbol(self, analy, pp):
+        """Hovering a volume bar shows its value, labelled by the title."""
+        gui = analy.plot(**pp, subplots=["volume"], display=False)
+        pane = gui._subplots[0]
+        y = float(pane.data.iloc[0])
+        html = pane._tooltip_value(pane.mark, {"data": {"index": 0, "y": y}})
+        assert "Volume:" in html
+        assert f"{int(y):,}" in html
+
     def test_close(self, analy, pp):
         """Closing the gui closes subplots without error."""
         gui = analy.plot(**pp, subplots=["volume"], display=False)
@@ -200,3 +209,16 @@ class TestGuiMultLineSubplots:
         assert list(pane.data.columns) == comp.symbols
         # volume bars share the main chart's per-symbol colors
         assert list(pane.mark.colors) == list(gui.chart.mark.colors)
+
+    def test_volume_tooltip_identifies_hovered_symbol(self, comp, pp):
+        """Hovering a stacked part shows that symbol's value, in its color."""
+        gui = comp.plot(**pp, subplots=["volume"], display=False)
+        pane = gui._subplots[0]
+        ci = 1  # the second symbol's part of the stack
+        html = pane._tooltip_value(pane.mark, {"data": {"index": 0, "colorIndex": ci}})
+        symbol = comp.symbols[ci]
+        color = list(gui.chart.mark.colors)[ci]
+        value = int(pane.data.iloc[0, ci])
+        assert symbol in html
+        assert f"{value:,}" in html
+        assert f"color: {color}" in html

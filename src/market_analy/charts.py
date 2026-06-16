@@ -3337,15 +3337,27 @@ class SubplotBars(BaseSubplot):
     def _tooltip_value(self, mark: bq.Bars, event: dict) -> str:
         """Show the date and value of the hovered bar.
 
+        For data covering multiple symbols (a stacked bar) the value and
+        symbol of the hovered part of the stack are shown, in the colour
+        of the corresponding symbol.
+
         See `Base._tooltip_value` for the hook's contract.
         """
         i = event["data"]["index"]
-        y = event["data"]["y"]
-        value = f"{int(y):,}" if float(y).is_integer() else f"{y:,.2f}"
-        color = mark.colors[0] if mark.colors else "white"
+        if isinstance(self.data, pd.DataFrame):
+            # multiple symbols: identify the hovered part of the stack
+            ci = event["data"]["colorIndex"]
+            label = str(self.data.columns[ci])
+            y = float(self.data.iloc[i, ci])
+            color = mark.colors[ci % len(mark.colors)] if mark.colors else "white"
+        else:
+            label = self.title or "Value"
+            y = float(event["data"]["y"])
+            color = mark.colors[0] if mark.colors else "white"
+        value = f"{int(y):,}" if y.is_integer() else f"{y:,.2f}"
         style = tooltip_html_style(color=color, line_height=1.3)
         s = f"<p {style}>Bar: " + formatter_datetime(self.x_ticks[i])
-        s += f"<br>{self.title or 'Value'}: {value}</p>"
+        s += f"<br>{label}: {value}</p>"
         return s
 
 

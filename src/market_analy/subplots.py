@@ -71,9 +71,6 @@ class Subplot:
     title
         Name of the subplot, shown as the subplot's title.
 
-    colors
-        Colors to apply to the subplot marks.
-
     height
         Height of the subplot, in pixels.
 
@@ -92,7 +89,6 @@ class Subplot:
     data_creator: SubplotDataCreator
     kind: Annotated[str | SubplotKind, Coerce(SubplotKind)] = SubplotKind.LINES
     title: str | None = None
-    colors: Sequence[str] | None = None
     height: int = 140
     ref_levels: Sequence[float] | None = None
     y_tick_format: str | None = None
@@ -127,7 +123,6 @@ def _volume_subplot() -> Subplot:
         data_creator=_volume,
         kind=SubplotKind.BARS,
         title="Volume",
-        colors=["steelblue"],
         height=140,
         y_tick_format=".1s",
     )
