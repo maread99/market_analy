@@ -68,7 +68,6 @@ import market_analy.utils.pandas_utils as upd
 from market_analy import analysis as ma_analysis
 from market_analy import charts, gui_parts
 from market_analy.standalone import get_pct_off_high
-from market_analy.subplots import Subplot, resolve_subplots
 from market_analy.utils.bq_utils import Crosshairs, FastIntervalSelectorDD
 from market_analy.utils.dict_utils import set_kwargs_from_dflt
 
@@ -710,7 +709,7 @@ class BasePrice(BaseVariableDates):
         log_scale: bool = True,
         display: bool = True,
         chart_kwargs: dict | None = None,
-        subplots: Sequence[str | Subplot] | None = None,
+        subplots: Sequence[str | type[charts.BaseSubplot]] | None = None,
         **kwargs,
     ):
         """Create GUI.
@@ -742,8 +741,8 @@ class BasePrice(BaseVariableDates):
             Indicator subplots to stack beneath the price chart, each
             sharing the price chart's x-axis. Each item can be either a
             `str` naming a built-in subplot (for example "volume") or a
-            `market_analy.subplots.Subplot` instance describing a custom
-            subplot. See `market_analy.subplots`.
+            subclass of `market_analy.charts.BaseSubplot` describing a
+            custom subplot. See `market_analy.charts`.
 
         **kwargs
             Period for which to plot prices. Passed as period parameters as
@@ -763,8 +762,10 @@ class BasePrice(BaseVariableDates):
         data, data2, _ = self._set_initial_data(analysis, ptinterval, kwargs)
 
         self._analysis = analysis
-        self._subplot_specs: list[Subplot] = (
-            [] if subplots is None else resolve_subplots(subplots)
+        self._subplot_classes: list[type[charts.BaseSubplot]] = (
+            []
+            if subplots is None
+            else [charts.resolve_subplot_class(spec) for spec in subplots]
         )
         self._subplots: list[charts.BaseSubplot] = []
         super().__init__(
@@ -1083,46 +1084,19 @@ class BasePrice(BaseVariableDates):
         self.tabs_control: gui_parts.TabsControl = self._create_tabs_control()
 
     # SUB-PLOTS
-    def _build_subplot(self, spec: Subplot) -> charts.BaseSubplot:
+    def _build_subplot(
+        self, subplot_cls: type[charts.BaseSubplot]
+    ) -> charts.BaseSubplot:
         """Build a single subplot pane sharing the price chart's x-axis."""
-        chart_cls = charts.SUBPLOT_KINDS[charts.SubplotKind(spec.kind)]
-        data = spec.data_creator(self._prices)
-        colors = (
-            spec.colors if spec.colors is not None else self._subplot_colors_dflt(data)
-        )
-        pane = chart_cls(
-            data,
-            x_scale=self.chart.scales["x"],
-            visible_x_ticks=self.chart.plotted_interval,
-            max_ticks=self.chart.max_ticks,
-            title=spec.title,
-            colors=colors,
-            height=spec.height,
-            ref_levels=spec.ref_levels,
-            y_tick_format=spec.y_tick_format,
-        )
+        pane = subplot_cls(self.chart, self._prices)
         pane.figure.layout.margin = "-10px -10px -10px 0"
         return pane
 
-    def _subplot_colors_dflt(self, data: pd.DataFrame | pd.Series) -> list[str] | None:
-        """Default colors for a subplot's mark(s).
-
-        For a subplot for multiple symbols, returns colors of the main
-        chart's marks, otherwise None (i.e. will take bqplot's default
-        color for the mark).
-        """
-        n_series = data.shape[1] if isinstance(data, pd.DataFrame) else 1
-        if n_series > 1:
-            main_colors = self.chart.mark.colors
-            if main_colors:
-                return list(main_colors)
-        return None
-
     def _create_subplots(self):
         """Build subplot panes."""
-        if not self._subplot_specs:
+        if not self._subplot_classes:
             return
-        self._subplots = [self._build_subplot(spec) for spec in self._subplot_specs]
+        self._subplots = [self._build_subplot(cls) for cls in self._subplot_classes]
         # show x-tick labels on the bottom-most pane only.
         self.chart.set_x_labels_visible(False)
         for pane in self._subplots[:-1]:
@@ -1131,8 +1105,8 @@ class BasePrice(BaseVariableDates):
 
     def _update_subplots(self, prices: pd.DataFrame):
         """Recompute and update each subplot for new price data."""
-        for pane, spec in zip(self._subplots, self._subplot_specs, strict=True):
-            pane.update(spec.data_creator(prices))
+        for pane in self._subplots:
+            pane.update(pane.data_create(prices))
 
     def _update_chart(  # type: ignore[override]
         self,

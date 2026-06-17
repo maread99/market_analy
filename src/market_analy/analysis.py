@@ -109,7 +109,7 @@ if TYPE_CHECKING:
     import matplotlib as mpl
     from pandas.io.formats.style import Styler
 
-    from market_analy.subplots import Subplot
+    from market_analy import charts
 
     from .trends import TrendsProto
     from .trends.movements import MovementsSupportChartAnaly
@@ -816,7 +816,7 @@ class Analysis(Base):
         chart_type: Literal["line", "candle"] = "candle",
         max_ticks: int | None = None,
         log_scale: bool = True,
-        subplots: Sequence[str | Subplot] | None = None,
+        subplots: Sequence[str | type[charts.BaseSubplot]] | None = None,
         **kwargs,
     ) -> guis.GuiOHLC | guis.GuiLine | mpl.artist.Artist:
         """Chart prices over specified period.
@@ -848,9 +848,9 @@ class Analysis(Base):
             Indicator subplots to stack beneath the price chart, each
             sharing the price chart's x-axis. Each item can be either a
             `str` naming a built-in subplot (for example "volume") or a
-            `market_analy.subplots.Subplot` instance describing a custom
-            subplot. Only implemented if `engine` is "bqplot". See
-            `market_analy.subplots`.
+            subclass of `market_analy.charts.BaseSubplot` describing a
+            custom subplot. Only implemented if `engine` is "bqplot". See
+            `market_analy.charts`.
 
         **kwargs:
             Parameters to define period / price data to be analysed. See

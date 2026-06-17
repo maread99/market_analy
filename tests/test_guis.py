@@ -1,30 +1,24 @@
-"""Tests for `guis` modules."""
+"""Tests for `guis` module.
+
+These tests exercise the wiring of subplots into a price chart gui. The
+subplot chart classes themselves are tested directly in `test_charts`.
+"""
 
 import pandas as pd
 import pytest
 
 from market_analy import analysis, charts
-from market_analy.subplots import Subplot, SubplotKind, _volume, resolve_subplots
-from market_analy.utils.maths_utils import discretize_range_nicely
 
 # TODO: tests are extremely incomplete!
 
 
-@pytest.fixture
-def subplot_bar() -> list[Subplot]:
-    """Value for `subplots` arg of .plot containing a single `SubplotBar`.
+class _SubplotClose(charts.SubplotLines):
+    """Lines subplot of close price (used as a custom subplot in tests)."""
 
-    Contains an instance of the builtin `SubplotBar` for "volume".
-    """
-    subplots = resolve_subplots(["volume"])
-    assert len(subplots) == 1
-    assert subplots[0].kind is SubplotKind.BARS
-    return subplots
+    TITLE = "Close"
 
-
-def _close(prices: pd.DataFrame) -> pd.Series:
-    """DataCreator returning close price as a single series."""
-    return prices.xs("close", axis=1, level=-1).iloc[:, 0].rename("close")
+    def data_create(self, prices):
+        return prices.xs("close", axis=1, level=-1).iloc[:, 0].rename("close")
 
 
 class TestGuiSubplots:
@@ -46,12 +40,25 @@ class TestGuiSubplots:
         # x-tick labels remain visible on the price chart
         assert "display" not in gui.chart.axes[0].tick_style
 
+    def test_subplots_alias(self, analy, pp):
+        """A `str` alias resolves to the associated subplot class."""
+        gui = analy.plot(**pp, subplots=["volume"], display=False)
+        assert len(gui.subplots) == 1
+        assert isinstance(gui.subplots[0], charts.SubplotVolume)
+
+    def test_subplots_class(self, analy, pp):
+        """A `BaseSubplot` subclass can be passed directly."""
+        gui = analy.plot(**pp, subplots=[charts.SubplotVolume], display=False)
+        assert isinstance(gui.subplots[0], charts.SubplotVolume)
+
+    def test_unknown_subplot_raises(self, analy, pp):
+        with pytest.raises(ValueError, match="not a valid built-in subplot"):
+            analy.plot(**pp, subplots=["not_a_subplot"], display=False)
+
     def test_subplots_shared_scale(self, analy, pp):
         """Subplot reuses the price chart's x-axis scale."""
         gui = analy.plot(**pp, subplots=["volume"], display=False)
-        assert len(gui.subplots) == 1
         pane = gui.subplots[0]
-        assert isinstance(pane, charts.SubplotBars)
         assert pane.scales["x"] is gui.chart.scales["x"]
         assert pane.x_ticks.equals(gui.chart.x_ticks)
 
@@ -65,19 +72,18 @@ class TestGuiSubplots:
         assert i_chart < i_pane < i_slider
 
     def test_subplots_data(self, analy, pp):
-        """Subplot data reflects the data_creator output."""
+        """Subplot data is evaluated from the gui's full price data."""
         gui = analy.plot(**pp, subplots=["volume"], display=False)
         pane = gui.subplots[0]
-        expected = _volume(gui.prices)
+        expected = gui.prices.xs("volume", axis=1, level=-1).iloc[:, 0]
         assert (pane.data.values == expected.values).all()
 
     def test_subplots_multiple_ordered(self, analy, pp):
         """Multiple subplots stack, in order, all sharing the x scale."""
-        custom = Subplot(data_creator=_close, kind="lines", title="Close")
-        gui = analy.plot(**pp, subplots=["volume", custom], display=False)
+        gui = analy.plot(**pp, subplots=["volume", _SubplotClose], display=False)
         assert len(gui.subplots) == 2
-        assert isinstance(gui.subplots[0], charts.SubplotBars)
-        assert isinstance(gui.subplots[1], charts.SubplotLines)
+        assert isinstance(gui.subplots[0], charts.SubplotVolume)
+        assert isinstance(gui.subplots[1], _SubplotClose)
         scale = gui.chart.scales["x"]
         assert all(sp.scales["x"] is scale for sp in gui.subplots)
         contents = gui._gui_box_contents
@@ -87,8 +93,7 @@ class TestGuiSubplots:
 
     def test_x_label_policy(self, analy, pp):
         """X-tick labels show only on the bottom-most pane."""
-        custom = Subplot(data_creator=_close, kind="lines", title="Close")
-        gui = analy.plot(**pp, subplots=["volume", custom], display=False)
+        gui = analy.plot(**pp, subplots=["volume", _SubplotClose], display=False)
         assert gui.chart.axes[0].tick_style.get("display") == "none"
         assert gui.subplots[0].axes[0].tick_style.get("display") == "none"
         assert "display" not in (gui.subplots[-1].axes[0].tick_style or {})
@@ -107,8 +112,8 @@ class TestGuiSubplots:
         gui = analy.plot(**pp, subplots=["volume"], display=False)
         pane = gui.subplots[0]
         new_prices = gui.prices * 2
+        expected = pane.data_create(new_prices)
         gui._update_subplots(new_prices)
-        expected = _volume(new_prices)
         assert (pane.data.values == expected.values).all()
 
     def test_update_chart_funnel_refreshes_subplots(self, analy, pp):
@@ -116,95 +121,21 @@ class TestGuiSubplots:
         gui = analy.plot(**pp, subplots=["volume"], display=False)
         pane = gui.subplots[0]
         new_prices = gui.prices * 2
+        expected = pane.data_create(new_prices)
         data, data2 = gui._prices_to_chart_data(new_prices)
         gui._update_chart(data, data2, prices=new_prices)
-        expected = _volume(new_prices)
         assert (pane.data.values == expected.values).all()
 
     def test_reset_chart_resets_subplots(self, analy, pp):
         """Resetting the chart resets subplot."""
         gui = analy.plot(**pp, subplots=["volume"], display=False)
         pane = gui.subplots[0]
-        expected = _volume(gui.prices)
+        expected = pane.data_create(gui.prices)
         new_prices = gui.prices * 2
         data, data2 = gui._prices_to_chart_data(new_prices)
         gui._update_chart(data, data2, prices=new_prices)
         gui._reset_chart()
         assert (pane.data.values == expected.values).all()
-
-    def test_ref_levels_add_marks(self, analy, pp):
-        """A subplot with `ref_levels` adds persistent reference marks."""
-        custom = Subplot(
-            data_creator=_close, kind="lines", title="Close", ref_levels=[1.0]
-        )
-        gui = analy.plot(**pp, subplots=[custom], display=False)
-        pane = gui.subplots[0]
-        assert len(pane.added_marks[charts.Groups.PERSIST]) == 1
-
-    def test_volume_y_axis_min_non_negative(self, analy, pp):
-        """Volume subplot y-axis min is below the lowest bar but never < 0."""
-        gui = analy.plot(**pp, subplots=["volume"], display=False)
-        pane = gui.subplots[0]
-        y_min = pane.scales["y"].min
-        lo = float(pane._plotted_y.values.min())
-        assert y_min >= 0
-        assert y_min <= lo
-        # the figure must not pad the y-scale beyond the set min/max (else
-        # the rendered axis can extend below zero given the bar baseline at 0)
-        assert pane.scales["y"].allow_padding is False
-
-    def test_volume_y_axis_ticks_are_nice(self, analy, pp):
-        """Y-axis ticks are round, equally spaced values within the range."""
-        gui = analy.plot(**pp, subplots=["volume"], display=False)
-        pane = gui.subplots[0]
-        ticks = list(pane.axes[1].tick_values)
-        scale = pane.scales["y"]
-        assert ticks == pytest.approx(discretize_range_nicely(scale.min, scale.max))
-        # within the axis range
-        assert scale.min <= min(ticks)
-        assert scale.max >= max(ticks)
-
-    def test_line_subplot_reflects_plotted(self, analy, pp):
-        """Line subplot mark data tracks the plotted window.
-
-        (So the line keeps rendering when the first date is excluded.)
-        """
-        custom = Subplot(data_creator=_close, kind="lines", title="Close")
-        gui = analy.plot(**pp, subplots=[custom], display=False)
-        pane = gui.subplots[0]
-        assert pane._update_mark_data_attr_to_reflect_plotted is True
-        x_ticks = gui.chart.x_ticks
-        # narrow the window so the first date is excluded
-        gui.chart.plotted_x_ticks = pd.Interval(x_ticks[1], x_ticks[-1], closed="left")
-        assert pane.plotted_x_ticks[0] == x_ticks[1]
-        assert len(pane.mark.x) == len(pane.plotted_x_ticks)
-        assert len(pane.mark.y) == len(pane.mark.x)
-
-    def test_line_subplot_reflects_plotted_at_init(self, analy, pp):
-        """Verify displayed subplot bars when initial chart exclude first bar.
-
-        A line subplot whose initial window excludes the first bar should
-        have it's mark reflect the plotted window from the outset.
-        """
-        x_ticks = analy.plot(**pp, display=False).chart.x_ticks
-        n = len(x_ticks)
-        custom = Subplot(data_creator=_close, kind="lines", title="Close")
-        gui = analy.plot(**pp, subplots=[custom], max_ticks=n - 1, display=False)
-        pane = gui.subplots[0]
-        assert pane.plotted_x_ticks[0] != x_ticks[0]
-        assert pane.plotted_x_ticks[0] == x_ticks[1]
-        assert len(pane.plotted_x_ticks) == n - 1  # first date excluded
-        assert len(pane.mark.x) == len(pane.plotted_x_ticks)
-
-    def test_bar_tooltip(self, analy, pp, subplot_bar):
-        """Hovering a bar shows its value, labelled by the title."""
-        gui = analy.plot(**pp, subplots=subplot_bar, display=False)
-        pane = gui.subplots[0]
-        y = float(pane.data.iloc[0])
-        html = pane._tooltip_value(pane.mark, {"data": {"index": 0, "y": y}})
-        assert "Bar:" in html
-        assert f"{subplot_bar[0].title.title()}:" in html
-        assert f"{int(y):,}" in html
 
     def test_close(self, analy, pp):
         """Closing the gui closes subplots without error."""
@@ -213,7 +144,11 @@ class TestGuiSubplots:
 
 
 class TestGuiMultLineSubplots:
-    """Tests for subplots beneath a multi-symbol (Compare) price chart."""
+    """Tests for subplots beneath a multi-symbol (Compare) price chart.
+
+    These verify the full price data (which the rebased close-only chart
+    does not itself carry) reaches the subplot's `data_create`.
+    """
 
     @pytest.fixture
     def comp(self, prices_compare) -> analysis.Compare:
@@ -223,64 +158,22 @@ class TestGuiMultLineSubplots:
     def pp(self) -> dict:
         return {"start": pd.Timestamp("2023-01-06"), "end": pd.Timestamp("2023-01-10")}
 
-    def test_bar_colors_match_price_lines(self, comp, pp, subplot_bar):
-        """Bar part corresponding to symbol takes symbol's price-line color."""
-        gui = comp.plot(**pp, subplots=subplot_bar, display=False)
+    def test_volume_data_per_symbol(self, comp, pp):
+        """Multi-symbol volume is evaluated from the full price data."""
+        gui = comp.plot(**pp, subplots=["volume"], display=False)
         pane = gui.subplots[0]
-        # one volume series per symbol, in symbol (and price-line) order
         assert isinstance(pane.data, pd.DataFrame)
         assert list(pane.data.columns) == comp.symbols
-        # volume bars share the main chart's per-symbol colors
+        expected = gui.prices.xs("volume", axis=1, level=-1)
+        assert (pane.data.values == expected.values).all()
+
+    def test_bar_colors_match_price_lines(self, comp, pp):
+        """Volume bars take the main chart's per-symbol price-line colors."""
+        gui = comp.plot(**pp, subplots=["volume"], display=False)
+        pane = gui.subplots[0]
         assert list(pane.mark.colors) == list(gui.chart.mark.colors)
 
-    def test_bars_tooltip_identifies_hovered_symbol(self, comp, pp, subplot_bar):
-        """Stacked-bar tooltip: bar, total, and hovered symbol lines.
-
-        The bar and total lines take a common color; only the symbol
-        line takes the hovered symbol's color.
-        """
-        gui = comp.plot(**pp, subplots=subplot_bar, display=False)
-        pane = gui.subplots[0]
-        i = 0  # the first row
-        ci = 1  # the second symbol's part of the stack
-        html = pane._tooltip_value(pane.mark, {"data": {"index": 0, "colorIndex": ci}})
-        symbol = comp.symbols[ci]
-        color = list(gui.chart.mark.colors)[ci]
-        value = int(pane.data.iloc[i, ci])
-        total = int(pane.data.iloc[i].sum())
-        dflt_color = charts.SubplotBars.TOOLTIP_TEXT_COLOR
-        ts_line, total_line, symbol_line = html.split("<br>")
-        # the timestamp (bar) line takes the dflt color, not the symbol's color
-        assert f"color: {dflt_color}" in ts_line
-        assert color not in ts_line
-        # the total line shows the total, in the dflt color
-        assert f"Value: {total:,}" in total_line
-        assert f"color: {dflt_color}" in total_line
-        assert color not in total_line
-        # the symbol line shows the symbol and value, in the symbol's color
-        assert symbol in symbol_line
-        assert f"{value:,}" in symbol_line
-        assert f"color: {color}" in symbol_line
-        assert dflt_color not in symbol_line
-
-    def test_subplotbars_y_axis_spans_stacked_totals(self, comp, pp, subplot_bar):
-        """The y-axis spans the stacked bars totals (sum across symbols)."""
-        gui = comp.plot(**pp, subplots=subplot_bar, display=False)
-        pane = gui.subplots[0]
-        stacked_totals = pane._plotted_y.sum(axis=1)
-        # the extent considered is the per-bar stacked total, not each part
-        assert list(pane._plotted_y_extent()) == pytest.approx(list(stacked_totals))
-        assert pane.scales["y"].max >= float(stacked_totals.max())
-        assert pane.scales["y"].min <= float(stacked_totals.min())
-
-    def test_subplotbars_y_axis_min_is_zero(self, comp, pp, subplot_bar):
+    def test_y_axis_min_is_zero(self, comp, pp):
         """Multi-symbol y-axis anchors at zero (full stack in view)."""
-        gui = comp.plot(**pp, subplots=subplot_bar, display=False)
+        gui = comp.plot(**pp, subplots=["volume"], display=False)
         assert gui.subplots[0].scales["y"].min == 0
-
-    def test_spec_colors_override_auto_match(self, comp, pp):
-        """Explicit `Subplot.colors` take precedence over the default."""
-        colors = ["red", "lime", "cyan"]
-        custom = Subplot(data_creator=_volume, kind="bars", title="Vol", colors=colors)
-        gui = comp.plot(**pp, subplots=[custom], display=False)
-        assert list(gui.subplots[0].mark.colors) == colors
