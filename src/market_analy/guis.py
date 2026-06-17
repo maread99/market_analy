@@ -779,6 +779,10 @@ class BasePrice(BaseVariableDates):
         self.chart.set_drawdown_presentation()
 
     @property
+    def subplots(self) -> list[charts.BaseSubplot]:
+        return self._subplots
+
+    @property
     def SelectorCls(self) -> type[FastIntervalSelectorDD]:
         return FastIntervalSelectorDD
 
@@ -1083,13 +1087,16 @@ class BasePrice(BaseVariableDates):
         """Build a single subplot pane sharing the price chart's x-axis."""
         chart_cls = charts.SUBPLOT_KINDS[charts.SubplotKind(spec.kind)]
         data = spec.data_creator(self._prices)
+        colors = (
+            spec.colors if spec.colors is not None else self._subplot_colors_dflt(data)
+        )
         pane = chart_cls(
             data,
             x_scale=self.chart.scales["x"],
             visible_x_ticks=self.chart.plotted_interval,
             max_ticks=self.chart.max_ticks,
             title=spec.title,
-            colors=self._subplot_colors(spec, data),
+            colors=colors,
             height=spec.height,
             ref_levels=spec.ref_levels,
             y_tick_format=spec.y_tick_format,
@@ -1097,19 +1104,13 @@ class BasePrice(BaseVariableDates):
         pane.figure.layout.margin = "-10px -10px -10px 0"
         return pane
 
-    def _subplot_colors(
-        self, spec: Subplot, data: pd.DataFrame | pd.Series
-    ) -> Sequence[str] | None:
-        """Colors for a subplot's marks.
+    def _subplot_colors_dflt(self, data: pd.DataFrame | pd.Series) -> list[str] | None:
+        """Default colors for a subplot's mark(s).
 
-        Any `colors` defined on `spec` are used. Otherwise, for a subplot
-        that plots one series per symbol (multiple symbols), the colors of
-        the main chart's marks are returned so that each series is coloured
-        to match the corresponding symbol on the main chart. For a
-        single-series subplot None is returned (the mark's default color).
+        For a subplot for multiple symbols, returns colors of the main
+        chart's marks, otherwise None (i.e. will take bqplot's default
+        color for the mark).
         """
-        if spec.colors is not None:
-            return spec.colors
         n_series = data.shape[1] if isinstance(data, pd.DataFrame) else 1
         if n_series > 1:
             main_colors = self.chart.mark.colors

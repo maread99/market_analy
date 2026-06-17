@@ -72,10 +72,9 @@ class Subplot:
         Name of the subplot, shown as the subplot's title.
 
     colors
-        Colors to apply to the subplot marks. If None then, for a subplot
-        of multiple symbols, the colors of the main chart's marks are used
-        so that each series matches the corresponding symbol on the main
-        chart.
+        Colors to apply to the subplot marks. By default, if subplot of
+        multiple symbols then the colors of the main chart's marks,
+        otherwise bqplot's default color.
 
     height
         Height of the subplot, in pixels.

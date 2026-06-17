@@ -57,7 +57,7 @@ import market_analy.utils.ipywidgets_utils as wu
 import market_analy.utils.pandas_utils as upd
 from market_analy.formatters import FORMATTERS, formatter_datetime
 from market_analy.utils.dict_utils import set_kwargs_from_dflt
-from market_analy.utils.maths_utils import nice_ticks
+from market_analy.utils.maths_utils import discretize_range_nicely
 
 from .cases import (
     CasesSupportsChartAnaly,
@@ -3203,6 +3203,9 @@ class BaseSubplot(BaseSubsetDD):
     examples).
     """
 
+    # dflt color that subclasses should use for tootip text
+    TOOLTIP_TEXT_COLOR = "white"
+
     # %age to extend y-scale by beyond the visible data range (NB that if there
     # are no negative y values then y-scale will not be extended below zero).
     Y_AXIS_EXCESS = 0.05
@@ -3261,9 +3264,6 @@ class BaseSubplot(BaseSubsetDD):
     def _axes_kwargs(
         self, axes_kwargs: AxesKwargs | None = None, **general_kwargs
     ) -> AxesKwargs:
-        # tick positions are set explicitly (to 'nice' round values) by
-        # `update_y_axis_presentation`; `num_ticks` is not used as it places
-        # ticks at evenly-spaced (non-round) positions.
         y_kwargs: dict[str, Any] = {}
         if self._y_tick_format is not None:
             y_kwargs["tick_format"] = self._y_tick_format
@@ -3310,24 +3310,51 @@ class BaseSubplot(BaseSubsetDD):
         ]
         self.add_marks(marks, Groups.PERSIST, under=True)
 
+    @property
+    def plots_multiple_symbols(self) -> bool:
+        """Query if subplot plots multiple symbols.
+
+        NOTE: implementation assumes plots multiple symbols if `data` is
+        a pd.DataFrame.
+        """
+        return isinstance(self.data, pd.DataFrame)
+
     # PRESENTATION
     def _plotted_y_extent(self) -> np.ndarray:
         """Values that the plotted y-axis range must accommodate.
 
-        Returns a 1d array of values that the y-axis range must span. By
-        default every plotted value (so that, for example, each line of a
-        multi-line subplot is shown in full).
+        Returns a 1d array of values that should all be included within the
+        the range of the y-axis range. By default every plotted value.
+
+        Notes
+        -----
+        Subclass can override, in which case subclass should document the
+        reason for requiring a different implementation.
         """
         return np.asarray(self._plotted_y.values, dtype="float64").ravel()
 
-    def _y_axis_min(self, lo: float, excess: float) -> float:
-        """Lower limit for the y-axis.
+    def _y_axis_min(self, lo: float, margin: float) -> float:
+        """Lower y-axis limit.
 
-        The minimum sits marginally below the lowest displayed value,
-        albeit never below zero when the displayed values are
-        non-negative.
+        Returns y-axis min as the `lo` less a `margin`, albeit whilst
+        ensuring that y-axis never covers negative values when all values
+        are positive.
+
+        Parameters
+        ----------
+        lo
+            Lowest value plotted against the y-axis.
+
+        margin
+            Any margin to provide between `lo` and the lowest value to be
+            covered by the y-axis.
+
+        Notes
+        -----
+        Subclass can override, in which case subclass should document the
+        reason for requiring a different implementation.
         """
-        return max(0.0, lo - excess) if lo >= 0 else lo - excess
+        return max(0.0, lo - margin) if lo >= 0 else lo - margin
 
     def update_y_axis_presentation(self):
         plotted = self._plotted_y_extent()
@@ -3345,8 +3372,7 @@ class BaseSubplot(BaseSubsetDD):
         y_max = hi + excess
         self.scales["y"].min = y_min
         self.scales["y"].max = y_max
-        # place ticks at 'nice' round values within the axis range
-        self.axes[1].tick_values = nice_ticks(y_min, y_max)
+        self.axes[1].tick_values = discretize_range_nicely(y_min, y_max)
         super().update_y_axis_presentation()
 
 
@@ -3355,9 +3381,6 @@ class SubplotBars(BaseSubplot):
 
     See `BaseSubplot` for documentation of methods and attributes.
     """
-
-    # color of the tooltip's 'bar' (date) line, common to all symbols
-    TOOLTIP_BAR_COLOR = "white"
 
     @property
     def MarkCls(self) -> type[bq.Mark]:
@@ -3370,51 +3393,50 @@ class SubplotBars(BaseSubplot):
         y-axis must accommodate the sum of all parts of each stacked bar
         (not merely the value of each individual part).
         """
-        if isinstance(self.data, pd.DataFrame):
+        if self.plots_multiple_symbols:
             return np.asarray(self._plotted_y.sum(axis=1), dtype="float64")
         return super()._plotted_y_extent()
 
     def _y_axis_min(self, lo: float, excess: float) -> float:
-        """Anchor the y-axis at zero for stacked (multi-symbol) bars.
+        """Min of y_axis range.
 
-        The bars are stacked from a baseline of zero, so a minimum above
-        zero would clip a whole part of each stacked bar from view.
+        Anchors at zero for stacked (multi-symbol) bars in order that all
+        parts of all bars are visible.
         """
-        if isinstance(self.data, pd.DataFrame):
+        if self.plots_multiple_symbols:
             return 0.0
         return super()._y_axis_min(lo, excess)
 
     @staticmethod
     def _format_value(y: float) -> str:
-        """Format a bar value with thousands separators."""
+        """Format a value with thousands separators."""
         return f"{int(y):,}" if y.is_integer() else f"{y:,.2f}"
 
     def _tooltip_value(self, mark: bq.Bars, event: dict) -> str:
-        """Show the date and value of the hovered bar.
+        """Show data for hovered bar.
 
         For data covering multiple symbols (a stacked bar) the tooltip
-        also shows the total value over all symbols and identifies the
-        hovered part of the stack (shown in the colour of the
-        corresponding symbol).
+        includes the total value over all symbols and separately the value
+        corresponding with just the hovered part of the stack (shown in the
+        colour of the corresponding symbol).
 
         See `Base._tooltip_value` for the hook's contract.
         """
         i = event["data"]["index"]
-        # the 'bar' (date) line and total line take a common colour; the
-        # symbol/value line takes the colour of the hovered part of the stack.
-        bar_style = tooltip_html_style(color=self.TOOLTIP_BAR_COLOR, line_height=1.3)
-        s = f"<p {bar_style}>Bar: " + formatter_datetime(self.x_ticks[i])
-        if isinstance(self.data, pd.DataFrame):
-            # multiple symbols: total over the stack, then the hovered part
-            total = float(self.data.iloc[i].sum())
-            s += f"<br><span {bar_style}>value: {self._format_value(total)}</span>"
+        style = tooltip_html_style(color=self.TOOLTIP_TEXT_COLOR, line_height=1.3)
+        s = f"<p {style}>Bar: " + formatter_datetime(self.x_ticks[i])
+        if self.plots_multiple_symbols:
+            row = self.data.iloc[i]
+            total = float(row.sum())
+            s += f"<br><span {style}>Value: {self._format_value(total)}</span>"
             ci = event["data"]["colorIndex"]
             label = str(self.data.columns[ci])
-            y = float(self.data.iloc[i, ci])
+            y = float(row.iloc[ci])
+            # the symbol/value line to default to color of hovered part of the stack
             color = mark.colors[ci % len(mark.colors)] if mark.colors else "white"
         else:
             label = self.title or "Value"
-            y = float(event["data"]["y"])
+            y = self.data.iloc[i]
             color = mark.colors[0] if mark.colors else "white"
         label_style = tooltip_html_style(color=color, line_height=1.3)
         s += f"<br><span {label_style}>{label}: {self._format_value(y)}</span></p>"
