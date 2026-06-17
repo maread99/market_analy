@@ -3376,18 +3376,30 @@ class SubplotBars(BaseSubplot):
             return 0.0
         return super()._y_axis_min(lo, excess)
 
+    @staticmethod
+    def _format_value(y: float) -> str:
+        """Format a bar value with thousands separators."""
+        return f"{int(y):,}" if y.is_integer() else f"{y:,.2f}"
+
     def _tooltip_value(self, mark: bq.Bars, event: dict) -> str:
         """Show the date and value of the hovered bar.
 
-        For data covering multiple symbols (a stacked bar) the value and
-        symbol of the hovered part of the stack are shown, in the colour
-        of the corresponding symbol.
+        For data covering multiple symbols (a stacked bar) the tooltip
+        also shows the total value over all symbols and identifies the
+        hovered part of the stack (shown in the colour of the
+        corresponding symbol).
 
         See `Base._tooltip_value` for the hook's contract.
         """
         i = event["data"]["index"]
+        # the 'bar' (date) line and total line take a common colour; the
+        # symbol/value line takes the colour of the hovered part of the stack.
+        bar_style = tooltip_html_style(color=self.TOOLTIP_BAR_COLOR, line_height=1.3)
+        s = f"<p {bar_style}>Bar: " + formatter_datetime(self.x_ticks[i])
         if isinstance(self.data, pd.DataFrame):
-            # multiple symbols: identify the hovered part of the stack
+            # multiple symbols: total over the stack, then the hovered part
+            total = float(self.data.iloc[i].sum())
+            s += f"<br><span {bar_style}>value: {self._format_value(total)}</span>"
             ci = event["data"]["colorIndex"]
             label = str(self.data.columns[ci])
             y = float(self.data.iloc[i, ci])
@@ -3396,13 +3408,8 @@ class SubplotBars(BaseSubplot):
             label = self.title or "Value"
             y = float(event["data"]["y"])
             color = mark.colors[0] if mark.colors else "white"
-        value = f"{int(y):,}" if y.is_integer() else f"{y:,.2f}"
-        # the 'bar' (date) line takes a common colour; the symbol/value line
-        # takes the colour of the hovered part of the stack.
-        bar_style = tooltip_html_style(color=self.TOOLTIP_BAR_COLOR, line_height=1.3)
         label_style = tooltip_html_style(color=color, line_height=1.3)
-        s = f"<p {bar_style}>Bar: " + formatter_datetime(self.x_ticks[i])
-        s += f"<br><span {label_style}>{label}: {value}</span></p>"
+        s += f"<br><span {label_style}>{label}: {self._format_value(y)}</span></p>"
         return s
 
 

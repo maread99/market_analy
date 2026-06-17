@@ -211,10 +211,10 @@ class TestGuiMultLineSubplots:
         assert list(pane.mark.colors) == list(gui.chart.mark.colors)
 
     def test_volume_tooltip_identifies_hovered_symbol(self, comp, pp):
-        """Hovering a stacked part shows that symbol's value, in its color.
+        """Stacked-bar tooltip: date, total, and hovered symbol lines.
 
-        The 'bar' (date) line takes a common color; only the symbol line
-        takes the hovered symbol's color.
+        The date and total lines take a common color; only the symbol
+        line takes the hovered symbol's color.
         """
         gui = comp.plot(**pp, subplots=["volume"], display=False)
         pane = gui._subplots[0]
@@ -223,10 +223,15 @@ class TestGuiMultLineSubplots:
         symbol = comp.symbols[ci]
         color = list(gui.chart.mark.colors)[ci]
         value = int(pane.data.iloc[0, ci])
-        bar_line, symbol_line = html.split("<br>")
+        total = int(pane.data.iloc[0].sum())
+        bar_color = charts.SubplotBars.TOOLTIP_BAR_COLOR
+        bar_line, total_line, symbol_line = html.split("<br>")
         # the date line takes the common bar color, not the symbol's color
-        assert f"color: {charts.SubplotBars.TOOLTIP_BAR_COLOR}" in bar_line
+        assert f"color: {bar_color}" in bar_line
         assert color not in bar_line
+        # the total line (between the others) shows the total, in the bar color
+        assert f"value: {total:,}" in total_line
+        assert f"color: {bar_color}" in total_line
         # the symbol line shows the symbol and value, in the symbol's color
         assert symbol in symbol_line
         assert f"{value:,}" in symbol_line
