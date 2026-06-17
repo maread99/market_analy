@@ -2,7 +2,7 @@
 #    uv export --format requirements-txt --no-emit-project --no-hashes --no-dev -o requirements.txt
 asttokens==3.0.1
     # via stack-data
-beautifulsoup4==4.14.3
+beautifulsoup4==4.15.0
     # via yahooquery
 bqplot==0.13.1
     # via market-analy
@@ -42,11 +42,11 @@ executing==2.2.1
     # via stack-data
 fonttools==4.63.0
     # via matplotlib
-idna==3.16
+idna==3.18
     # via requests
 ipython==8.39.0 ; python_full_version < '3.11'
     # via ipywidgets
-ipython==9.13.0 ; python_full_version >= '3.11'
+ipython==9.14.1 ; python_full_version >= '3.11'
     # via ipywidgets
 ipython-pygments-lexers==1.1.1 ; python_full_version >= '3.11'
     # via ipython
@@ -74,11 +74,13 @@ lxml==6.1.1
     # via yahooquery
 markdown-it-py==4.2.0
     # via rich
-market-prices==0.12.13
+market-prices==0.12.14
     # via market-analy
 markupsafe==3.0.3
     # via jinja2
-matplotlib==3.10.9
+matplotlib==3.10.9 ; python_full_version < '3.11'
+    # via market-analy
+matplotlib==3.11.0 ; python_full_version >= '3.11'
     # via market-analy
 matplotlib-inline==0.2.2
     # via ipython
@@ -128,7 +130,7 @@ pillow==12.2.0
     # via matplotlib
 prompt-toolkit==3.0.52
     # via ipython
-psutil==7.2.2 ; python_full_version >= '3.11'
+psutil==7.2.2 ; python_full_version >= '3.11' and sys_platform != 'emscripten'
     # via ipython
 ptyprocess==0.7.0 ; sys_platform != 'emscripten' and sys_platform != 'win32'
     # via pexpect
@@ -165,9 +167,9 @@ stack-data==0.6.3
     # via ipython
 toolz==1.1.0
     # via exchange-calendars
-tqdm==4.67.3
+tqdm==4.68.2
     # via yahooquery
-traitlets==5.15.0
+traitlets==5.15.1
     # via
     #   bqplot
     #   bqscales
@@ -193,9 +195,9 @@ tzdata==2026.2
     #   pandas
 urllib3==2.7.0
     # via requests
-valimp==0.5
+valimp==0.6
     # via market-prices
-wcwidth==0.7.0
+wcwidth==0.8.1
     # via prompt-toolkit
 widgetsnbextension==4.0.15
     # via ipywidgets
