@@ -131,7 +131,7 @@ def _volume_subplot() -> Subplot:
         kind=SubplotKind.BARS,
         title="Volume",
         height=140,
-        y_tick_format=".1s",
+        y_tick_format="~s",
     )
 
 

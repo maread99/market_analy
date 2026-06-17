@@ -1,5 +1,6 @@
 """Tests for `guis` modules."""
 
+import itertools
 from collections import abc
 
 import pandas as pd
@@ -7,6 +8,7 @@ import pytest
 
 from market_analy import analysis, charts
 from market_analy.subplots import Subplot, _volume
+from market_analy.utils.maths_utils import nice_ticks
 
 # TODO: tests are extremely incomplete!
 
@@ -141,6 +143,19 @@ class TestGuiSubplots:
         # the figure must not pad the y-scale beyond the set min/max (else
         # the rendered axis can extend below zero given the bar baseline at 0)
         assert pane.scales["y"].allow_padding is False
+
+    def test_volume_y_axis_ticks_are_nice(self, analy, pp):
+        """Y-axis ticks are round, equally spaced values within the range."""
+        gui = analy.plot(**pp, subplots=["volume"], display=False)
+        pane = gui._subplots[0]
+        ticks = list(pane.axes[1].tick_values)
+        scale = pane.scales["y"]
+        assert ticks == pytest.approx(nice_ticks(scale.min, scale.max))
+        # within the axis range and equally spaced (linear)
+        assert scale.min <= min(ticks)
+        assert max(ticks) <= scale.max
+        diffs = [b - a for a, b in itertools.pairwise(ticks)]
+        assert all(d == pytest.approx(diffs[0]) for d in diffs)
 
     def test_line_subplot_reflects_plotted(self, analy, pp):
         """Line subplot mark data tracks the plotted window.

@@ -57,6 +57,7 @@ import market_analy.utils.ipywidgets_utils as wu
 import market_analy.utils.pandas_utils as upd
 from market_analy.formatters import FORMATTERS, formatter_datetime
 from market_analy.utils.dict_utils import set_kwargs_from_dflt
+from market_analy.utils.maths_utils import nice_ticks
 
 from .cases import (
     CasesSupportsChartAnaly,
@@ -3260,7 +3261,10 @@ class BaseSubplot(BaseSubsetDD):
     def _axes_kwargs(
         self, axes_kwargs: AxesKwargs | None = None, **general_kwargs
     ) -> AxesKwargs:
-        y_kwargs: dict[str, Any] = {"num_ticks": 4}
+        # tick positions are set explicitly (to 'nice' round values) by
+        # `update_y_axis_presentation`; `num_ticks` is not used as it places
+        # ticks at evenly-spaced (non-round) positions.
+        y_kwargs: dict[str, Any] = {}
         if self._y_tick_format is not None:
             y_kwargs["tick_format"] = self._y_tick_format
         dflt_axes_kwargs: AxesKwargs = {"x": {"num_ticks": 6}, "y": y_kwargs}
@@ -3337,8 +3341,12 @@ class BaseSubplot(BaseSubsetDD):
             hi = max(hi, *self._ref_levels)
         rnge = (hi - lo) or abs(hi) or 1.0
         excess = rnge * self.Y_AXIS_EXCESS
-        self.scales["y"].min = self._y_axis_min(lo, excess)
-        self.scales["y"].max = hi + excess
+        y_min = self._y_axis_min(lo, excess)
+        y_max = hi + excess
+        self.scales["y"].min = y_min
+        self.scales["y"].max = y_max
+        # place ticks at 'nice' round values within the axis range
+        self.axes[1].tick_values = nice_ticks(y_min, y_max)
         super().update_y_axis_presentation()
 
 
