@@ -280,15 +280,18 @@ class TestAnalysis:
     """Tests for the `analysis.Analysis` class."""
 
     @pytest.fixture(scope="class")
-    def analy(self, prices_analysis) -> abc.Iterator[analysis.Analysis]:
+    @staticmethod
+    def analy(prices_analysis) -> abc.Iterator[analysis.Analysis]:
         yield analysis.Analysis(prices_analysis)
 
     @pytest.fixture(scope="class")
-    def analy_other(self, prices_analysis_other) -> abc.Iterator[analysis.Analysis]:
+    @staticmethod
+    def analy_other(prices_analysis_other) -> abc.Iterator[analysis.Analysis]:
         yield analysis.Analysis(prices_analysis_other)
 
     @pytest.fixture(scope="class")
-    def tz(self) -> abc.Iterator[ZoneInfo]:
+    @staticmethod
+    def tz() -> abc.Iterator[ZoneInfo]:
         yield ZoneInfo("Europe/London")
 
     def test_constructor_raises(self):
@@ -1245,12 +1248,14 @@ class TestAnalysis:
         assert gui.date_slider.slider.value == slider_tup
 
     @pytest.fixture(scope="class")
-    def trend_kwargs(self) -> abc.Iterator[dict]:
+    @staticmethod
+    def trend_kwargs() -> abc.Iterator[dict]:
         """Value for 'trend_kwargs' argument of trend methods."""
         yield {"prd": 60, "ext_break": 0.04, "ext_limit": 0.02}
 
     @pytest.fixture(scope="class")
-    def trend_period_kwargs(self) -> abc.Iterator[dict]:
+    @staticmethod
+    def trend_period_kwargs() -> abc.Iterator[dict]:
         """Value for **kwargs of trend methods."""
         yield {"start": "2018-01-02", "end": "2022-12-30"}
 
@@ -1576,11 +1581,13 @@ class TestCompare:
     """Tests for the `analysis.Compare` class."""
 
     @pytest.fixture(scope="class")
-    def analy(self, prices_compare) -> abc.Iterator[analysis.Compare]:
+    @staticmethod
+    def analy(prices_compare) -> abc.Iterator[analysis.Compare]:
         yield analysis.Compare(prices_compare)
 
     @pytest.fixture(scope="class")
-    def tz(self) -> abc.Iterator[ZoneInfo]:
+    @staticmethod
+    def tz() -> abc.Iterator[ZoneInfo]:
         yield ZoneInfo("America/New_York")
 
     def test_constructor_raises(self):
