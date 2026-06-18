@@ -114,6 +114,8 @@ if TYPE_CHECKING:
     from .trends import TrendsProto
     from .trends.movements import MovementsSupportChartAnaly
 
+    SubplotsArg = Sequence[str | type[charts.BaseSubplot]] | Literal[False] | None
+
 from .trends.analy import Trends
 from .trends.guis import TrendsGui, TrendsGuiBase
 
@@ -755,6 +757,21 @@ class Base(metaclass=ABCMeta):  # noqa: B024
         return self.price_at()
 
 
+def _resolve_subplots_arg(
+    subplots: SubplotsArg,
+) -> Sequence[str | type[charts.BaseSubplot]] | None:
+    """Resolve the `subplots` argument of the `plot` methods.
+
+    None resolves to a default 'volume' subplot, False to no subplots,
+    otherwise the value is passed through unchanged.
+    """
+    if subplots is None:
+        return ["volume"]
+    if subplots is False:
+        return None
+    return subplots
+
+
 class Analysis(Base):
     """Single instrument analysis.
 
@@ -816,7 +833,7 @@ class Analysis(Base):
         chart_type: Literal["line", "candle"] = "candle",
         max_ticks: int | None = None,
         log_scale: bool = True,
-        subplots: Sequence[str | type[charts.BaseSubplot]] | None | False = None,
+        subplots: SubplotsArg = None,
         **kwargs,
     ) -> guis.GuiOHLC | guis.GuiLine | mpl.artist.Artist:
         """Chart prices over specified period.
@@ -862,16 +879,11 @@ class Analysis(Base):
         if engine == "bqplot":
             kwargs["interval"] = interval
             cls = guis.GuiOHLC if chart_type == "candle" else guis.GuiLine
-            _subplots = (
-                ["volume"]
-                if subplots is None
-                else (None if subplots is False else subplots)
-            )
             return cls(
                 self,
                 log_scale=log_scale,
                 max_ticks=max_ticks,
-                subplots=_subplots,
+                subplots=_resolve_subplots_arg(subplots),
                 **kwargs,
             )
         interval = "1d" if interval is None else interval
@@ -1241,7 +1253,7 @@ class Compare(Base):
         rebase_on_zoom: bool = True,
         max_ticks: int | None = None,
         log_scale: bool = True,
-        subplots: Sequence[str | type[charts.BaseSubplot]] | None | False = None,
+        subplots: SubplotsArg = None,
         **kwargs,
     ) -> guis.GuiMultLine | mpl.artist.Artist:
         """Chart rebased close prices over specified period.
@@ -1286,18 +1298,13 @@ class Compare(Base):
             'composite' or 'lose_single_symbol'.
         """
         if engine == "bqplot":
-            _subplots = (
-                ["volume"]
-                if subplots is None
-                else (None if subplots is False else subplots)
-            )
             return guis.GuiMultLine(
                 self,
                 interval,
                 rebase_on_zoom,
                 max_ticks,
                 log_scale,
-                subplots=_subplots,
+                subplots=_resolve_subplots_arg(subplots),
                 **kwargs,
             )
         interval = "1d" if interval is None else interval

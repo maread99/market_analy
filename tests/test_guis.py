@@ -65,9 +65,17 @@ class TestGuiSubplots:
     def pp(self) -> dict:
         return {"start": pd.Timestamp("2023-01-06"), "end": pd.Timestamp("2023-01-10")}
 
-    def test_no_subplots_default(self, analy, pp):
-        """Without `subplots` the gui has no subplots."""
+    def test_default_includes_volume(self, analy, pp):
+        """`Analysis.plot` includes a volume subplot by default."""
         gui = analy.plot(**pp, display=False)
+        assert len(gui.subplots) == 1
+        assert isinstance(gui.subplots[0], charts.SubplotVolume)
+        # x-tick labels show on the (bottom-most) subplot, not the price chart
+        assert gui.chart.axes[0].tick_style.get("display") == "none"
+
+    def test_subplots_false_no_subplots(self, analy, pp):
+        """`subplots=False` creates a gui with no subplots."""
+        gui = analy.plot(**pp, subplots=False, display=False)
         assert gui.subplots == []
         assert gui.chart.figure in gui._gui_box_contents
         # x-tick labels remain visible on the price chart
@@ -195,6 +203,17 @@ class TestGuiMultLineSubplots:
     @pytest.fixture
     def pp(self) -> dict:
         return {"start": pd.Timestamp("2023-01-06"), "end": pd.Timestamp("2023-01-10")}
+
+    def test_default_includes_volume(self, comp, pp):
+        """`Compare.plot` includes a volume subplot by default."""
+        gui = comp.plot(**pp, display=False)
+        assert len(gui.subplots) == 1
+        assert isinstance(gui.subplots[0], charts.SubplotVolume)
+
+    def test_subplots_false_no_subplots(self, comp, pp):
+        """`subplots=False` creates a gui with no subplots."""
+        gui = comp.plot(**pp, subplots=False, display=False)
+        assert gui.subplots == []
 
     def test_data(self, comp, pp):
         """Verify gui passes through full price data."""

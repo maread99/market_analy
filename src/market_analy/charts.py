@@ -3380,6 +3380,19 @@ class BaseSubplot(BaseSubsetDD):
         """
         return isinstance(self.data, pd.DataFrame)
 
+    def _x_domain_chg_handler(self, event):
+        # The subplot shares the price chart's x-axis scale. During a
+        # coordinated update (for example a tick-interval change) the price
+        # chart sets the shared domain to ticks that the subplot's data does
+        # not include until the subplot too is updated (by
+        # `guis.BasePrice._update_subplots`). In the interim the domain
+        # selects none of the subplot's (stale) ticks; skip presenting
+        # against such a transient empty window. The subplot is refreshed
+        # once its data is reconciled.
+        if not len(self.plotted_x_ticks):
+            return
+        super()._x_domain_chg_handler(event)
+
     # PRESENTATION
     def _plotted_y_extent(self) -> np.ndarray:
         """Values that the plotted y-axis range must accommodate.

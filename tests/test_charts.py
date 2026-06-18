@@ -257,6 +257,23 @@ class TestBaseSubplot:
         pane = SubplotBase(_mock_chart(prices), prices)
         assert not pane.added_marks[charts.Groups.PERSIST]
 
+    def test_domain_change_to_foreign_ticks_no_error(self, SubplotBase):
+        """Handler tolerates a shared domain selecting none of the subplot's ticks.
+
+        The subplot shares the price chart's x-scale. During a coordinated
+        update (e.g. a tick-interval change) the chart can set the shared
+        domain to ticks the subplot's not-yet-updated data does not include.
+        The domain-change handler must skip such a transient empty window
+        rather than raise.
+        """
+        prices = _make_prices(["AZN.L"], n=6)
+        chart = _mock_chart(prices)
+        pane = SubplotBase(chart, prices)
+        foreign = list(ubq.dates_to_posix(pd.DatetimeIndex(["2099-01-01"])))
+        # setting the shared domain fires the subplot's handler; must not raise
+        chart.scales["x"].domain = foreign
+        assert len(pane.plotted_x_ticks) == 0
+
 
 class TestSubplotBars:
     """Tests for functionality defined on `SubplotBars`."""
