@@ -1841,13 +1841,11 @@ class BasePrice(BaseSubsetDD):
         #    label_offset': '2.5em'
         #    label: 'Date'
         # For y
-        #    tick_format may not be appropriate for all, i.e. might be
-        #        better to set according to y value, i.e. if under 1 then
-        #        maybe only 4 significant places?
+        #    "~f" formats ticks in fixed-point notation with insignificant
+        #        trailing zeros trimmed.
         #    label_offset': '3em'
         #    label: 'Price'
-        # TODO: change tick_format to "~f"
-        dflt_axes_kwargs = {"x": {"num_ticks": 6}, "y": {"tick_format": ".6r"}}
+        dflt_axes_kwargs = {"x": {"num_ticks": 6}, "y": {"tick_format": "~f"}}
         axes_kwargs = self._add_axes_kwargs(dflt_axes_kwargs, axes_kwargs)
         return super()._axes_kwargs(axes_kwargs, **general_kwargs)
 
