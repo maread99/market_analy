@@ -658,7 +658,17 @@ class Crosshair(HasTraits):
 
     @property
     def _y_tick_format_python_format(self):
-        return self._y_tick_format.replace("r", "g")
+        # Convert the d3-format y-axis tick format to an equivalent Python
+        # format specifier for `str.format`. Python's format mini-language
+        # understands neither d3-format's "~" flag (trim insignificant
+        # trailing zeros) nor its "r" type (round to significant digits).
+        # Both are mapped to Python's "g" type, which itself trims trailing
+        # zeros, so the crosshair label mirrors the axis ticks as closely as
+        # the two format languages allow.
+        fmt = self._y_tick_format
+        if "~" in fmt:
+            fmt = fmt.replace("~", "").replace("f", "g")
+        return fmt.replace("r", "g")
 
     def _get_x_center(self, x: list):
         """Mid-point of x axis.
