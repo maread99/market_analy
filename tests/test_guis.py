@@ -3,6 +3,7 @@
 import bqplot as bq
 import pandas as pd
 import pytest
+from market_prices.intervals import to_ptinterval
 
 from market_analy import analysis, charts
 
@@ -223,3 +224,58 @@ class TestGuiMultLineSubplots:
         assert list(pane.data.columns) == comp.symbols
         expected = gui.prices.xs("volume", axis=1, level=-1)
         assert (pane.data.values == expected.values).all()
+
+
+class TestDrawdownIntervalInteraction:
+    """Tests for the drawdown selector / tick interval interaction.
+
+    Verifies that the drawdown plot can be hidden and redisplayed after a
+    change to the tick interval (regression test for issue #246).
+    """
+
+    @pytest.fixture
+    def analy(self, prices_analysis) -> analysis.Analysis:
+        return analysis.Analysis(prices_analysis)
+
+    @pytest.fixture
+    def gui(self, analy):
+        """`GuiLine` with the drawdown shown and a daily tick interval."""
+        gui = analy.plot(start="2022-01-01", end="2022-12-31", display=False)
+        assert gui._drawdown_selector.value == "ATH"
+        assert gui.chart.mark_y2.visible
+        return gui
+
+    def test_hide_show_without_interval_change(self, gui):
+        """Drawdown can be hidden and redisplayed (no interval change)."""
+        gui._drawdown_selector.value = False
+        assert not gui.chart.mark_y2.visible
+        gui._drawdown_selector.value = 10
+        assert gui.chart.mark_y2.visible
+
+    def test_interval_change_preserves_shown_drawdown(self, gui):
+        """A shown drawdown remains shown, as 'ATH', after interval change."""
+        gui._change_tick_interval(to_ptinterval("1D"), to_ptinterval("5D"))
+        assert gui._drawdown_selector.value == "ATH"
+        assert gui.chart.mark_y2.visible
+
+    def test_interval_change_preserves_hidden_drawdown(self, gui):
+        """A hidden drawdown stays hidden after interval change.
+
+        The selector value must remain consistent with the (hidden) chart
+        state, i.e. it should not be reset to 'ATH'.
+        """
+        gui._drawdown_selector.value = False
+        gui._change_tick_interval(to_ptinterval("1D"), to_ptinterval("5D"))
+        assert gui._drawdown_selector.value is False
+        assert not gui.chart.mark_y2.visible
+
+    def test_redisplay_drawdown_after_interval_change(self, gui):
+        """Drawdown reappears when reselected after an interval change.
+
+        Replicates the scenario reported in issue #246: hide the drawdown,
+        change the tick interval, then reselect a drawdown period.
+        """
+        gui._drawdown_selector.value = False
+        gui._change_tick_interval(to_ptinterval("1D"), to_ptinterval("5D"))
+        gui._drawdown_selector.value = 10
+        assert gui.chart.mark_y2.visible

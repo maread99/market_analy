@@ -1511,7 +1511,14 @@ class BasePrice(BaseVariableDates):
         self._clear_user_activity()
         self._update_chart(data, data2, prices, reset_slider=True, visible_x_ticks=vxts)
         if self._HAS_DRAWDOWN:
-            self._drawdown_selector.set_value_unobserved("ATH")
+            # The new drawdown data always represents the all-time high, hence
+            # reset a shown drawdown to "ATH". A hidden drawdown (selector value
+            # False) must stay hidden though, otherwise the selector value would
+            # be inconsistent with the chart and re-selecting a drawdown period
+            # would fail to re-show the drawdown (the handler only shows the y2
+            # axis when the prior selection was a hidden state). See issue #246.
+            value = "ATH" if self._drawdown_selector.value else False
+            self._drawdown_selector.set_value_unobserved(value)
 
     def _reset_chart(self):
         """Reset initial chart."""
