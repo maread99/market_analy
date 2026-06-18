@@ -765,7 +765,7 @@ class BasePrice(BaseVariableDates):
         self._subplot_classes: list[type[charts.BaseSubplot]] = (
             []
             if subplots is None
-            else [charts.resolve_subplot_class(spec) for spec in subplots]
+            else [charts.resolve_subplot_class(v) for v in subplots]
         )
         self._subplots: list[charts.BaseSubplot] = []
         super().__init__(
@@ -1106,7 +1106,7 @@ class BasePrice(BaseVariableDates):
     def _update_subplots(self, prices: pd.DataFrame):
         """Recompute and update each subplot for new price data."""
         for pane in self._subplots:
-            pane.update(pane.data_create(prices))
+            pane.update(pane.get_subplot_data(prices))
 
     def _update_chart(  # type: ignore[override]
         self,

@@ -27,16 +27,16 @@ PctChgBarMult(_PctChgBarBase):
     Bar Chart displaying precentage changes of multiple instruments.
 
 BaseSubplot(BaseSubsetDD):
-    Base for an indicator subplot stacked beneath a price chart.
+    Base for an subplot placed below a price chart.
 
 SubplotBars(BaseSubplot):
-    Base for an indicator subplot plotting data as bars.
+    Base for an subplot plotting data as bars.
 
 SubplotLines(BaseSubplot):
-    Base for an indicator subplot plotting data as lines.
+    Base for an subplot plotting data as lines.
 
 SubplotVolume(SubplotBars):
-    Built-in indicator subplot plotting volume as bars.
+    Built-in volume subplot.
 """
 
 import enum
@@ -3165,8 +3165,13 @@ class OHLCCaseBase(OHLC, ChartSupportsCasesGui):
         self.select_case(case)
 
 
+# --------
+# Subplots
+# --------
+
+
 class BaseSubplot(BaseSubsetDD):
-    """Base for an indicator subplot stacked beneath a price chart.
+    """Base class for a subplot associated with a price chart.
 
     A subplot shares the x-axis of an accompanying price chart by reusing
     that chart's x-axis scale. This keeps the subplot's visible x-range in
@@ -3175,29 +3180,20 @@ class BaseSubplot(BaseSubsetDD):
     independent linear y-axis that auto-scales to the data currently
     visible.
 
-    A concrete subplot is fully described by the class itself: the data to
-    plot is evaluated by the `data_create` method, the bqplot Mark class is
-    returned by the `MarkCls` property and the subplot's presentation is
-    declared via class attributes (`TITLE`, `HEIGHT`, `REF_LEVELS`,
-    `Y_TICK_FORMAT` and `COLORS`). A concrete subplot can therefore be
-    built from just the accompanying chart and the underlying price data.
-
     Parameters
     ----------
     chart
         The accompanying price chart (an instance of a `BasePrice`
-        subclass). The subplot's x-axis scale, plotted interval and
-        maximum number of ticks are all taken from this chart, as are the
-        default mark colors for a subplot of multiple symbols.
+        subclass).
 
     prices
         Price data from which to evaluate the subplot data (via
-        `data_create`). A `pd.DataFrame` with columns indexed with a
+        `get_subplot_data`). A `pd.DataFrame` with columns indexed with a
         `pd.MultiIndex` with level 0 as the symbol and level -1 as 'open',
         'high', 'low', 'close' and 'volume'.
 
-    Attributes (concretised by subclasses)
-    --------------------------------------
+    Attributes (can be overriden by subclasses)
+    -------------------------------------------
     TITLE : str | None
         Name of the subplot, shown as the subplot's title.
 
@@ -3226,11 +3222,11 @@ class BaseSubplot(BaseSubsetDD):
     To implement a concrete subplot:
         - subclass `SubplotBars` or `SubplotLines` (these intermediaries
           concretise `MarkCls` with the bqplot Mark class) or, for a
-          different mark, subclass `BaseSubplot` directly and concretise
-          `MarkCls`.
-        - implement the `data_create` method to evaluate the subplot data
-          from the price data.
-        - override any of the class attributes noted above to customise
+          different mark or alternative customised implementation, subclass
+          `BaseSubplot` directly and concretise `MarkCls`.
+        - implement the `get_subplot_data` method to evaluate the subplot
+          data from the price data.
+        - override, as required, any of the class attributes to customise
           the subplot's presentation.
     """
 
@@ -3241,7 +3237,7 @@ class BaseSubplot(BaseSubsetDD):
     # are no negative y values then y-scale will not be extended below zero).
     Y_AXIS_EXCESS = 0.05
 
-    # Concretised specification. Subclasses override as required.
+    # Default specification. Subclasses should override as required.
     TITLE: str | None = None
     HEIGHT: int = 140
     REF_LEVELS: Sequence[float] | None = None
@@ -3250,7 +3246,7 @@ class BaseSubplot(BaseSubsetDD):
 
     def __init__(self, chart: BasePrice, prices: pd.DataFrame):
         self._chart = chart
-        data = self.data_create(prices)
+        data = self.get_subplot_data(prices)
         # set before super().__init__ as required by chart creation
         self._x_scale_shared = chart.scales["x"]
         colors = self.COLORS if self.COLORS is not None else self._default_colors(data)
@@ -3260,9 +3256,9 @@ class BaseSubplot(BaseSubsetDD):
         self._y_tick_format = self.Y_TICK_FORMAT
         super().__init__(
             data,
-            "" if self.TITLE is None else self.TITLE,
-            chart.plotted_interval,
-            chart.max_ticks,
+            title="" if self.TITLE is None else self.TITLE,
+            visible_x_ticks=chart.plotted_interval,
+            max_ticks=chart.max_ticks,
             display=False,
             data_y2=None,
         )
@@ -3272,7 +3268,7 @@ class BaseSubplot(BaseSubsetDD):
             self._x_domain_chg_handler(event=None)
 
     @abstractmethod
-    def data_create(self, prices: pd.DataFrame) -> pd.Series | pd.DataFrame:
+    def get_subplot_data(self, prices: pd.DataFrame) -> pd.Series | pd.DataFrame:
         """Evaluate the subplot data from price data.
 
         Parameters
@@ -3288,12 +3284,12 @@ class BaseSubplot(BaseSubsetDD):
         pd.Series | pd.DataFrame
             A `pd.Series` (single set of values) or a `pd.DataFrame` (one
             column per set of values) indexed with the same index as
-            `prices`. This requirement ensures the subplot's x-ticks align
-            with the shared x-axis.
+            `prices` (this requirement ensures the subplot's x-ticks align
+            with the shared x-axis).
 
         Notes
         -----
-        A concrete subplot must implement this method.
+        A usable subclass must implement this method.
         """
 
     def _default_colors(self, data: pd.DataFrame | pd.Series) -> list[str] | None:
@@ -3303,8 +3299,7 @@ class BaseSubplot(BaseSubsetDD):
         accompanying chart's marks, otherwise None (i.e. will take
         bqplot's default color for the mark).
         """
-        n_series = data.shape[1] if isinstance(data, pd.DataFrame) else 1
-        if n_series > 1:
+        if isinstance(data, pd.DataFrame):
             main_colors = self._chart.mark.colors
             if main_colors:
                 return list(main_colors)
@@ -3443,7 +3438,7 @@ class BaseSubplot(BaseSubsetDD):
 
 
 class SubplotBars(BaseSubplot):
-    """Base for an indicator subplot plotting data as bars.
+    """Base for a subplot plotting data as bars.
 
     See `BaseSubplot` for documentation of methods and attributes and for
     how to implement a concrete subplot.
@@ -3511,7 +3506,7 @@ class SubplotBars(BaseSubplot):
 
 
 class SubplotLines(BaseSubplot):
-    """Base for an indicator subplot plotting data as lines.
+    """Base for a subplot plotting data as lines.
 
     See `BaseSubplot` for documentation of methods and attributes and for
     how to implement a concrete subplot.
@@ -3535,28 +3530,24 @@ class SubplotLines(BaseSubplot):
         return True
 
     def _get_mark_y_plotted_data(self):
-        multiple_symbols = isinstance(self.data, pd.DataFrame)
+        multiple_symbols = self.plots_multiple_symbols
         return super()._get_mark_y_plotted_data(multiple_symbols=multiple_symbols)
 
 
 class SubplotVolume(SubplotBars):
-    """Built-in indicator subplot plotting volume as bars.
-
-    See `BaseSubplot` for documentation of inherited methods and
-    attributes.
-    """
+    """Volume subplot."""
 
     TITLE = "Volume"
     Y_TICK_FORMAT = "~s"
 
-    def data_create(self, prices: pd.DataFrame) -> pd.Series | pd.DataFrame:
+    def get_subplot_data(self, prices: pd.DataFrame) -> pd.Series | pd.DataFrame:
         """Evaluate volume data from price data.
 
-        Returns the 'volume' column(s) of `prices`. If `prices` covers a
-        single symbol a `pd.Series` is returned, otherwise a `pd.DataFrame`
-        with one column per symbol.
+        Returns the 'volume' column(s) of `prices`, as a `pd.Series` if
+        `prices` covers a single symbol, otherwise as a `pd.DataFrame` with
+        one column per symbol.
 
-        See `BaseSubplot.data_create` for the method's contract.
+        See `BaseSubplot.get_subplot_data` for the method's contract.
         """
         if not isinstance(prices.columns, pd.MultiIndex):
             if "volume" not in prices.columns:
@@ -3574,10 +3565,9 @@ class SubplotVolume(SubplotBars):
         return vol
 
 
-# Built-in subplots keyed by an alias. As a convenience the `subplots`
-# argument of the price gui classes (and of `Analysis.plot`) accepts any of
-# these aliases as a shorthand for the associated `BaseSubplot` subclass.
-SUBPLOT_ALIASES: dict[str, type[BaseSubplot]] = {
+# Built-in subplots keyed with a conventient alias. Use
+# `resolve_subplot_class` to resolve a key to the corresopnding subplot class.
+SUBPLOTS: dict[str, type[BaseSubplot]] = {
     "volume": SubplotVolume,
 }
 
@@ -3588,7 +3578,7 @@ def resolve_subplot_class(subplot: str | type[BaseSubplot]) -> type[BaseSubplot]
     Parameters
     ----------
     subplot
-        Either a `BaseSubplot` subclass or a `str` naming a built-in
+        Either a subclass of `BaseSubplot` or a `str` naming a built-in
         subplot (a key of `SUBPLOT_ALIASES`).
 
     Returns
@@ -3598,12 +3588,11 @@ def resolve_subplot_class(subplot: str | type[BaseSubplot]) -> type[BaseSubplot]
     """
     if isinstance(subplot, str):
         try:
-            return SUBPLOT_ALIASES[subplot]
+            return SUBPLOTS[subplot]
         except KeyError:
-            valid = sorted(SUBPLOT_ALIASES)
             raise ValueError(
                 f"'{subplot}' is not a valid built-in subplot. Valid"
-                f" options are {valid}."
+                f" options are {sorted(SUBPLOTS)}."
             ) from None
     if isinstance(subplot, type) and issubclass(subplot, BaseSubplot):
         return subplot
