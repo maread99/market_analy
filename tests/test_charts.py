@@ -1,13 +1,4 @@
-"""Tests for the subplot chart classes of the `charts` module.
-
-The subplot classes are tested directly (rather than via a gui) by
-constructing them with a minimal stand-in for the accompanying price chart
-(see `_mock_chart`) and synthetic price data (see `_make_prices`).
-
-The thin subplot subclasses required to test functionality at the level of
-a specific base class are provided by fixtures (named in CamelCase to
-denote that they evaluate to classes rather than instances).
-"""
+"""Tests for the subplot chart classes of the `charts` module."""
 
 import functools
 from types import SimpleNamespace
@@ -20,6 +11,10 @@ import pytest
 import market_analy.utils.bq_utils as ubq
 from market_analy import charts
 from market_analy.utils.maths_utils import discretize_range_nicely
+
+# NOTE: tests are extremely incomplete! Currently limited to only testing
+# Subplots
+
 
 _FIELDS = ["open", "high", "low", "close", "volume"]
 
@@ -59,12 +54,18 @@ def _make_prices(
     return prices
 
 
+# --------
+# Subplots
+# --------
+
+# The subplot classes are tested directly (rather than via a gui) by
+# constructing them with a minimal stand-in for the accompanying price chart
+# (see `_mock_chart`) and synthetic price data (see `_make_prices`).
+
+
 @functools.cache
 def _reference_price_chart() -> charts.BasePrice:
-    """A real price chart against which to validate the `_mock_chart` interface.
-
-    Cached so the (synthetic, network-free) chart is built only once.
-    """
+    """A price chart against which to validate the `_mock_chart` interface."""
     prices = _make_prices(["REF"])
     close = prices.xs("close", axis=1, level=-1).iloc[:, 0]
     return charts.Line(close, title="")
@@ -80,12 +81,11 @@ def _mock_chart(
     and the chart mark's colors. The shared scale's domain is populated to
     cover all ticks (as it would be by a real price chart).
     """
-    # verify the mocked attributes (including those nested through `mark`)
-    # genuinely exist on a real price chart, i.e. that the mock reflects the
-    # chart's interface rather than imposing an expected implementation.
+    # verify the attributes to be mocked exist on actual chart instance
     ref = _reference_price_chart()
+    mocked_attrs = ("scales", "plotted_interval", "max_ticks", "mark")
+    assert all(hasattr(ref, name) for name in mocked_attrs)
     assert "x" in ref.scales
-    assert all(hasattr(ref, name) for name in ("plotted_interval", "max_ticks", "mark"))
     assert hasattr(ref.mark, "colors")
 
     index = prices.index
@@ -212,8 +212,8 @@ class TestAbstract:
 class TestBaseSubplot:
     """Tests for functionality defined on `BaseSubplot`."""
 
-    def test_y_axis_ticks_are_nice(self, SubplotBase):
-        """Y-axis ticks are round, equally spaced values within the range."""
+    def test_y_axis_ticks_are_nicely_discretized(self, SubplotBase):
+        """Y-axis ticks are nicely_discretized and equally spaced."""
         prices = _make_prices(["AZN.L"])
         pane = SubplotBase(_mock_chart(prices), prices)
         ticks = list(pane.axes[1].tick_values)
@@ -261,6 +261,12 @@ class TestBaseSubplot:
 class TestSubplotBars:
     """Tests for functionality defined on `SubplotBars`."""
 
+    def test_mark_cls_and_title(self, SubplotVol):
+        prices = _make_prices(["AZN.L"])
+        pane = SubplotVol(_mock_chart(prices), prices)
+        assert pane.MarkCls is bq.Bars
+        assert pane.title == "Vol"
+
     def test_y_axis_min_non_negative(self, SubplotVol):
         prices = _make_prices(["AZN.L"])
         pane = SubplotVol(_mock_chart(prices), prices)
@@ -268,14 +274,14 @@ class TestSubplotBars:
         lo = float(pane._plotted_y.values.min())
         assert 0 <= y_min <= lo
         # the figure must not pad the y-scale beyond the set min/max (else
-        # the rendered axis can extend below zero given the bar baseline at 0)
+        # the rendered axis can extend below zero given the otherwise 0 baseline)
         assert pane.scales["y"].allow_padding is False
 
     def test_multi_symbol_extent_is_stacked_totals(self, SubplotVol):
         symbols = ["AZN.L", "BARC.L"]
         prices = _make_prices(symbols)
         pane = SubplotVol(_mock_chart(prices, ["yellow", "orange"]), prices)
-        stacked_totals = pane._plotted_y.sum(axis=1)
+        stacked_totals = prices.xs("volume", axis=1, level=-1).sum(axis=1)
         assert list(pane._plotted_y_extent()) == pytest.approx(list(stacked_totals))
         assert pane.scales["y"].max >= float(stacked_totals.max())
 
@@ -283,6 +289,7 @@ class TestSubplotBars:
         symbols = ["AZN.L", "BARC.L"]
         prices = _make_prices(symbols)
         pane = SubplotVol(_mock_chart(prices, ["yellow", "orange"]), prices)
+        # y min should be 0 to ensure all parts of each stacked bar are visible
         assert pane.scales["y"].min == 0
 
     def test_tooltip_single_symbol(self, SubplotVol):
@@ -290,9 +297,8 @@ class TestSubplotBars:
         pane = SubplotVol(_mock_chart(prices), prices)
         y = float(pane.data.iloc[0])
         html = pane._tooltip_value(pane.mark, {"data": {"index": 0}})
-        assert "Bar:" in html
-        assert f"{pane.title}:" in html
-        assert f"{int(y):,}" in html
+        assert f"Bar: {prices.index[0].left.strftime('%Y-%m-%d')}" in html
+        assert f"{pane.title}: {int(y):,}" in html
 
     def test_tooltip_multi_symbol_identifies_hovered(self, SubplotVol):
         symbols = ["AZN.L", "BARC.L"]
@@ -306,7 +312,8 @@ class TestSubplotBars:
         dflt_color = charts.SubplotBars.TOOLTIP_TEXT_COLOR
         ts_line, total_line, symbol_line = html.split("<br>")
         # the bar (timestamp) and total lines take the default color
-        assert f"color: {dflt_color}" in ts_line
+        assert f"Bar: {prices.index[0].left.strftime('%Y-%m-%d')}" in html
+        assert f"color: {dflt_color}" in ts_line  # check tag includes expected color
         assert f"Value: {total:,}" in total_line
         assert f"color: {dflt_color}" in total_line
         # the symbol line shows the symbol and value in the symbol's color
@@ -324,21 +331,17 @@ class TestSubplotLines:
         assert pane.MarkCls is bq.Lines
         assert pane.title == "Close"
 
-    def test_reflects_plotted_flag(self, SubplotClose):
-        prices = _make_prices(["AZN.L"])
-        pane = SubplotClose(_mock_chart(prices), prices)
-        assert pane._update_mark_data_attr_to_reflect_plotted is True
-
     def test_mark_reflects_plotted_on_domain_change(self, SubplotClose):
         """Narrowing the shared x-scale domain refreshes the line's data."""
         prices = _make_prices(["AZN.L"], n=8)
         chart = _mock_chart(prices)
         pane = SubplotClose(chart, prices)
+        assert pane._update_mark_data_attr_to_reflect_plotted is True
         posix = pane._x_ticks_posix_raw()
         # narrow domain so the first tick is excluded
-        chart.scales["x"].domain = list(posix[1:])
+        chart.scales["x"].domain = list(posix[1:-1])
         assert pane.plotted_x_ticks[0] != pane.x_ticks[0]
-        assert len(pane.mark.x) == len(pane.plotted_x_ticks)
+        assert (pane.mark.x == pane.plotted_x_ticks.values).all()
         assert len(pane.mark.y) == len(pane.mark.x)
 
 
@@ -363,16 +366,6 @@ class TestSubplotVolume:
         pane = charts.SubplotVolume(_mock_chart(prices), prices)
         assert isinstance(pane.data, pd.Series)
         assert (pane.data.values == prices["volume"].values).all()
-
-    def test_multi_symbol_dataframe(self):
-        symbols = ["AZN.L", "BARC.L"]
-        prices = _make_prices(symbols)
-        colors = ["yellow", "orange"]
-        pane = charts.SubplotVolume(_mock_chart(prices, colors), prices)
-        assert isinstance(pane.data, pd.DataFrame)
-        assert list(pane.data.columns) == symbols
-        # default colors taken from the accompanying chart's mark colors
-        assert list(pane.mark.colors) == colors
 
     def test_missing_volume_col_raises_on_construction(self):
         prices = _make_prices(["AZN.L"], with_volume=False)

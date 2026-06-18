@@ -23,6 +23,10 @@ The following videos cover what's on offer:
 * [General tutorial](https://vimeo.com/801302973) demonstrates the functionality as of the initial release (February 2023).
 * [Trends](https://vimeo.com/835495038) demonstrates functionality (added June 2023) to define and visualise trends.
 
+Features subsequently added that do not feature in the tutorial videos:
+* **Subplots** (added Jun 2026) - customised subplots can be added underneath the main price chart (see 'subplots' part of [`charts`](https://github.com/maread99/market_analy/blob/main/src/market_analy/charts.py#L3169) module). By default the `.plot` method now includes a volume subplot. 
+* **Drawdown** (added Sep 2024) - price charts include a drawdown indicator that be set to reflect different periods or removed from the plot (see [Quickstart](#quickstart)).
+
 ## Quickstart
 All analyses can be accessed via the classes `Analysis` (single instrument analyses) and `Compare` (to compare multiple instruments). For example:
 
@@ -100,9 +104,9 @@ The color scheme assumes the package is being used with the JupyterLab dark them
 Most of the arguments available to the market-prices `get` function can be passed directly to the `market_analy` functions. See the [market-prices][market-prices] documentation for further info.
 
 ## Release schedule, bugs, development and feedback
-The first beta version of `market_analy` was released Feb 2023. Functionality to  define and visually interrogate trends was added in June 2023.
+The first beta version of `market_analy` was released Feb 2023. Functionality to define and visually interrogate trends was added in June 2023. The drawdown indicator was added in September 2024. Customisable subplots were added in September 2026, with a volume subplot included under the main price chart by default.
 
-The project is immature. Whilst it's not anticipated that major changes will be made to the existing public side, they could be. All that's under-the-bonnet is subject to change as the project evolves. The `guis` module in particular won't permit much further development without overhauling the current inheritance-based approach to a compositional one.
+The project remains immature. Whilst it's not anticipated that major changes will be made to the existing public side, they could be. All that's under-the-bonnet is subject to change as the project evolves. The `guis` module in particular might not permit much further development without overhauling the current inheritance-based approach to a compositional one.
 
 The test suite is somewhat limited. It's pretty much guaranteed that there are bugs. Please raise an [issue](https://github.com/maread99/market_analy/issues) if you find one or come across unexpected behaviour.
 

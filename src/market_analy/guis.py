@@ -738,11 +738,11 @@ class BasePrice(BaseVariableDates):
             Any kwargs to pass on to the chart class.
 
         subplots
-            Indicator subplots to stack beneath the price chart, each
-            sharing the price chart's x-axis. Each item can be either a
-            `str` naming a built-in subplot (for example "volume") or a
-            subclass of `market_analy.charts.BaseSubplot` describing a
-            custom subplot. See `market_analy.charts`.
+            Subplots to stack beneath the price chart, each sharing the
+            price chart's x-axis. Each item can be either a `str` naming a
+            built-in subplot (for example "volume") or a subclass of
+            `market_analy.charts.BaseSubplot` describing a custom subplot.
+            See `market_analy.charts`.
 
         **kwargs
             Period for which to plot prices. Passed as period parameters as
@@ -1559,6 +1559,7 @@ class GuiMultLine(BasePrice):
         max_ticks: int | None = None,
         log_scale: bool = True,
         display: bool = True,
+        subplots: Sequence[str | type[charts.BaseSubplot]] | None = None,
         **kwargs,
     ):
         """Create GUI.
@@ -1586,6 +1587,13 @@ class GuiMultLine(BasePrice):
         display
             True to display created GUI.
 
+        subplots
+            Subplots to stack beneath the price chart, each sharing the
+            price chart's x-axis. Each item can be either a `str` naming a
+            built-in subplot (for example "volume") or a subclass of
+            `market_analy.charts.BaseSubplot` describing a custom subplot.
+            See `market_analy.charts`.
+
         **kwargs
             Period for which to plot prices. Passed as period parameters as
             described by market-prices documentation for 'PricesCls.get'
@@ -1595,7 +1603,15 @@ class GuiMultLine(BasePrice):
         """
         self._rebase_on_zoom = rebase_on_zoom
         self._labels: list[str]  # set by --_set_initial_data--
-        super().__init__(analysis, interval, max_ticks, log_scale, display, **kwargs)
+        super().__init__(
+            analysis,
+            interval,
+            max_ticks,
+            log_scale,
+            display,
+            subplots=subplots,
+            **kwargs,
+        )
 
     @property
     def ChartCls(self) -> type[charts.MultLine]:

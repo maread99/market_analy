@@ -816,7 +816,7 @@ class Analysis(Base):
         chart_type: Literal["line", "candle"] = "candle",
         max_ticks: int | None = None,
         log_scale: bool = True,
-        subplots: Sequence[str | type[charts.BaseSubplot]] | None = None,
+        subplots: Sequence[str | type[charts.BaseSubplot]] | None | False = None,
         **kwargs,
     ) -> guis.GuiOHLC | guis.GuiLine | mpl.artist.Artist:
         """Chart prices over specified period.
@@ -845,12 +845,14 @@ class Analysis(Base):
             if `engine` is "bqplot".
 
         subplots
-            Indicator subplots to stack beneath the price chart, each
-            sharing the price chart's x-axis. Each item can be either a
-            `str` naming a built-in subplot (for example "volume") or a
-            subclass of `market_analy.charts.BaseSubplot` describing a
-            custom subplot. Only implemented if `engine` is "bqplot". See
-            `market_analy.charts`.
+            Subplots to stack beneath the price chart, each sharing the
+            price chart's x-axis. Each item can be either a `str` naming a
+            built-in subplot (for example "volume") or a subclass of
+            `market_analy.charts.BaseSubplot` describing a custom subplot.
+            See `market_analy.charts`. By default (None) includes a
+            'volume' subplot. Pass as False to not include any subplots.
+            Note that subplots are only implemented if `engine` is
+            "bqplot".
 
         **kwargs:
             Parameters to define period / price data to be analysed. See
@@ -860,11 +862,16 @@ class Analysis(Base):
         if engine == "bqplot":
             kwargs["interval"] = interval
             cls = guis.GuiOHLC if chart_type == "candle" else guis.GuiLine
+            _subplots = (
+                ["volume"]
+                if subplots is None
+                else (None if subplots is False else subplots)
+            )
             return cls(
                 self,
                 log_scale=log_scale,
                 max_ticks=max_ticks,
-                subplots=subplots,
+                subplots=_subplots,
                 **kwargs,
             )
         interval = "1d" if interval is None else interval
@@ -1234,6 +1241,7 @@ class Compare(Base):
         rebase_on_zoom: bool = True,
         max_ticks: int | None = None,
         log_scale: bool = True,
+        subplots: Sequence[str | type[charts.BaseSubplot]] | None | False = None,
         **kwargs,
     ) -> guis.GuiMultLine | mpl.artist.Artist:
         """Chart rebased close prices over specified period.
@@ -1262,14 +1270,35 @@ class Compare(Base):
             True for price axis to be to log scale. Only implemented for
             if `engine` is "bqplot".
 
+        subplots
+            Subplots to stack beneath the price chart, each sharing the
+            price chart's x-axis. Each item can be either a `str` naming a
+            built-in subplot (for example "volume") or a subclass of
+            `market_analy.charts.BaseSubplot` describing a custom subplot.
+            See `market_analy.charts`. By default (None) includes a
+            'volume' subplot. Pass as False to not include any subplots.
+            Note that subplots are only implemented if `engine` is
+            "bqplot".
+
         **kwargs
             Parameters to define period / price data to be analysed. See
             method doc with `help(analysis.__doc__)`. Cannot include
             'composite' or 'lose_single_symbol'.
         """
         if engine == "bqplot":
+            _subplots = (
+                ["volume"]
+                if subplots is None
+                else (None if subplots is False else subplots)
+            )
             return guis.GuiMultLine(
-                self, interval, rebase_on_zoom, max_ticks, log_scale, **kwargs
+                self,
+                interval,
+                rebase_on_zoom,
+                max_ticks,
+                log_scale,
+                subplots=_subplots,
+                **kwargs,
             )
         interval = "1d" if interval is None else interval
         subset = self.prices.get(close_only=True, **kwargs)
