@@ -1842,10 +1842,7 @@ class BasePrice(BaseSubsetDD):
         #    label: 'Date'
         # For y
         #    "~f" formats ticks in fixed-point notation with insignificant
-        #        trailing zeros trimmed. This keeps labels readable across
-        #        the range of prices encountered, for example showing "150"
-        #        rather than "150.000" and "0.85" rather than "0.850000",
-        #        without having to tailor the precision to the y value.
+        #        trailing zeros trimmed.
         #    label_offset': '3em'
         #    label: 'Price'
         dflt_axes_kwargs = {"x": {"num_ticks": 6}, "y": {"tick_format": "~f"}}

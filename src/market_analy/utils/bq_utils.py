@@ -658,13 +658,16 @@ class Crosshair(HasTraits):
 
     @property
     def _y_tick_format_python_format(self):
-        # Convert the d3-format y-axis tick format to an equivalent Python
-        # format specifier for `str.format`. Python's format mini-language
-        # understands neither d3-format's "~" flag (trim insignificant
-        # trailing zeros) nor its "r" type (round to significant digits).
-        # Both are mapped to Python's "g" type, which itself trims trailing
-        # zeros, so the crosshair label mirrors the axis ticks as closely as
-        # the two format languages allow.
+        """Convert d3-format to equivalent Python format spec.
+
+        Provides for crosshair label mirrors formatted with `str.format` to
+        align with axis ticks (formatted as d3) as closely as the two
+        format languages allow.
+        """
+        # Python's format mini-language understands neither d3-format's
+        # "~" flag (trim insignificant trailing zeros) nor its "r" type
+        # (round to significant digits). Map both to Python's "g" type,
+        # which trims trailing zeros.
         fmt = self._y_tick_format
         if "~" in fmt:
             fmt = fmt.replace("~", "").replace("f", "g")
