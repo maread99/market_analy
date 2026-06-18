@@ -66,10 +66,16 @@ src/
     └── trends_alt.py            # Deprecated; legacy trend analysis interface
 tests/
 ├── resources/
+├── tests_utils/                # Tests for `utils` subpackage
+│   ├── __init__.py
+│   ├── test_ipywidgets.py
+│   ├── test_list.py
+│   └── test_mkt_prices.py
+├── __init__.py
 ├── conftest.py
 ├── test_analysis.py
-├── test_list_utils.py
-├── test_mkt_prices_utils.py
+├── test_charts.py
+├── test_guis.py
 ├── test_standalone.py
 ├── test_trends.py
 └── test_trends_alt.py

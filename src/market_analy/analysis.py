@@ -109,8 +109,12 @@ if TYPE_CHECKING:
     import matplotlib as mpl
     from pandas.io.formats.style import Styler
 
+    from market_analy import charts
+
     from .trends import TrendsProto
     from .trends.movements import MovementsSupportChartAnaly
+
+    SubplotsArg = Sequence[str | type[charts.BaseSubplot]] | Literal[False] | None
 
 from .trends.analy import Trends
 from .trends.guis import TrendsGui, TrendsGuiBase
@@ -753,6 +757,21 @@ class Base(metaclass=ABCMeta):  # noqa: B024
         return self.price_at()
 
 
+def _resolve_subplots_arg(
+    subplots: SubplotsArg,
+) -> Sequence[str | type[charts.BaseSubplot]] | None:
+    """Resolve the `subplots` argument of the `plot` methods.
+
+    None resolves to a default 'volume' subplot, False to no subplots,
+    otherwise the value is passed through unchanged.
+    """
+    if subplots is None:
+        return ["volume"]
+    if subplots is False:
+        return None
+    return subplots
+
+
 class Analysis(Base):
     """Single instrument analysis.
 
@@ -814,6 +833,7 @@ class Analysis(Base):
         chart_type: Literal["line", "candle"] = "candle",
         max_ticks: int | None = None,
         log_scale: bool = True,
+        subplots: SubplotsArg = None,
         **kwargs,
     ) -> guis.GuiOHLC | guis.GuiLine | mpl.artist.Artist:
         """Chart prices over specified period.
@@ -841,6 +861,16 @@ class Analysis(Base):
             can be shown via slider). None for no limit. Only implemented
             if `engine` is "bqplot".
 
+        subplots
+            Subplots to stack beneath the price chart, each sharing the
+            price chart's x-axis. Each item can be either a `str` naming a
+            built-in subplot (for example "volume") or a subclass of
+            `market_analy.charts.BaseSubplot` describing a custom subplot.
+            See `market_analy.charts`. By default (None) includes a
+            'volume' subplot. Pass as False to not include any subplots.
+            Note that subplots are only implemented if `engine` is
+            "bqplot".
+
         **kwargs:
             Parameters to define period / price data to be analysed. See
             method doc with `help(analysis.__doc__)`. Cannot include
@@ -849,7 +879,13 @@ class Analysis(Base):
         if engine == "bqplot":
             kwargs["interval"] = interval
             cls = guis.GuiOHLC if chart_type == "candle" else guis.GuiLine
-            return cls(self, log_scale=log_scale, max_ticks=max_ticks, **kwargs)
+            return cls(
+                self,
+                log_scale=log_scale,
+                max_ticks=max_ticks,
+                subplots=_resolve_subplots_arg(subplots),
+                **kwargs,
+            )
         interval = "1d" if interval is None else interval
         subset = self.prices.get(close_only=True, **kwargs)
         return subset.plot()
@@ -1217,6 +1253,7 @@ class Compare(Base):
         rebase_on_zoom: bool = True,
         max_ticks: int | None = None,
         log_scale: bool = True,
+        subplots: SubplotsArg = None,
         **kwargs,
     ) -> guis.GuiMultLine | mpl.artist.Artist:
         """Chart rebased close prices over specified period.
@@ -1245,6 +1282,16 @@ class Compare(Base):
             True for price axis to be to log scale. Only implemented for
             if `engine` is "bqplot".
 
+        subplots
+            Subplots to stack beneath the price chart, each sharing the
+            price chart's x-axis. Each item can be either a `str` naming a
+            built-in subplot (for example "volume") or a subclass of
+            `market_analy.charts.BaseSubplot` describing a custom subplot.
+            See `market_analy.charts`. By default (None) includes a
+            'volume' subplot. Pass as False to not include any subplots.
+            Note that subplots are only implemented if `engine` is
+            "bqplot".
+
         **kwargs
             Parameters to define period / price data to be analysed. See
             method doc with `help(analysis.__doc__)`. Cannot include
@@ -1252,7 +1299,13 @@ class Compare(Base):
         """
         if engine == "bqplot":
             return guis.GuiMultLine(
-                self, interval, rebase_on_zoom, max_ticks, log_scale, **kwargs
+                self,
+                interval,
+                rebase_on_zoom,
+                max_ticks,
+                log_scale,
+                subplots=_resolve_subplots_arg(subplots),
+                **kwargs,
             )
         interval = "1d" if interval is None else interval
         subset = self.prices.get(close_only=True, **kwargs)

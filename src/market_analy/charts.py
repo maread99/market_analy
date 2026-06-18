@@ -25,6 +25,18 @@ PctChgBar(_PctChgBarBase):
 
 PctChgBarMult(_PctChgBarBase):
     Bar Chart displaying precentage changes of multiple instruments.
+
+BaseSubplot(BaseSubsetDD):
+    Base for an subplot placed below a price chart.
+
+SubplotBars(BaseSubplot):
+    Base for an subplot plotting data as bars.
+
+SubplotLines(BaseSubplot):
+    Base for an subplot plotting data as lines.
+
+SubplotVolume(SubplotBars):
+    Built-in volume subplot.
 """
 
 import enum
@@ -44,9 +56,11 @@ import pandas as pd
 from pandas import DataFrame, Series
 
 import market_analy.utils.bq_utils as ubq
+import market_analy.utils.ipywidgets_utils as wu
 import market_analy.utils.pandas_utils as upd
 from market_analy.formatters import FORMATTERS, formatter_datetime
 from market_analy.utils.dict_utils import set_kwargs_from_dflt
+from market_analy.utils.maths_utils import discretize_range_nicely
 
 from .cases import (
     CasesSupportsChartAnaly,
@@ -58,6 +72,7 @@ from .cases import (
 
 COLOR_CHART_TEXT = "lightyellow"
 STYLE_CHART_TITLE = {"font-size": "20px", "fill": COLOR_CHART_TEXT}
+STYLE_SUBPLOT_TITLE = {"font-size": "16px", "fill": COLOR_CHART_TEXT}
 
 STYLE_TOOLTIP = {
     "opacity": 0.8,
@@ -462,13 +477,12 @@ class Base(metaclass=ABCMeta):
         Subclass should NOT override or extend this method.
         """
         self._widgets = []
-        w.Widget.on_widget_constructed(self._widgets.append)
-        self.scales = self._create_scales()
-        self.axes = self._create_axes()
-        self.mark = self._create_mark()
-        self.mark_y2 = None if self._no_y2_plot else self._create_y2_mark()
-        self.figure = self._create_figure()
-        w.Widget.on_widget_constructed(None)
+        with wu.capture_widgets(self._widgets):
+            self.scales = self._create_scales()
+            self.axes = self._create_axes()
+            self.mark = self._create_mark()
+            self.mark_y2 = None if self._no_y2_plot else self._create_y2_mark()
+            self.figure = self._create_figure()
 
     @abstractmethod
     def _create_scales(self) -> dict[ubq.ScaleKeys, bq.Scale]:
@@ -1546,6 +1560,20 @@ class BaseSubsetDD(Base):
         self._set_x_tick_format()
         super().update_x_axis_presentation()
 
+    def set_x_labels_visible(self, visible: bool):
+        """Show or hide the x-axis tick labels.
+
+        The x-axis line and ticks remain unaffected. Hiding the labels is
+        useful when stacking charts that share an x-axis so that only the
+        bottom-most chart shows the labels.
+        """
+        style = dict(self.axes[0].tick_style or {})
+        if visible:
+            style.pop("display", None)
+        else:
+            style["display"] = "none"
+        self.axes[0].tick_style = style
+
     @hold_mark_update
     def _update_data(  # noqa: C901
         self,
@@ -1818,6 +1846,7 @@ class BasePrice(BaseSubsetDD):
         #        maybe only 4 significant places?
         #    label_offset': '3em'
         #    label: 'Price'
+        # TODO: change tick_format to "~f"
         dflt_axes_kwargs = {"x": {"num_ticks": 6}, "y": {"tick_format": ".6r"}}
         axes_kwargs = self._add_axes_kwargs(dflt_axes_kwargs, axes_kwargs)
         return super()._axes_kwargs(axes_kwargs, **general_kwargs)
@@ -2110,6 +2139,13 @@ class MultLine(BasePrice):
     def reset_x_ticks(self):
         self.rebase(self.prices.index[0].left)
         super().reset_x_ticks()
+
+    def _axes_kwargs(
+        self, axes_kwargs: AxesKwargs | None = None, **general_kwargs
+    ) -> AxesKwargs:
+        dflt_axes_kwargs = {"y": {"tick_format": ".1f"}}
+        axes_kwargs = self._add_axes_kwargs(dflt_axes_kwargs, axes_kwargs)
+        return super()._axes_kwargs(axes_kwargs, **general_kwargs)
 
     @property
     def _y_data(self) -> pd.DataFrame:
@@ -3135,3 +3171,455 @@ class OHLCCaseBase(OHLC, ChartSupportsCasesGui):
         if case is self.current_case:
             return  # current case if first case and already selected
         self.select_case(case)
+
+
+# --------
+# Subplots
+# --------
+
+
+class BaseSubplot(BaseSubsetDD):
+    """Base class for a subplot associated with a price chart.
+
+    A subplot shares the x-axis of an accompanying price chart by reusing
+    that chart's x-axis scale. This keeps the subplot's visible x-range in
+    lock-step with the price chart (panning, zooming and interval changes
+    propagate via the shared scale). Subplot data is plotted against an
+    independent linear y-axis that auto-scales to the data currently
+    visible.
+
+    Parameters
+    ----------
+    chart
+        The accompanying price chart (an instance of a `BasePrice`
+        subclass).
+
+    prices
+        Price data from which to evaluate the subplot data (via
+        `get_subplot_data`). A `pd.DataFrame` with columns indexed with a
+        `pd.MultiIndex` with level 0 as the symbol and level -1 as 'open',
+        'high', 'low', 'close' and 'volume'.
+
+    Attributes (can be overriden by subclasses)
+    -------------------------------------------
+    TITLE : str | None
+        Name of the subplot, shown as the subplot's title.
+
+    HEIGHT : int
+        Height of the subplot figure, in pixels.
+
+    REF_LEVELS : Sequence[float] | None
+        Values at which to plot horizontal reference lines. The y-axis is
+        extended as required to ensure all reference levels are visible.
+
+    Y_TICK_FORMAT : str | None
+        Format for the y-axis tick labels, as a d3-format specifier, for
+        example ".1%" -> 12.3%, i.e. multiply by 100 and state to 1
+        decimal place.
+
+    COLORS : Sequence[str] | None
+        Colors to apply to the subplot marks. By default, if the subplot
+        covers multiple symbols then the colors of the accompanying
+        chart's marks, otherwise bqplot's default color.
+
+    Notes
+    -----
+    See documentation of the base classes `Base` and `BaseSubsetDD` for
+    inherited methods and attributes.
+
+    To implement a concrete subplot:
+        - subclass `SubplotBars` or `SubplotLines` (these intermediaries
+          concretise `MarkCls` with the bqplot Mark class) or, for a
+          different mark or alternative customised implementation, subclass
+          `BaseSubplot` directly and concretise `MarkCls`.
+        - implement the `get_subplot_data` method to evaluate the subplot
+          data from the price data.
+        - override, as required, any of the class attributes to customise
+          the subplot's presentation.
+    """
+
+    # dflt color that subclasses should use for tootip text
+    TOOLTIP_TEXT_COLOR = "white"
+
+    # %age to extend y-scale by beyond the visible data range (NB that if there
+    # are no negative y values then y-scale will not be extended below zero).
+    Y_AXIS_EXCESS = 0.05
+
+    # Default specification. Subclasses should override as required.
+    TITLE: str | None = None
+    HEIGHT: int = 140
+    REF_LEVELS: Sequence[float] | None = None
+    Y_TICK_FORMAT: str | None = None
+    COLORS: Sequence[str] | None = None
+
+    def __init__(self, chart: BasePrice, prices: pd.DataFrame):
+        self._chart = chart
+        data = self.get_subplot_data(prices)
+        # set before super().__init__ as required by chart creation
+        self._x_scale_shared = chart.scales["x"]
+        colors = self.COLORS if self.COLORS is not None else self._default_colors(data)
+        self._colors = None if colors is None else list(colors)
+        self._height = self.HEIGHT
+        self._ref_levels = [] if self.REF_LEVELS is None else list(self.REF_LEVELS)
+        self._y_tick_format = self.Y_TICK_FORMAT
+        super().__init__(
+            data,
+            title="" if self.TITLE is None else self.TITLE,
+            visible_x_ticks=chart.plotted_interval,
+            max_ticks=chart.max_ticks,
+            display=False,
+            data_y2=None,
+        )
+        if self._update_mark_data_attr_to_reflect_plotted:
+            # fire to cover possibility that initial plotted bars do not include the
+            # first bar (in which case the subplot data will not otherwise update)
+            self._x_domain_chg_handler(event=None)
+
+    @abstractmethod
+    def get_subplot_data(self, prices: pd.DataFrame) -> pd.Series | pd.DataFrame:
+        """Evaluate the subplot data from price data.
+
+        Parameters
+        ----------
+        prices
+            Price data on which the accompanying price chart is based, as
+            a `pd.DataFrame` with columns indexed with a `pd.MultiIndex`
+            with level 0 as the symbol and level -1 as 'open', 'high',
+            'low', 'close' and 'volume'.
+
+        Returns
+        -------
+        pd.Series | pd.DataFrame
+            A `pd.Series` (single set of values) or a `pd.DataFrame` (one
+            column per set of values) indexed with the same index as
+            `prices` (this requirement ensures the subplot's x-ticks align
+            with the shared x-axis).
+
+        Notes
+        -----
+        A usable subclass must implement this method.
+        """
+
+    def _default_colors(self, data: pd.DataFrame | pd.Series) -> list[str] | None:
+        """Default colors for the subplot's mark(s).
+
+        For a subplot of multiple symbols, returns the colors of the
+        accompanying chart's marks, otherwise None (i.e. will take
+        bqplot's default color for the mark).
+        """
+        if isinstance(data, pd.DataFrame):
+            main_colors = self._chart.mark.colors
+            if main_colors:
+                return list(main_colors)
+        return None
+
+    @property
+    def _y_data(self) -> pd.DataFrame | pd.Series:
+        return self.data
+
+    def _get_mark_y_data(self):
+        if isinstance(self.data, pd.Series):
+            return self.data.values
+        return upd.tolists(self.data)
+
+    # CHART CREATION
+    def _create_scales(self) -> dict[ubq.ScaleKeys, bq.Scale]:
+        # `allow_padding=False` so that the figure honours exactly the y-axis
+        # min/max set by `update_y_axis_presentation`. Otherwise the figure
+        # pads the scale beyond those limits which, given the `bq.Bars`
+        # baseline lies at 0, can extend the rendered y-axis below zero.
+        return {"x": self._x_scale_shared, "y": bq.LinearScale(allow_padding=False)}
+
+    def _axes_kwargs(
+        self, axes_kwargs: AxesKwargs | None = None, **general_kwargs
+    ) -> AxesKwargs:
+        y_kwargs: dict[str, Any] = {}
+        if self._y_tick_format is not None:
+            y_kwargs["tick_format"] = self._y_tick_format
+        dflt_axes_kwargs: AxesKwargs = {"x": {"num_ticks": 6}, "y": y_kwargs}
+        axes_kwargs = self._add_axes_kwargs(dflt_axes_kwargs, axes_kwargs)
+        return super()._axes_kwargs(axes_kwargs, **general_kwargs)
+
+    def _create_mark(self, **kwargs) -> bq.Mark:
+        if self._colors is not None:
+            kwargs.setdefault("colors", self._colors)
+        return super()._create_mark(**kwargs)
+
+    def _create_figure(self, **kwargs) -> bq.Figure:
+        kwargs.setdefault("padding_x", 0.005)
+        kwargs.setdefault("padding_y", 0.05)
+        kwargs.setdefault(
+            "fig_margin", {"top": 10, "bottom": 30, "left": 60, "right": 60}
+        )
+        kwargs.setdefault("title_style", STYLE_SUBPLOT_TITLE)
+        kwargs.setdefault("interaction", None)
+        fig = super()._create_figure(**kwargs)
+        # relax aspect ratio constraints to allow a short, wide figure
+        fig.min_aspect_ratio = 0.01
+        fig.max_aspect_ratio = 100.0
+        if self._height is not None:
+            fig.layout.height = f"{self._height}px"
+        return fig
+
+    def _add_marks(self):
+        """Add any horizontal reference-level lines."""
+        if not self._ref_levels:
+            return
+        scales = {"x": self.scales["x"], "y": self.scales["y"]}
+        marks = [
+            bq.Lines(
+                x=[self._x_data[0], self._x_data[-1]],
+                y=[level, level],
+                scales=scales,
+                colors=["dimgray"],
+                stroke_width=1,
+                line_style="dashed",
+            )
+            for level in self._ref_levels
+        ]
+        self.add_marks(marks, Groups.PERSIST, under=True)
+
+    @property
+    def plots_multiple_symbols(self) -> bool:
+        """Query if subplot plots multiple symbols.
+
+        NOTE: implementation assumes plots multiple symbols if `data` is
+        a pd.DataFrame.
+        """
+        return isinstance(self.data, pd.DataFrame)
+
+    def _x_domain_chg_handler(self, event):
+        # The subplot shares the price chart's x-axis scale. During a
+        # tick-interval change (for example from daily to intraday data)
+        # the price chart sets the shared domain to ticks that the
+        # subplot's data does yet have. The subplot will shortly be updated
+        # (by `guis.BasePrice._update_subplots`) but in the interim this
+        # handler would not find any of its (yet to be updated) x_ticks
+        # among those that are plotted (as already updated by main chart).
+        # The following skips acting on such a transient empty window.
+        # (Note that this handler will be called again when subplot's data
+        # has been updated).
+        if not len(self.plotted_x_ticks):
+            return
+        super()._x_domain_chg_handler(event)
+
+    # PRESENTATION
+    def _plotted_y_extent(self) -> np.ndarray:
+        """Values that the plotted y-axis range must accommodate.
+
+        Returns a 1d array of values that should all be included within the
+        the range of the y-axis range. By default every plotted value.
+
+        Notes
+        -----
+        Subclass can override, in which case subclass should document the
+        reason for requiring a different implementation.
+        """
+        return np.asarray(self._plotted_y.values, dtype="float64").ravel()
+
+    def _y_axis_min(self, lo: float, margin: float) -> float:
+        """Lower y-axis limit.
+
+        Returns y-axis min as the `lo` less a `margin`, albeit whilst
+        ensuring that y-axis never covers negative values when all values
+        are positive.
+
+        Parameters
+        ----------
+        lo
+            Lowest value plotted against the y-axis.
+
+        margin
+            Any margin to provide between `lo` and the lowest value to be
+            covered by the y-axis.
+
+        Notes
+        -----
+        Subclass can override, in which case subclass should document the
+        reason for requiring a different implementation.
+        """
+        return max(0.0, lo - margin) if lo >= 0 else lo - margin
+
+    def update_y_axis_presentation(self):
+        plotted = self._plotted_y_extent()
+        valid = plotted[~np.isnan(plotted)]
+        if valid.size:
+            lo, hi = float(valid.min()), float(valid.max())
+        else:
+            lo, hi = 0.0, 1.0
+        if self._ref_levels:
+            lo = min(lo, *self._ref_levels)
+            hi = max(hi, *self._ref_levels)
+        rnge = (hi - lo) or abs(hi) or 1.0
+        excess = rnge * self.Y_AXIS_EXCESS
+        y_min = self._y_axis_min(lo, excess)
+        y_max = hi + excess
+        self.scales["y"].min = y_min
+        self.scales["y"].max = y_max
+        self.axes[1].tick_values = discretize_range_nicely(y_min, y_max)
+        super().update_y_axis_presentation()
+
+
+class SubplotBars(BaseSubplot):
+    """Base for a subplot plotting data as bars.
+
+    See `BaseSubplot` for documentation of methods and attributes and for
+    how to implement a concrete subplot.
+    """
+
+    @property
+    def MarkCls(self) -> type[bq.Mark]:
+        return bq.Bars
+
+    def _plotted_y_extent(self) -> np.ndarray:
+        """Stacked totals over the plotted bars.
+
+        The bars are stacked, so for data covering multiple symbols the
+        y-axis must accommodate the sum of all parts of each stacked bar
+        (not merely the value of each individual part).
+        """
+        if self.plots_multiple_symbols:
+            return np.asarray(self._plotted_y.sum(axis=1), dtype="float64")
+        return super()._plotted_y_extent()
+
+    def _y_axis_min(self, lo: float, excess: float) -> float:
+        """Min of y_axis range.
+
+        Anchors at zero for stacked (multi-symbol) bars in order that all
+        parts of all bars are visible.
+        """
+        if self.plots_multiple_symbols:
+            return 0.0
+        return super()._y_axis_min(lo, excess)
+
+    @staticmethod
+    def _format_value(y: float) -> str:
+        """Format a value with thousands separators."""
+        return f"{int(y):,}" if y.is_integer() else f"{y:,.2f}"
+
+    def _tooltip_value(self, mark: bq.Bars, event: dict) -> str:
+        """Show data for hovered bar.
+
+        For data covering multiple symbols (a stacked bar) the tooltip
+        includes the total value over all symbols and separately the value
+        corresponding with just the hovered part of the stack (shown in the
+        colour of the corresponding symbol).
+
+        See `Base._tooltip_value` for the hook's contract.
+        """
+        i = event["data"]["index"]
+        style = tooltip_html_style(color=self.TOOLTIP_TEXT_COLOR, line_height=1.3)
+        s = f"<p {style}>Bar: " + formatter_datetime(self.x_ticks[i])
+        if self.plots_multiple_symbols:
+            row = self.data.iloc[i]
+            total = float(row.sum())
+            s += f"<br><span {style}>Value: {self._format_value(total)}</span>"
+            ci = event["data"]["colorIndex"]
+            label = str(self.data.columns[ci])
+            y = float(row.iloc[ci])
+            # the symbol/value line to default to color of hovered part of the stack
+            color = mark.colors[ci % len(mark.colors)] if mark.colors else "white"
+        else:
+            label = self.title or "Value"
+            y = self.data.iloc[i]
+            color = mark.colors[0] if mark.colors else "white"
+        label_style = tooltip_html_style(color=color, line_height=1.3)
+        s += f"<br><span {label_style}>{label}: {self._format_value(y)}</span></p>"
+        return s
+
+
+class SubplotLines(BaseSubplot):
+    """Base for a subplot plotting data as lines.
+
+    See `BaseSubplot` for documentation of methods and attributes and for
+    how to implement a concrete subplot.
+    """
+
+    @property
+    def MarkCls(self) -> type[bq.Mark]:
+        return bq.Lines
+
+    @property
+    def _update_mark_data_attr_to_reflect_plotted(self) -> bool:
+        """Does mark data need to be reassigned to relect plotted data.
+
+        Notes
+        -----
+        If mark data attributes are not updated then plot line fails to
+        render if the first date is changed. If last date is changed then
+        plot does render (although any fill is inverted whilst the figure
+        updates, which is rather ugly).
+        """
+        return True
+
+    def _get_mark_y_plotted_data(self):
+        multiple_symbols = self.plots_multiple_symbols
+        return super()._get_mark_y_plotted_data(multiple_symbols=multiple_symbols)
+
+
+class SubplotVolume(SubplotBars):
+    """Volume subplot."""
+
+    TITLE = "Volume"
+    Y_TICK_FORMAT = "~s"
+
+    def get_subplot_data(self, prices: pd.DataFrame) -> pd.Series | pd.DataFrame:
+        """Evaluate volume data from price data.
+
+        Returns the 'volume' column(s) of `prices`, as a `pd.Series` if
+        `prices` covers a single symbol, otherwise as a `pd.DataFrame` with
+        one column per symbol.
+
+        See `BaseSubplot.get_subplot_data` for the method's contract.
+        """
+        if not isinstance(prices.columns, pd.MultiIndex):
+            if "volume" not in prices.columns:
+                raise ValueError("Price data does not include a 'volume' column.")
+            return prices["volume"]
+
+        level = prices.columns.nlevels - 1
+        if "volume" not in prices.columns.get_level_values(level):
+            raise ValueError("Price data does not include a 'volume' column.")
+        vol = prices.xs("volume", axis=1, level=level)
+        if isinstance(vol, pd.Series):
+            return vol
+        if len(vol.columns) == 1:
+            return vol.iloc[:, 0].rename("volume")
+        return vol
+
+
+# Built-in subplots keyed with a conventient alias. Use
+# `resolve_subplot_class` to resolve a key to the corresopnding subplot class.
+SUBPLOTS: dict[str, type[BaseSubplot]] = {
+    "volume": SubplotVolume,
+}
+
+
+def resolve_subplot_class(subplot: str | type[BaseSubplot]) -> type[BaseSubplot]:
+    """Resolve a subplot specification to a `BaseSubplot` subclass.
+
+    Parameters
+    ----------
+    subplot
+        Either a subclass of `BaseSubplot` or a `str` naming a built-in
+        subplot (a key of `SUBPLOTS`).
+
+    Returns
+    -------
+    type[BaseSubplot]
+        The resolved `BaseSubplot` subclass.
+    """
+    if isinstance(subplot, str):
+        try:
+            return SUBPLOTS[subplot]
+        except KeyError:
+            raise ValueError(
+                f"'{subplot}' is not a valid built-in subplot. Valid"
+                f" options are {sorted(SUBPLOTS)}."
+            ) from None
+    if isinstance(subplot, type) and issubclass(subplot, BaseSubplot):
+        return subplot
+    raise TypeError(
+        "A subplot must be a `BaseSubplot` subclass or the name of a"
+        f" built-in subplot, although received {subplot!r}."
+    )
