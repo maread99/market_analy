@@ -3579,7 +3579,7 @@ def resolve_subplot_class(subplot: str | type[BaseSubplot]) -> type[BaseSubplot]
     ----------
     subplot
         Either a subclass of `BaseSubplot` or a `str` naming a built-in
-        subplot (a key of `SUBPLOT_ALIASES`).
+        subplot (a key of `SUBPLOTS`).
 
     Returns
     -------
