@@ -215,9 +215,9 @@ class TestGuiMultLineSubplots:
         gui = comp.plot(**pp, subplots=False, display=False)
         assert gui.subplots == []
 
-    def test_data(self, comp, pp):
+    def test_data(self, comp, pp, SubplotVol):
         """Verify gui passes through full price data."""
-        gui = comp.plot(**pp, subplots=["volume"], display=False)
+        gui = comp.plot(**pp, subplots=[SubplotVol], display=False)
         pane = gui.subplots[0]
         assert isinstance(pane.data, pd.DataFrame)
         assert list(pane.data.columns) == comp.symbols

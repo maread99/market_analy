@@ -1846,6 +1846,7 @@ class BasePrice(BaseSubsetDD):
         #        maybe only 4 significant places?
         #    label_offset': '3em'
         #    label: 'Price'
+        # TODO: change tick_format to "~f"
         dflt_axes_kwargs = {"x": {"num_ticks": 6}, "y": {"tick_format": ".6r"}}
         axes_kwargs = self._add_axes_kwargs(dflt_axes_kwargs, axes_kwargs)
         return super()._axes_kwargs(axes_kwargs, **general_kwargs)
@@ -2138,6 +2139,13 @@ class MultLine(BasePrice):
     def reset_x_ticks(self):
         self.rebase(self.prices.index[0].left)
         super().reset_x_ticks()
+
+    def _axes_kwargs(
+        self, axes_kwargs: AxesKwargs | None = None, **general_kwargs
+    ) -> AxesKwargs:
+        dflt_axes_kwargs = {"y": {"tick_format": ".1f"}}
+        axes_kwargs = self._add_axes_kwargs(dflt_axes_kwargs, axes_kwargs)
+        return super()._axes_kwargs(axes_kwargs, **general_kwargs)
 
     @property
     def _y_data(self) -> pd.DataFrame:
@@ -3382,13 +3390,15 @@ class BaseSubplot(BaseSubsetDD):
 
     def _x_domain_chg_handler(self, event):
         # The subplot shares the price chart's x-axis scale. During a
-        # coordinated update (for example a tick-interval change) the price
-        # chart sets the shared domain to ticks that the subplot's data does
-        # not include until the subplot too is updated (by
-        # `guis.BasePrice._update_subplots`). In the interim the domain
-        # selects none of the subplot's (stale) ticks; skip presenting
-        # against such a transient empty window. The subplot is refreshed
-        # once its data is reconciled.
+        # tick-interval change (for example from daily to intraday data)
+        # the price chart sets the shared domain to ticks that the
+        # subplot's data does yet have. The subplot will shortly be updated
+        # (by `guis.BasePrice._update_subplots`) but in the interim this
+        # handler would not find any of its (yet to be updated) x_ticks
+        # among those that are plotted (as already updated by main chart).
+        # The following skips acting on such a transient empty window.
+        # (Note that this handler will be called again when subplot's data
+        # has been updated).
         if not len(self.plotted_x_ticks):
             return
         super()._x_domain_chg_handler(event)
