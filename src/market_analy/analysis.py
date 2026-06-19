@@ -242,31 +242,54 @@ def _add_duration_columns(d: dict, start: pd.Timestamp, end: pd.Timestamp) -> di
 def max_advance(prices: pd.DataFrame, label: Any = None) -> pd.DataFrame:
     """Return maximum percentage advance.
 
+    The advance is evaluated as the greatest percentage rise from a low
+    to a subsequent high. Where the low and high being considered fall
+    on the same bar the intra-bar order of the two is inferred from the
+    bar direction; an advance is only recognised within a single bar if
+    the bar closed at or above the open (the low is assumed to have been
+    registered before the high). On a bar that closed below the open the
+    high is assumed to have been registered before the low, such that the
+    bar cannot, of itself, represent an advance (although the bar's low
+    can still represent the start of an advance to a later bar's high).
+
     Parameters
     ----------
     prices
-        Price data covering period within which to return maximum advance.
+        Price data covering period within which to return maximum
+        advance. Must include columns "open", "high", "low" and "close".
 
     label
         Value to assign to index label. Default 0.
     """
-    df = prices.loc[:, ["high", "low"]]
+    df = prices.loc[:, ["open", "high", "low", "close"]]
 
-    df["max_adv"] = df["high"] / df["low"].cummin() - 1
+    # On an 'up' bar (close >= open) the low is assumed to precede the
+    # high, such that the bar's own low can pair with its own high. On a
+    # 'down' bar the high precedes the low, so the high can only be paired
+    # with the lowest low registered up to, but excluding, the same bar.
+    low_cummin = df["low"].cummin()
+    is_up = df["close"] >= df["open"]
+    trough = low_cummin.where(is_up, low_cummin.shift(1))
+
+    df["max_adv"] = df["high"] / trough - 1
     max_adv = df["max_adv"].max()
 
     end = df[df["max_adv"] == max_adv]
     end = end.index[-1]  # if >1 max adv of same value, the most recent
 
+    high = df.loc[end, "high"]
     df = df.loc[:end]
-    start = df[df["low"] == df["low"].min()]
+    if not is_up.loc[end]:
+        # a 'down' end bar cannot be the start of its own advance
+        df = df.iloc[:-1]
+    start = df[df["low"] == trough.loc[end]]
     start = start.index[-1]  # if >1 lows of same value, the most recent
 
     d = {
         "start": [start],
         "low": [df.loc[start, "low"]],
         "end": [end],
-        "high": [df.loc[end, "high"]],
+        "high": [high],
         "pct_chg": [max_adv],
     }
     d = _add_duration_columns(d, start, end)
@@ -276,31 +299,54 @@ def max_advance(prices: pd.DataFrame, label: Any = None) -> pd.DataFrame:
 def max_decline(prices: pd.DataFrame, label: Any = None) -> pd.DataFrame:
     """Return maximum percentage decline.
 
+    The decline is evaluated as the greatest percentage fall from a high
+    to a subsequent low. Where the high and low being considered fall on
+    the same bar the intra-bar order of the two is inferred from the bar
+    direction; a decline is only recognised within a single bar if the
+    bar closed below the open (the high is assumed to have been
+    registered before the low). On a bar that closed at or above the open
+    the low is assumed to have been registered before the high, such that
+    the bar cannot, of itself, represent a decline (although the bar's
+    high can still represent the start of a decline to a later bar's low).
+
     Parameters
     ----------
     prices
-        Price data covering period within which to return maximum decline.
+        Price data covering period within which to return maximum
+        decline. Must include columns "open", "high", "low" and "close".
 
     label
         Value to assign to index label. Default 0.
     """
-    px = prices.loc[:, ["high", "low"]]
+    px = prices.loc[:, ["open", "high", "low", "close"]]
 
-    px["max_dec"] = px["low"] / px["high"].cummax() - 1
+    # On a 'down' bar (close < open) the high is assumed to precede the
+    # low, such that the bar's own high can pair with its own low. On an
+    # 'up' bar the low precedes the high, so the low can only be paired
+    # with the highest high registered up to, but excluding, the same bar.
+    high_cummax = px["high"].cummax()
+    is_down = px["close"] < px["open"]
+    peak = high_cummax.where(is_down, high_cummax.shift(1))
+
+    px["max_dec"] = px["low"] / peak - 1
     max_dec = px["max_dec"].min()
 
     end = px[px["max_dec"] == max_dec]
     end = end.index[-1]  # if >1 max dec of same value, the most recent
 
+    low = px.loc[end, "low"]
     px = px.loc[:end]
-    start = px[px["high"] == px["high"].max()]
+    if not is_down.loc[end]:
+        # an 'up' end bar cannot be the start of its own decline
+        px = px.iloc[:-1]
+    start = px[px["high"] == peak.loc[end]]
     start = start.index[-1]  # if >1 highs of same value, the most recent
 
     d = {
         "start": [start],
         "high": [px.loc[start, "high"]],
         "end": [end],
-        "low": [px.loc[end, "low"]],
+        "low": [low],
         "pct_chg": [max_dec],
     }
     d = _add_duration_columns(d, start, end)
