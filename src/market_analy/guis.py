@@ -1510,7 +1510,8 @@ class BasePrice(BaseVariableDates):
 
         self._clear_user_activity()
         self._update_chart(data, data2, prices, reset_slider=True, visible_x_ticks=vxts)
-        if self._HAS_DRAWDOWN:
+        if self._HAS_DRAWDOWN and self._drawdown_selector.value:
+            # if drawdown_selector showing then change back to base on ATH
             self._drawdown_selector.set_value_unobserved("ATH")
 
     def _reset_chart(self):
