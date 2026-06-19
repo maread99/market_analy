@@ -212,6 +212,56 @@ def test_max_advance_and_max_decline():
     assert rtrn.loc[("max_dec", "minutes")] == 4
 
 
+def test_max_advance_intrabar_disambiguation():
+    """Verify a 'down' bar's range is not misread as an advance.
+
+    The middle bar closes below its open (a 'down' bar) and has the
+    widest low-to-high range. Without disambiguation that range would be
+    reported as the maximum advance (low -> high on the same bar). As the
+    high is assumed to have been registered before the low, the advance
+    should instead run from the first bar's low to the middle bar's high.
+    """
+    opens = [100, 120, 110]
+    closes = [101, 100, 112]  # bar1 is a 'down' bar (close < open)
+    highs = [102, 130, 113]
+    lows = [99, 90, 109]
+    index = pd.date_range("2023-01-01", freq="D", periods=len(opens))
+    df = pd.DataFrame(dict(open=opens, high=highs, low=lows, close=closes), index=index)
+
+    rtrn = analysis.max_advance(df, label="max_adv")
+    assert rtrn.loc[("max_adv", "start")] == index[0]
+    assert rtrn.loc[("max_adv", "low")] == lows[0]
+    assert rtrn.loc[("max_adv", "end")] == index[1]
+    assert rtrn.loc[("max_adv", "high")] == highs[1]
+    assert round(rtrn.loc[("max_adv", "pct_chg")], 3) == round(130 / 99 - 1, 3)
+    assert rtrn.loc[("max_adv", "days")] == 1
+
+
+def test_max_decline_intrabar_disambiguation():
+    """Verify an 'up' bar's range is not misread as a decline.
+
+    The middle bar closes at or above its open (an 'up' bar) and has the
+    widest high-to-low range. Without disambiguation that range would be
+    reported as the maximum decline (high -> low on the same bar). As the
+    low is assumed to have been registered before the high, the decline
+    should instead run from the first bar's high to the middle bar's low.
+    """
+    opens = [100, 80, 90]
+    closes = [99, 100, 88]  # bar1 is an 'up' bar (close >= open)
+    highs = [101, 110, 91]
+    lows = [98, 70, 87]
+    index = pd.date_range("2023-01-01", freq="D", periods=len(opens))
+    df = pd.DataFrame(dict(open=opens, high=highs, low=lows, close=closes), index=index)
+
+    rtrn = analysis.max_decline(df, label="max_dec")
+    assert rtrn.loc[("max_dec", "start")] == index[0]
+    assert rtrn.loc[("max_dec", "high")] == highs[0]
+    assert rtrn.loc[("max_dec", "end")] == index[1]
+    assert rtrn.loc[("max_dec", "low")] == lows[1]
+    assert round(rtrn.loc[("max_dec", "pct_chg")], 3) == round(70 / 101 - 1, 3)
+    assert rtrn.loc[("max_dec", "days")] == 1
+
+
 def test_style_df():
     opens = closes = [100, 110, 105]
     highs = [v + 1 for v in opens]
