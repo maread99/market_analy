@@ -243,14 +243,18 @@ def max_advance(prices: pd.DataFrame, label: Any = None) -> pd.DataFrame:
     """Return maximum percentage advance.
 
     The advance is evaluated as the greatest percentage rise from a low
-    to a subsequent high. Where the low and high being considered fall
-    on the same bar the intra-bar order of the two is inferred from the
-    bar direction; an advance is only recognised within a single bar if
-    the bar closed at or above the open (the low is assumed to have been
-    registered before the high). On a bar that closed below the open the
-    high is assumed to have been registered before the low, such that the
-    bar cannot, of itself, represent an advance (although the bar's low
-    can still represent the start of an advance to a later bar's high).
+    to a subsequent high.
+
+    A note on single-bar advances: Advances from the low to the high of a
+    single DOWN bar are ignored (a down bar is defined as a bar where the
+    bar close is lower than the bar open). In this case it is assumed that
+    the bar high was registered before the bar low and hence there was no
+    'low-to-high' advance. On the contrary, if the advance from the low to
+    the high of single UP bar is the greatest 'low to subsequent high' in
+    `prices` then this will be considered as the max advance (for an up bar
+    the bar low is assumed to have been registered before the bar high, and
+    hence the bar low-to-high is considered to represent a genuine
+    advance).
 
     Parameters
     ----------
@@ -300,14 +304,18 @@ def max_decline(prices: pd.DataFrame, label: Any = None) -> pd.DataFrame:
     """Return maximum percentage decline.
 
     The decline is evaluated as the greatest percentage fall from a high
-    to a subsequent low. Where the high and low being considered fall on
-    the same bar the intra-bar order of the two is inferred from the bar
-    direction; a decline is only recognised within a single bar if the
-    bar closed below the open (the high is assumed to have been
-    registered before the low). On a bar that closed at or above the open
-    the low is assumed to have been registered before the high, such that
-    the bar cannot, of itself, represent a decline (although the bar's
-    high can still represent the start of a decline to a later bar's low).
+    to a subsequent low.
+
+    A note on single-bar declines: Declines from the high to the low of a
+    single UP bar are ignored (an up bar is defined as a bar where the bar
+    close is higher than or equal to the bar open). In this case it is
+    assumed that the bar low was registered before the bar high and hence
+    there was no 'high-to-low' decline. On the contrary, if the decline
+    from the high to the low of single DOWN bar is the greatest 'high to
+    subsequent low' in `prices` then this will be considered as the max
+    decline (for a down bar the bar high is assumed to have been registered
+    before the bar low, and hence the bar high-to-low is considered to
+    represent a genuine decline).
 
     Parameters
     ----------
