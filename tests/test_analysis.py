@@ -222,12 +222,19 @@ def test_max_advance_intrabar_disambiguation():
     should instead run from the first bar's low to the middle bar's high.
     """
     opens = [100, 120, 110]
-    closes = [101, 100, 112]  # bar1 is a 'down' bar (close < open)
+    closes = [101, 100, 112]
     highs = [102, 130, 113]
     lows = [99, 90, 109]
     index = pd.date_range("2023-01-01", freq="D", periods=len(opens))
     df = pd.DataFrame(dict(open=opens, high=highs, low=lows, close=closes), index=index)
 
+    # verify assumed conditions
+    assert df.iloc[1].close < df.iloc[1].open  # bar1 is a `down` bar
+    bar1_adv = df.iloc[1].high / df.iloc[1].low - 1
+    bar0_1_adv = df.iloc[1].high / df.iloc[0].low - 1
+    assert bar1_adv > bar0_1_adv
+
+    # verify expected
     rtrn = analysis.max_advance(df, label="max_adv")
     assert rtrn.loc[("max_adv", "start")] == index[0]
     assert rtrn.loc[("max_adv", "low")] == lows[0]
@@ -247,12 +254,19 @@ def test_max_decline_intrabar_disambiguation():
     should instead run from the first bar's high to the middle bar's low.
     """
     opens = [100, 80, 90]
-    closes = [99, 100, 88]  # bar1 is an 'up' bar (close >= open)
+    closes = [99, 100, 88]
     highs = [101, 110, 91]
     lows = [98, 70, 87]
     index = pd.date_range("2023-01-01", freq="D", periods=len(opens))
     df = pd.DataFrame(dict(open=opens, high=highs, low=lows, close=closes), index=index)
 
+    # verify assumed conditions
+    assert df.iloc[1].close > df.iloc[1].open  # bar1 is an `up` bar
+    bar1_dec = df.iloc[1].low / df.iloc[1].high - 1
+    bar0_1_dec = df.iloc[1].low / df.iloc[0].high - 1
+    assert abs(bar1_dec) > abs(bar0_1_dec)
+
+    # verify expected
     rtrn = analysis.max_decline(df, label="max_dec")
     assert rtrn.loc[("max_dec", "start")] == index[0]
     assert rtrn.loc[("max_dec", "high")] == highs[0]
