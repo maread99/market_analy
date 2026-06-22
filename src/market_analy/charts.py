@@ -58,7 +58,7 @@ from pandas import DataFrame, Series
 import market_analy.utils.bq_utils as ubq
 import market_analy.utils.ipywidgets_utils as wu
 import market_analy.utils.pandas_utils as upd
-from market_analy.formatters import FORMATTERS, formatter_datetime
+from market_analy.formatters import FORMATTERS, formatter_datetime, formatter_float
 from market_analy.utils.dict_utils import set_kwargs_from_dflt
 from market_analy.utils.maths_utils import discretize_range_nicely
 
@@ -1664,7 +1664,122 @@ class BaseSubsetDD(Base):
             self.title = title
 
 
-class BasePrice(BaseSubsetDD):
+class SyncedTooltip:
+    """Mixin adding a synchronised 'value at bar' tooltip to a pane.
+
+    A price gui stacks a price chart above zero or more subplots, all
+    sharing the same x-axis (and hence the same bars). This mixin lets
+    each such pane show a lightweight tooltip giving the pane's value at
+    a given bar, so that a gui can show every pane's value for the same
+    bar when any one pane is hovered (see `guis.BasePrice`).
+
+    The tooltip is a `bq.Label` mark, hidden until shown at a bar.
+
+    Methods
+    -------
+    show_synced_tooltip(x):
+        Show the tooltip at the bar with x-tick `x`.
+
+    hide_synced_tooltip():
+        Hide the tooltip.
+
+    Notes
+    -----
+    A host class must be a `BaseSubsetDD` subclass (for `x_ticks`,
+    `scales`, the principal `mark`, `figure` and `add_marks`).
+    `_init_synced_tooltip` must be called, after the host's chart has been
+    created, to create the tooltip mark.
+
+    A concrete host should implement `_synced_tooltip_series` (the values
+    to show, by bar) and can override `_format_synced_value`,
+    `_synced_tooltip_prefix` and `_event_x` as required.
+    """
+
+    if TYPE_CHECKING:
+        # attributes provided by the `BaseSubsetDD` host
+        scales: dict[str, bq.Scale]
+        mark: bq.Mark
+        title: str | None
+        x_ticks: pd.DatetimeIndex
+
+        def add_marks(
+            self, marks: list[bq.Mark], group: AddedMarkKeys, under: bool = False
+        ) -> None: ...
+
+    SYNCED_TOOLTIP_COLOR = "yellow"
+
+    def _init_synced_tooltip(self) -> None:
+        """Create the (hidden) synced-tooltip label mark."""
+        self._synced_tooltip_mark = bq.Label(
+            x=[],
+            y=[],
+            text=[],
+            scales={"x": self.scales["x"], "y": self.scales["y"]},
+            colors=[self.SYNCED_TOOLTIP_COLOR],
+            default_size=12,
+            font_weight="bold",
+            align="middle",
+            y_offset=-10,
+            visible=False,
+        )
+        self.add_marks([self._synced_tooltip_mark], Groups.PERSIST)
+
+    def _synced_tooltip_series(self) -> pd.Series | None:
+        """Values to show by the synced tooltip, indexed by x-tick.
+
+        Returns None to disable the synced tooltip for the pane.
+
+        A concrete host should override.
+        """
+        return None
+
+    def _format_synced_value(self, value: float) -> str:
+        """Format a value for display by the synced tooltip."""
+        return formatter_float(value)
+
+    @property
+    def _synced_tooltip_prefix(self) -> str:
+        """Label prefixing the synced-tooltip value."""
+        return self.title or "Value"
+
+    def _event_x(self, mark: bq.Mark, event: dict) -> pd.Timestamp | None:  # noqa: ARG002
+        """x-tick of the bar of a hovered element of the principal mark.
+
+        A host whose principal mark does not hold the full data, one
+        element per bar, should override.
+        """
+        index = event["data"]["index"]
+        ticks = self.x_ticks
+        return ticks[index] if 0 <= index < len(ticks) else None
+
+    def show_synced_tooltip(self, x: pd.Timestamp) -> None:
+        """Show the synced tooltip for the bar with x-tick `x`.
+
+        Hides the tooltip if the pane has no (or no valid) value at `x`.
+        """
+        series = self._synced_tooltip_series()
+        if series is None or x not in series.index:
+            self.hide_synced_tooltip()
+            return
+        value = series.loc[x]
+        if pd.isna(value):
+            self.hide_synced_tooltip()
+            return
+        text = f"{self._synced_tooltip_prefix}: {self._format_synced_value(value)}"
+        mark = self._synced_tooltip_mark
+        with mark.hold_sync():
+            mark.x = [x]
+            mark.y = [value]
+            mark.text = [text]
+            mark.visible = True
+
+    def hide_synced_tooltip(self) -> None:
+        """Hide the synced tooltip."""
+        if getattr(self, "_synced_tooltip_mark", None) is not None:
+            self._synced_tooltip_mark.visible = False
+
+
+class BasePrice(SyncedTooltip, BaseSubsetDD):
     """Base class for price charts.
 
     Concretes `BaseSubsetDD` with y-axis defined for prices. Provides price
@@ -1984,6 +2099,14 @@ class Line(BasePrice):
 
     def _get_mark_y_data(self) -> Series:
         return self._y_data
+
+    def _synced_tooltip_series(self) -> pd.Series:
+        """Close prices, indexed by x-tick, for the synced tooltip."""
+        return pd.Series(self._y_data.to_numpy(), index=self.x_ticks)
+
+    @property
+    def _synced_tooltip_prefix(self) -> str:
+        return "Close"
 
     @property
     def MarkCls(self) -> type[bq.Mark]:
@@ -2383,6 +2506,14 @@ class OHLC(BasePrice):
             s += "<br>" + line.capitalize() + ": " + FORMATTERS[line](v)
         s += "</p>"
         return s
+
+    def _synced_tooltip_series(self) -> pd.Series:
+        """Close prices, indexed by x-tick, for the synced tooltip."""
+        return pd.Series(self.data["close"].to_numpy(), index=self.x_ticks)
+
+    @property
+    def _synced_tooltip_prefix(self) -> str:
+        return "Close"
 
     def _axes_kwargs(
         self, axes_kwargs: AxesKwargs | None = None, **general_kwargs
@@ -3176,7 +3307,7 @@ class OHLCCaseBase(OHLC, ChartSupportsCasesGui):
 # --------
 
 
-class BaseSubplot(BaseSubsetDD):
+class BaseSubplot(SyncedTooltip, BaseSubsetDD):
     """Base class for a subplot associated with a price chart.
 
     A subplot shares the x-axis of an accompanying price chart by reusing
@@ -3309,6 +3440,16 @@ class BaseSubplot(BaseSubsetDD):
             main_colors = self._chart.mark.colors
             if main_colors:
                 return list(main_colors)
+        return None
+
+    def _synced_tooltip_series(self) -> pd.Series | None:
+        """Subplot values, indexed by x-tick, for the synced tooltip.
+
+        Returns None (disabling the synced tooltip) where the subplot
+        covers multiple symbols, there being no single value per bar.
+        """
+        if isinstance(self.data, pd.Series):
+            return pd.Series(self.data.to_numpy(), index=self.x_ticks)
         return None
 
     @property
@@ -3495,6 +3636,9 @@ class SubplotBars(BaseSubplot):
         """Format a value with thousands separators."""
         return f"{int(y):,}" if y.is_integer() else f"{y:,.2f}"
 
+    def _format_synced_value(self, value: float) -> str:
+        return self._format_value(float(value))
+
     def _tooltip_value(self, mark: bq.Bars, event: dict) -> str:
         """Show data for hovered bar.
 
@@ -3553,6 +3697,129 @@ class SubplotLines(BaseSubplot):
     def _get_mark_y_plotted_data(self):
         multiple_symbols = self.plots_multiple_symbols
         return super()._get_mark_y_plotted_data(multiple_symbols=multiple_symbols)
+
+
+class SubplotLineColored(SubplotLines):
+    """Base for a line subplot coloured by value.
+
+    Colours the line according to the value at each bar relative to all
+    other values over the data: the colour graduates from the first to
+    the last colour of `COLOR_SCALE` as the value rises from its lowest
+    to its highest (by default from blue, for the lowest value, through
+    to red, for the highest).
+
+    See `BaseSubplot` and `SubplotLines` for documentation of inherited
+    methods and attributes and for how to implement a concrete subplot
+    (a subclass must implement `get_subplot_data`).
+
+    Attributes
+    ----------
+    COLOR_SCALE
+        Colours between which the line graduates, from the colour for the
+        lowest value through to the colour for the highest value.
+
+    Notes
+    -----
+    A `bq.Lines` mark colours each of its lines as a whole rather than
+    along the line's length. The line is therefore coloured by value by
+    splitting it into one bqplot line per pair of adjacent bars. Each
+    such segment is assigned the mean of the value at its two end bars,
+    mapped to a colour via a `bq.ColorScale` fixed to the full value
+    range. Fixing the scale to the full range (rather than to the range
+    currently in view) ensures a given value always maps to the same
+    colour, such that the colour reflects the value relative to all other
+    values.
+    """
+
+    COLOR_SCALE = ["blue", "red"]
+
+    def _create_scales(self) -> dict[ubq.ScaleKeys, bq.Scale]:
+        scales = super()._create_scales()
+        lo, hi = self._color_scale_limits()
+        scales["color"] = bq.ColorScale(colors=list(self.COLOR_SCALE), min=lo, max=hi)
+        return scales
+
+    def _axes_kwargs(
+        self, axes_kwargs: AxesKwargs | None = None, **general_kwargs
+    ) -> AxesKwargs:
+        # Suppress the colour axis. The base creates an axis for every scale,
+        # which for the colour scale is a colourbar. The hue along the line
+        # already conveys the value, so the colourbar is redundant.
+        kwargs = super()._axes_kwargs(axes_kwargs, **general_kwargs)
+        kwargs.pop("color", None)
+        return kwargs
+
+    def _color_scale_limits(self) -> tuple[float, float]:
+        """Lowest and highest value over all the data.
+
+        Returns (0.0, 1.0) if no value can be evaluated (all nan).
+        """
+        values = np.asarray(self.data.to_numpy(), dtype="float64")
+        valid = values[~np.isnan(values)]
+        if not valid.size:
+            return 0.0, 1.0
+        lo, hi = float(valid.min()), float(valid.max())
+        if hi == lo:
+            hi = lo + 1.0
+        return lo, hi
+
+    def _set_mark_to_plotted(self) -> None:
+        """Set the mark to the plotted data, coloured by value.
+
+        Plots the line as one bqplot line per pair of adjacent bars, each
+        coloured by value (see the class NOTES). Replaces, rather than
+        extends, `SubplotLines._set_mark_to_plotted`.
+        """
+        x = self.plotted_x_ticks.to_numpy()
+        y = np.asarray(self._get_mark_y_plotted_data(), dtype="float64")
+        x_seg, y_seg, color = self._segments(x, y)
+        self.mark.x = x_seg
+        self.mark.y = y_seg
+        self.mark.color = color
+
+    @staticmethod
+    def _segments(
+        x: np.ndarray, y: np.ndarray
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """Split a line into one 2-point segment per pair of adjacent bars.
+
+        Returns a 3-tuple (x_seg, y_seg, color) where `x_seg` and `y_seg`
+        are 2D arrays with one row per segment (each row holding the two
+        end values of a segment) and `color` is the per-segment value,
+        taken as the mean of the value at the segment's two end bars.
+
+        If fewer than two values are received the values are returned
+        unchanged (as `x`, `y` and `y`), there being no segment to form.
+        """
+        if len(x) < 2:
+            return x, y, y
+        x_seg = np.column_stack([x[:-1], x[1:]])
+        y_seg = np.column_stack([y[:-1], y[1:]])
+        color = (y[:-1] + y[1:]) / 2.0
+        return x_seg, y_seg, color
+
+    def _event_x(self, mark: bq.Mark, event: dict) -> pd.Timestamp | None:  # noqa: ARG002
+        # the mark is segmented (one line per adjacent pair of bars), so a
+        # hovered line index identifies the segment's left bar.
+        index = event["data"]["index"]
+        ticks = self.plotted_x_ticks
+        return ticks[index] if 0 <= index < len(ticks) else None
+
+    def _tooltip_value(self, mark: bq.Mark, event: dict) -> str:
+        """Show the value at the hovered bar.
+
+        See `Base._tooltip_value` for the hook's contract.
+        """
+        x = self._event_x(mark, event)
+        series = self._synced_tooltip_series()
+        if x is None or series is None or x not in series.index:
+            return ""
+        value = series.loc[x]
+        style = tooltip_html_style(color=self.TOOLTIP_TEXT_COLOR, line_height=1.3)
+        prefix = self._synced_tooltip_prefix
+        s = f"<p {style}>Bar: " + formatter_datetime(x)
+        s += f"<br>{prefix}: {self._format_synced_value(value)}</p>"
+        return s
 
 
 class SubplotVolume(SubplotBars):

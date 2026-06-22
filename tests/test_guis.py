@@ -189,6 +189,60 @@ class TestGuiSubplots:
         gui.close()
 
 
+class TestSyncedTooltips:
+    """Tests for tooltips synchronised across the chart and subplots."""
+
+    @pytest.fixture
+    def analy(self, prices_analysis) -> analysis.Analysis:
+        return analysis.Analysis(prices_analysis)
+
+    @pytest.fixture
+    def pp(self) -> dict:
+        return {"start": pd.Timestamp("2023-01-06"), "end": pd.Timestamp("2023-01-10")}
+
+    def test_panes_are_chart_and_subplots(self, analy, pp, SubplotVol, SubplotClose):
+        gui = analy.plot(**pp, subplots=[SubplotVol, SubplotClose], display=False)
+        assert gui._synced_panes == [gui.chart, *gui.subplots]
+        # each pane has a synced-tooltip mark, hidden initially
+        for pane in gui._synced_panes:
+            assert pane._synced_tooltip_mark.visible is False
+
+    def test_no_subplots_no_panes(self, analy, pp):
+        gui = analy.plot(**pp, subplots=False, display=False)
+        assert gui._synced_panes == []
+
+    def test_show_synced_tooltips_shows_others_hides_source(
+        self, analy, pp, SubplotVol
+    ):
+        """Hovering one pane shows the others' tooltips, hides the source's."""
+        gui = analy.plot(**pp, subplots=[SubplotVol], display=False)
+        chart, pane = gui.chart, gui.subplots[0]
+        x = chart.x_ticks[2]
+        gui._show_synced_tooltips(x, source=chart)
+        # subplot (not the source) shows its tooltip for the bar
+        assert pane._synced_tooltip_mark.visible is True
+        assert list(pane._synced_tooltip_mark.x) == [x]
+        # the source chart shows its own native tooltip, not a synced one
+        assert chart._synced_tooltip_mark.visible is False
+
+    def test_clear_hides_all(self, analy, pp, SubplotVol):
+        gui = analy.plot(**pp, subplots=[SubplotVol], display=False)
+        gui._show_synced_tooltips(gui.chart.x_ticks[2], source=gui.chart)
+        gui._clear_synced_tooltips()
+        for pane in gui._synced_panes:
+            assert pane._synced_tooltip_mark.visible is False
+
+    def test_hover_dispatch_triggers_sync(self, analy, pp, SubplotVol):
+        """Firing the chart mark's hover shows the subplot's synced tooltip."""
+        gui = analy.plot(**pp, subplots=[SubplotVol], display=False)
+        pane = gui.subplots[0]
+        i = 2
+        # invoke the mark's hover callbacks as bqplot's frontend would
+        gui.chart.mark._hover_handlers(gui.chart.mark, {"data": {"index": i}})
+        assert pane._synced_tooltip_mark.visible is True
+        assert list(pane._synced_tooltip_mark.x) == [gui.chart.x_ticks[i]]
+
+
 class TestGuiMultLineSubplots:
     """Tests for subplots associated with a multi-symbol (Compare) price chart.
 

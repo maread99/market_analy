@@ -53,6 +53,7 @@ classifiers = [
 dependencies = [
     "bqplot",
     "exchange-calendars",
+    "ipyevents",
     "Jinja2",
     "market-prices",
     "matplotlib",

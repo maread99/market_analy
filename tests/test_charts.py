@@ -390,3 +390,110 @@ class TestSubplotVolume:
         prices = _make_prices(["AZN.L"], with_volume=False)
         with pytest.raises(ValueError, match="does not include a 'volume' column"):
             charts.SubplotVolume(_mock_chart(prices), prices)
+
+
+@pytest.fixture
+def SubplotColored() -> type[charts.SubplotLineColored]:
+    """Thin `SubplotLineColored` subclass plotting close price."""
+
+    class _SubplotColored(charts.SubplotLineColored):
+        TITLE = "Close"
+
+        def get_subplot_data(self, prices):
+            return prices.xs("close", axis=1, level=-1).iloc[:, 0].rename("close")
+
+    return _SubplotColored
+
+
+class TestSubplotLineColored:
+    """Tests for the value-coloured line subplot base class."""
+
+    def test_is_lines_subplot(self, SubplotColored):
+        prices = _make_prices(["AZN.L"])
+        pane = SubplotColored(_mock_chart(prices), prices)
+        assert isinstance(pane, charts.SubplotLines)
+        assert pane.MarkCls is bq.Lines
+
+    def test_line_is_segmented_per_pair_of_bars(self, SubplotColored):
+        """The line is plotted as one bqplot line per adjacent pair of bars."""
+        prices = _make_prices(["AZN.L"], n=8)
+        pane = SubplotColored(_mock_chart(prices), prices)
+        n = len(prices)
+        assert np.asarray(pane.mark.x).shape == (n - 1, 2)
+        assert np.asarray(pane.mark.y).shape == (n - 1, 2)
+        assert len(np.asarray(pane.mark.color)) == n - 1
+
+    def test_segment_colour_is_mean_of_end_bars(self, SubplotColored):
+        prices = _make_prices(["AZN.L"], n=8)
+        pane = SubplotColored(_mock_chart(prices), prices)
+        values = pane.data.to_numpy()
+        expected = (values[:-1] + values[1:]) / 2.0
+        np.testing.assert_allclose(np.asarray(pane.mark.color), expected)
+
+    def test_colour_scale_spans_full_value_range(self, SubplotColored):
+        """The colour scale is fixed to the full value range over the data."""
+        prices = _make_prices(["AZN.L"], n=8)
+        pane = SubplotColored(_mock_chart(prices), prices)
+        values = pane.data.to_numpy()
+        scale = pane.scales["color"]
+        assert scale.colors == ["blue", "red"]
+        assert scale.min == pytest.approx(np.nanmin(values))
+        assert scale.max == pytest.approx(np.nanmax(values))
+
+    def test_no_colour_axis(self, SubplotColored):
+        """No colourbar is created for the colour scale."""
+        prices = _make_prices(["AZN.L"], n=8)
+        pane = SubplotColored(_mock_chart(prices), prices)
+        assert not any(isinstance(ax, bq.ColorAxis) for ax in pane.axes)
+        assert "color" in pane.mark.scales
+
+    def test_event_x_maps_segment_to_left_bar(self, SubplotColored):
+        prices = _make_prices(["AZN.L"], n=8)
+        pane = SubplotColored(_mock_chart(prices), prices)
+        x = pane._event_x(pane.mark, {"data": {"index": 3}})
+        assert x == pane.plotted_x_ticks[3]
+
+
+class TestSyncedTooltip:
+    """Tests for the `SyncedTooltip` mixin (via a subplot host)."""
+
+    def test_series_indexed_by_x_ticks(self, SubplotColored):
+        prices = _make_prices(["AZN.L"], n=8)
+        pane = SubplotColored(_mock_chart(prices), prices)
+        series = pane._synced_tooltip_series()
+        assert series.index.equals(pane.x_ticks)
+        np.testing.assert_allclose(series.to_numpy(), pane.data.to_numpy())
+
+    def test_show_and_hide(self, SubplotColored):
+        prices = _make_prices(["AZN.L"], n=8)
+        pane = SubplotColored(_mock_chart(prices), prices)
+        pane._init_synced_tooltip()
+        label = pane._synced_tooltip_mark
+        assert label.visible is False
+        x = pane.x_ticks[4]
+        pane.show_synced_tooltip(x)
+        assert label.visible is True
+        assert list(label.x) == [x]
+        assert label.y[0] == pytest.approx(pane.data.to_numpy()[4])
+        assert label.text[0].startswith("Close: ")
+        pane.hide_synced_tooltip()
+        assert label.visible is False
+
+    def test_show_hidden_when_no_value_at_x(self, SubplotColored):
+        prices = _make_prices(["AZN.L"], n=8)
+        pane = SubplotColored(_mock_chart(prices), prices)
+        pane._init_synced_tooltip()
+        pane.show_synced_tooltip(pane.x_ticks[4])  # show first
+        foreign_x = pane.x_ticks[-1] + pd.Timedelta("365D")
+        pane.show_synced_tooltip(foreign_x)
+        assert pane._synced_tooltip_mark.visible is False
+
+    def test_volume_subplot_formats_value(self):
+        prices = _make_prices(["AZN.L"])
+        pane = charts.SubplotVolume(_mock_chart(prices), prices)
+        pane._init_synced_tooltip()
+        pane.show_synced_tooltip(pane.x_ticks[2])
+        text = pane._synced_tooltip_mark.text[0]
+        assert text.startswith("Volume: ")
+        # value formatted with thousands separator (no decimal for integers)
+        assert "." not in text.split(": ")[1]

@@ -55,6 +55,8 @@ from contextlib import contextmanager
 from copy import deepcopy
 from typing import TYPE_CHECKING, Literal
 
+import bqplot as bq
+import ipyevents
 import IPython
 import ipyvuetify as v
 import ipywidgets as w
@@ -68,7 +70,11 @@ import market_analy.utils.pandas_utils as upd
 from market_analy import analysis as ma_analysis
 from market_analy import charts, gui_parts
 from market_analy.standalone import get_pct_off_high
-from market_analy.utils.bq_utils import Crosshairs, FastIntervalSelectorDD
+from market_analy.utils.bq_utils import (
+    Crosshairs,
+    FastIntervalSelectorDD,
+    discontinuous_date_to_timestamp,
+)
 from market_analy.utils.dict_utils import set_kwargs_from_dflt
 
 if TYPE_CHECKING:
@@ -1077,11 +1083,93 @@ class BasePrice(BaseVariableDates):
         self._create_subplots()
         self._crosshairs = Crosshairs(self.chart.figure)
         self._set_mark_handlers()
+        self._init_synced_tooltips()
         self._icon_row_top: gui_parts.IconRowTop = self._create_icon_row_top()
         self._selector_boxes: w.HBox | None = self._create_selector_boxes()
         self.date_slider: wu.DateRangeSlider = self._create_date_slider()
         self._html_output: w.HTML = self._create_html_output()
         self.tabs_control: gui_parts.TabsControl = self._create_tabs_control()
+
+    # SYNCED TOOLTIPS
+    def _init_synced_tooltips(self):
+        """Set up tooltips synchronised across the chart and subplots.
+
+        When the chart or any subplot is hovered, every other pane shows
+        its own value for the hovered bar (the hovered pane shows its own
+        native tooltip). All synced tooltips are hidden when the cursor
+        leaves the hovered pane.
+
+        Has no effect if there are no subplots, there then being no other
+        pane to synchronise with.
+        """
+        if not self._subplots:
+            self._synced_panes: list[charts.SyncedTooltip] = []
+            return
+        self._synced_panes = [self.chart, *self._subplots]
+        for pane in self._synced_panes:
+            pane._init_synced_tooltip()  # noqa: SLF001
+            self._watch_mark_for_synced_tooltip(pane.mark, pane, pane._event_x)  # noqa: SLF001
+        self._wire_extra_synced_marks()
+        self._synced_tooltip_listeners = []
+        for pane in self._synced_panes:
+            listener = ipyevents.Event(
+                source=pane.figure, watched_events=["mouseleave"]
+            )
+            listener.on_dom_event(lambda _event: self._clear_synced_tooltips())
+            self._synced_tooltip_listeners.append(listener)
+
+    def _watch_mark_for_synced_tooltip(
+        self,
+        mark: bq.Mark,
+        source: charts.SyncedTooltip,
+        x_of_event: Callable[[bq.Mark, dict], pd.Timestamp | None],
+    ):
+        """Trigger the synced tooltips when `mark` is hovered.
+
+        Parameters
+        ----------
+        mark
+            Mark to watch for hover.
+
+        source
+            Pane on which `mark` is plotted (and which will show its own
+            native tooltip rather than a synced tooltip).
+
+        x_of_event
+            Callable returning the x-tick of the hovered element (or None).
+        """
+
+        def handler(hovered_mark: bq.Mark, event: dict):
+            x = x_of_event(hovered_mark, event)
+            if x is not None:
+                self._show_synced_tooltips(x, source)
+
+        mark.on_hover(handler)
+
+    def _wire_extra_synced_marks(self):
+        """Watch marks, beyond each pane's principal mark, for hover.
+
+        No-op by default. A subclass can override to additionally trigger
+        the synced tooltips from other marks (see `GuiOHLCCaseBase`).
+        """
+        return
+
+    def _show_synced_tooltips(self, x: pd.Timestamp, source: charts.SyncedTooltip):
+        """Show every pane's synced tooltip for the bar at x-tick `x`.
+
+        The `source` pane (the hovered pane) shows its own native tooltip,
+        so its synced tooltip is instead hidden.
+        """
+        for pane in self._synced_panes:
+            if pane is source:
+                pane.hide_synced_tooltip()
+            else:
+                pane.show_synced_tooltip(x)
+
+    def _clear_synced_tooltips(self):
+        """Hide the synced tooltip on every pane."""
+        for pane in getattr(self, "_synced_panes", []):
+            pane.hide_synced_tooltip()
 
     # SUB-PLOTS
     def _build_subplot(
@@ -1144,6 +1232,8 @@ class BasePrice(BaseVariableDates):
         """Close all gui widgets, including any subplots."""
         # Necessary to independenty close self._subplots as each subplot figture
         # and associated widgets are stored in subplot._widgets, not self._widgets.
+        for listener in getattr(self, "_synced_tooltip_listeners", []):
+            listener.close()
         for subplot in self._subplots:
             subplot.close()
         super().close()
@@ -2128,6 +2218,27 @@ class GuiOHLCCaseBase(GuiOHLC):
         self.cases_controls_container.but_show_all.darken()
         html = self.cases.get_case_html(case)
         self.html_output.display(html)
+
+    @staticmethod
+    def _scatter_event_x(mark: bq.Scatter, event: dict) -> pd.Timestamp | None:  # noqa: ARG004
+        """x-tick of a hovered case scatter point."""
+        return discontinuous_date_to_timestamp(event["data"]["x"])
+
+    def _wire_extra_synced_marks(self):
+        """Also trigger the synced tooltips from the case scatter marks.
+
+        Hovering a point on a case scatter (for example a position's entry
+        or exit) shows the subplots' tooltips for that bar, the chart
+        itself showing the scatter point's own native tooltip.
+
+        See `BasePrice._wire_extra_synced_marks` for the method's super.
+        """
+        super()._wire_extra_synced_marks()
+        scatters = self.chart.added_marks.get(charts.Groups.CASES_SCATTERS, [])
+        for scatter in scatters:
+            self._watch_mark_for_synced_tooltip(
+                scatter, self.chart, self._scatter_event_x
+            )
 
     def _show_all_but_handler(self, but: vu.IconBut, event: str, data: dict):
         if but.is_light:
