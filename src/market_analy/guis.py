@@ -2081,6 +2081,7 @@ class GuiOHLCCaseBase(GuiOHLC):
         narrow_view: int = 10,
         wide_view: int = 10,
         chart_kwargs: dict | None = None,
+        subplots: Sequence[str | type[charts.BaseSubplot]] | None = None,
         **kwargs,
     ):
         self.cases = cases
@@ -2091,7 +2092,14 @@ class GuiOHLCCaseBase(GuiOHLC):
         chart_kwargs.setdefault("cases", self.cases)
         chart_kwargs.setdefault("handler_click_case", self._gui_handler_click_case)
         super().__init__(
-            analysis, interval, max_ticks, log_scale, display, chart_kwargs, **kwargs
+            analysis,
+            interval,
+            max_ticks,
+            log_scale,
+            display,
+            chart_kwargs,
+            subplots,
+            **kwargs,
         )
 
     @property
@@ -2202,8 +2210,9 @@ class GuiOHLCCaseBase(GuiOHLC):
         contents = [self._icon_row_top]
         if self._selector_boxes is not None:
             contents += [self._selector_boxes]
+        contents += [self.chart.figure]
+        contents += [pane.figure for pane in self._subplots]
         contents += [
-            self.chart.figure,
             self.date_slider,
             self._controls_container,
             self.html_output,
