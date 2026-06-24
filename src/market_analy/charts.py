@@ -669,6 +669,26 @@ class Base(metaclass=ABCMeta):
         """
         raise NotImplementedError("_tooltip_value is not implemented.")
 
+    def _tooltip_color(self, x: pd.Timestamp) -> str:  # noqa: ARG002
+        """Default text color for the native and synced tooltips of a bar.
+
+        Returns a single color, taken as that used by the pane's native
+        tooltip, which the synced tooltip also adopts. Where the native
+        tooltip is multi-colored (for example a stacked-bar tooltip that
+        colors each symbol's part) this serves as the fallback color and
+        the native tooltip sets its own colors directly.
+
+        The `x` parameter (the bar's x-tick) provides for the color to vary
+        by bar (as for an OHLC up/down bar); it is unused where the color
+        is the same for every bar.
+
+        Notes
+        -----
+        Subclass should override to return the color used by its native
+        tooltip (white where that tooltip is multi-colored).
+        """
+        return "white"
+
     def _hover_handler(self, mark, data):
         self.mark.tooltip.value = self._tooltip_value(mark, data)
 
@@ -1689,18 +1709,21 @@ class SyncedTooltip:
     `_init_synced_tooltip` must be called by the using class (the host)
     after its chart has been created.
 
-    A concrete host should implement `_synced_tooltip_series` (the values
-    to show, by bar) and can override `_format_synced_value`,
+    A concrete host should implement `_synced_tooltip_y_values` (the values
+    to show, by bar) and can override `_format_synced_tooltip_value`,
     `_synced_tooltip_prefix` and `_event_x` as required.
     """
 
-    # AIDEV-NOTE: could this if clause be replaced by code in `_init_synced_tooltip`
-    # that verifies the existance of these attribues, thereby providing a runtime check
-    # that the mixin is being used in expected context and at the same time silencing
-    # the type-checker? If this sounds reasonable then implement, if not then explain
-    # why.
+    # NOTE: these host-provided attributes are declared for the type checker
+    # only. Replacing this block with a runtime existence check in
+    # `_init_synced_tooltip` was considered but would not silence the checker:
+    # the other mixin methods (e.g. `show_synced_tooltip`) access these
+    # attributes too, and a runtime check - or an `isinstance` assert - only
+    # narrows types within the function it sits in, not across the class. The
+    # mixin is private and only ever mixed into a `BaseSubsetDD` host (which
+    # provides these), so a runtime guard would add little.
     if TYPE_CHECKING:
-        # attributes provided by the `BaseSubsetDD` host
+        # attributes provided by the `BaseSubsetDD` / `Base` host
         scales: dict[str, bq.Scale]
         mark: bq.Mark
         title: str | None
@@ -1710,19 +1733,7 @@ class SyncedTooltip:
             self, marks: list[bq.Mark], group: AddedMarkKeys, under: bool = False
         ) -> None: ...
 
-    # AIDEV-TODO: include a method on the Base class that returns a tooltip text color
-    # for a given 'bar' (i.e. a given x tick) (evaluate the actual nature of the
-    # 'bar indicating' parameter according to what can be provided by the callers). If
-    # the color is the same for all bars then the parameter can be simply left unused.
-    # The returned color should be treated as the default tooltip color to be used by
-    # both the native and the synced tooltip. It should only ever return a single value.
-    # If the host requires multi-coloured tooltip colors the it should provide for this
-    # directly (such as is the case with `SubPlotBars._tooltip_value`). For now set the
-    # return as the same single color to that used by the corresponding native tooltip.
-    # Where the native tooltip is # multi-colored, set the return to white. All the
-    # foregoing should provide dfor the following `SYNCED_TOOLTIP_COLOR` class attribute
-    # to be removed.
-    SYNCED_TOOLTIP_COLOR = "yellow"
+        def _tooltip_color(self, x: pd.Timestamp) -> str: ...
 
     def _init_synced_tooltip(self) -> None:
         """Create the synced-tooltip label mark."""
@@ -1731,7 +1742,6 @@ class SyncedTooltip:
             y=[],
             text=[],
             scales={"x": self.scales["x"], "y": self.scales["y"]},
-            colors=[self.SYNCED_TOOLTIP_COLOR],
             default_size=12,
             font_weight="bold",
             align="middle",
@@ -1740,8 +1750,7 @@ class SyncedTooltip:
         )
         self.add_marks([self._synced_tooltip_mark], Groups.PERSIST)
 
-    # AIDEV-TODO: rename method as `_synced_tooltip_y_values` to match revised doc.
-    def _synced_tooltip_series(self) -> pd.Series | None:
+    def _synced_tooltip_y_values(self) -> pd.Series | None:
         """x-tick to y-value mapping for use by synced tooltip.
 
         The returned values can included within the tooltip content or
@@ -1775,10 +1784,10 @@ class SyncedTooltip:
         to disable the synced tooltip for the `x` bar.
 
         By default returns a single field, taken from
-        `_synced_tooltip_series`. A host with a multi-field native tooltip
+        `_synced_tooltip_y_values`. A host with a multi-field native tooltip
         (for example OHLC) should override to return one pair per field.
         """
-        series = self._synced_tooltip_series()
+        series = self._synced_tooltip_y_values()
         if series is None or x not in series.index:
             return None
         value = series.loc[x]
@@ -1789,11 +1798,11 @@ class SyncedTooltip:
     def _synced_tooltip_anchor(self, x: pd.Timestamp) -> float | None:
         """y value at which to anchor the synced tooltip for the bar at `x`.
 
-        By default returns the value of `_synced_tooltip_series` for `x`.
+        By default returns the value of `_synced_tooltip_y_values` for `x`.
         Host should override if a different anchor is required (for example
         the high of an OHLC bar).
         """
-        series = self._synced_tooltip_series()
+        series = self._synced_tooltip_y_values()
         if series is None or x not in series.index:
             return None
         value = series.loc[x]
@@ -1826,6 +1835,7 @@ class SyncedTooltip:
             mark.x = [x]
             mark.y = [anchor]
             mark.text = [text]
+            mark.colors = [self._tooltip_color(x)]
             mark.visible = True
 
     def hide_synced_tooltip(self) -> None:
@@ -2154,7 +2164,7 @@ class Line(BasePrice):
     def _get_mark_y_data(self) -> Series:
         return self._y_data
 
-    def _synced_tooltip_series(self) -> pd.Series:
+    def _synced_tooltip_y_values(self) -> pd.Series:
         """Close prices, indexed by x-tick, for the synced tooltip."""
         return pd.Series(self._y_data.to_numpy(), index=self.x_ticks)
 
@@ -2557,16 +2567,23 @@ class OHLC(BasePrice):
         ]
 
     def _tooltip_value(self, mark: bq.OHLC, event: dict) -> str:
-        i = event["data"]["index"]
-        row = self.data.iloc[i]
-        color = mark.colors[0] if row.close >= row.open else mark.colors[1]
-        style = tooltip_html_style(color=color, line_height=1.3)
+        x = self._event_x(mark, event)
+        if x is None:
+            return ""
+        row = self._row_at(x)
+        style = tooltip_html_style(color=self._tooltip_color(x), line_height=1.3)
         s = f"<p {style}>From: " + formatter_datetime(row.name.left)
         s += f"<br>To: {formatter_datetime(row.name.right)}"
         for label, value in self._ohlc_fields(row):
             s += f"<br>{label}: {value}"
         s += "</p>"
         return s
+
+    def _tooltip_color(self, x: pd.Timestamp) -> str:
+        """Up/down color of the bar at `x` (see super)."""
+        row = self._row_at(x)
+        up, down = self.mark.colors[0], self.mark.colors[1]
+        return up if row.close >= row.open else down
 
     def _row_at(self, x: pd.Timestamp) -> pd.Series:
         """Row of price data for the bar at x-tick `x`."""
@@ -3511,7 +3528,7 @@ class BaseSubplot(SyncedTooltip, BaseSubsetDD):
                 return list(main_colors)
         return None
 
-    def _synced_tooltip_series(self) -> pd.Series | None:
+    def _synced_tooltip_y_values(self) -> pd.Series | None:
         """Subplot values, indexed by x-tick, for the synced tooltip.
 
         Returns None (disabling the synced tooltip) where the subplot
@@ -3708,9 +3725,20 @@ class SubplotBars(BaseSubplot):
     def _format_synced_tooltip_value(self, value: float) -> str:
         return self._format_value(float(value))
 
-    # AIDEV-TODO: as discussed in the recent context, implement `_synced_tooltip_series`
-    # at this level to by default include a synced tooltip for multiple symbols with
-    # tooltip data being limited to the total of all the stacked parts.
+    def _synced_tooltip_y_values(self) -> pd.Series:
+        """Bar values, indexed by x-tick, for the synced tooltip.
+
+        For data covering multiple symbols (a stacked bar) returns the
+        total over all symbols, the synced tooltip thereby showing that
+        total (a bar with no value for any symbol evaluates as nan, which
+        is excluded). For a single symbol returns that symbol's values.
+        """
+        if isinstance(self.data, pd.DataFrame):
+            values = self.data.sum(axis=1, min_count=1)
+        else:
+            values = self.data
+        return pd.Series(values.to_numpy(), index=self.x_ticks)
+
     def _tooltip_value(self, mark: bq.Bars, event: dict) -> str:
         """Show data for hovered bar.
 
@@ -3886,7 +3914,7 @@ class SubplotLineColored(SubplotLines):
         fields = None if x is None else self._synced_tooltip_fields(x)
         if x is None or not fields:
             return ""
-        style = tooltip_html_style(color=self.TOOLTIP_TEXT_COLOR, line_height=1.3)
+        style = tooltip_html_style(color=self._tooltip_color(x), line_height=1.3)
         s = f"<p {style}>Bar: " + formatter_datetime(x)
         for label, value in fields:
             s += f"<br>{label}: {value}"
