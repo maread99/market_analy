@@ -56,7 +56,6 @@ from copy import deepcopy
 from typing import TYPE_CHECKING, Literal
 
 import bqplot as bq
-import ipyevents
 import IPython
 import ipyvuetify as v
 import ipywidgets as w
@@ -1096,8 +1095,13 @@ class BasePrice(BaseVariableDates):
 
         When the chart or any subplot is hovered, every other pane shows
         its own value for the hovered bar (the hovered pane shows its own
-        native tooltip). All synced tooltips are hidden when the cursor
-        leaves the hovered pane.
+        native tooltip).
+
+        bqplot emits no un-hover event, so the synced tooltips are not
+        hidden the instant the cursor leaves; rather they persist until
+        the next interaction clears them - hovering another bar (which
+        re-shows for that bar), panning/zooming (a change to the shared
+        x-domain) or clicking a chart's background.
 
         Has no effect if there are no subplots, there then being no other
         pane to synchronise with.
@@ -1109,14 +1113,14 @@ class BasePrice(BaseVariableDates):
         for pane in self._synced_panes:
             pane._init_synced_tooltip()  # noqa: SLF001
             self._watch_mark_for_synced_tooltip(pane.mark, pane, pane._event_x)  # noqa: SLF001
-        self._wire_extra_synced_marks()
-        self._synced_tooltip_listeners = []
-        for pane in self._synced_panes:
-            listener = ipyevents.Event(
-                source=pane.figure, watched_events=["mouseleave"]
+            pane.mark.on_background_click(
+                lambda _mark, _event: self._clear_synced_tooltips()
             )
-            listener.on_dom_event(lambda _event: self._clear_synced_tooltips())
-            self._synced_tooltip_listeners.append(listener)
+        self._wire_extra_synced_marks()
+        # clear when the shared x-domain changes (panning, zooming, slider)
+        self.chart.scales["x"].observe(
+            lambda _change: self._clear_synced_tooltips(), ["domain"]
+        )
 
     def _watch_mark_for_synced_tooltip(
         self,
@@ -1232,8 +1236,6 @@ class BasePrice(BaseVariableDates):
         """Close all gui widgets, including any subplots."""
         # Necessary to independenty close self._subplots as each subplot figture
         # and associated widgets are stored in subplot._widgets, not self._widgets.
-        for listener in getattr(self, "_synced_tooltip_listeners", []):
-            listener.close()
         for subplot in self._subplots:
             subplot.close()
         super().close()

@@ -244,6 +244,27 @@ class TestSyncedTooltips:
         assert pane._synced_tooltip_mark.visible is True
         assert list(pane._synced_tooltip_mark.x) == [gui.chart.x_ticks[i]]
 
+    def test_domain_change_clears(self, analy, pp, SubplotVol):
+        """Panning/zooming (a shared x-domain change) clears the tooltips."""
+        gui = analy.plot(**pp, subplots=[SubplotVol], display=False)
+        pane = gui.subplots[0]
+        gui._show_synced_tooltips(gui.chart.x_ticks[2], source=gui.chart)
+        assert pane._synced_tooltip_mark.visible is True
+        # narrowing the shared x-domain (as pan/zoom/slider does) clears
+        scale = gui.chart.scales["x"]
+        scale.domain = list(scale.domain[1:])
+        assert pane._synced_tooltip_mark.visible is False
+
+    def test_background_click_clears(self, analy, pp, SubplotVol):
+        """Clicking a chart's background clears the tooltips."""
+        gui = analy.plot(**pp, subplots=[SubplotVol], display=False)
+        pane = gui.subplots[0]
+        gui._show_synced_tooltips(gui.chart.x_ticks[2], source=gui.chart)
+        assert pane._synced_tooltip_mark.visible is True
+        # fire the chart mark's background-click callbacks
+        gui.chart.mark._bg_click_handlers(gui.chart.mark, {})
+        assert pane._synced_tooltip_mark.visible is False
+
 
 class TestScatterSyncedTooltip:
     """Tests for triggering synced tooltips from case scatter marks."""
