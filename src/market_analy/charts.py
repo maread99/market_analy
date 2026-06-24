@@ -1665,13 +1665,13 @@ class BaseSubsetDD(Base):
 
 
 class SyncedTooltip:
-    """Mixin adding a synchronised 'value at bar' tooltip to a pane.
+    """Mixin to add a synchronised 'value at bar' tooltip to a pane.
 
     A price gui stacks a price chart above zero or more subplots, all
-    sharing the same x-axis (and hence the same bars). This mixin lets
-    each such pane show a lightweight tooltip giving the pane's value at
-    a given bar, so that a gui can show every pane's value for the same
-    bar when any one pane is hovered (see `guis.BasePrice`).
+    sharing the same x-axis. This mixin provides each pane with a
+    lightweight tooltip that gives the pane's value at a given bar. Guis
+    can use this to simultaneously show a tooltip for the same bar on
+    multiple panes.
 
     The tooltip is a `bq.Label` mark, hidden until shown at a bar.
 
@@ -1683,18 +1683,22 @@ class SyncedTooltip:
     hide_synced_tooltip():
         Hide the tooltip.
 
-    Notes
     -----
     A host class must be a `BaseSubsetDD` subclass (for `x_ticks`,
     `scales`, the principal `mark`, `figure` and `add_marks`).
-    `_init_synced_tooltip` must be called, after the host's chart has been
-    created, to create the tooltip mark.
+    `_init_synced_tooltip` must be called by the using class (the host)
+    after its chart has been created.
 
     A concrete host should implement `_synced_tooltip_series` (the values
     to show, by bar) and can override `_format_synced_value`,
     `_synced_tooltip_prefix` and `_event_x` as required.
     """
 
+    # AIDEV-NOTE: could this if clause be replaced by code in `_init_synced_tooltip`
+    # that verifies the existance of these attribues, thereby providing a runtime check
+    # that the mixin is being used in expected context and at the same time silencing
+    # the type-checker? If this sounds reasonable then implement, if not then explain
+    # why.
     if TYPE_CHECKING:
         # attributes provided by the `BaseSubsetDD` host
         scales: dict[str, bq.Scale]
@@ -1706,10 +1710,22 @@ class SyncedTooltip:
             self, marks: list[bq.Mark], group: AddedMarkKeys, under: bool = False
         ) -> None: ...
 
+    # AIDEV-TODO: include a method on the Base class that returns a tooltip text color
+    # for a given 'bar' (i.e. a given x tick) (evaluate the actual nature of the
+    # 'bar indicating' parameter according to what can be provided by the callers). If
+    # the color is the same for all bars then the parameter can be simply left unused.
+    # The returned color should be treated as the default tooltip color to be used by
+    # both the native and the synced tooltip. It should only ever return a single value.
+    # If the host requires multi-coloured tooltip colors the it should provide for this
+    # directly (such as is the case with `SubPlotBars._tooltip_value`). For now set the
+    # return as the same single color to that used by the corresponding native tooltip.
+    # Where the native tooltip is # multi-colored, set the return to white. All the
+    # foregoing should provide dfor the following `SYNCED_TOOLTIP_COLOR` class attribute
+    # to be removed.
     SYNCED_TOOLTIP_COLOR = "yellow"
 
     def _init_synced_tooltip(self) -> None:
-        """Create the (hidden) synced-tooltip label mark."""
+        """Create the synced-tooltip label mark."""
         self._synced_tooltip_mark = bq.Label(
             x=[],
             y=[],
@@ -1724,16 +1740,25 @@ class SyncedTooltip:
         )
         self.add_marks([self._synced_tooltip_mark], Groups.PERSIST)
 
+    # AIDEV-TODO: rename method as `_synced_tooltip_y_values` to match revised doc.
     def _synced_tooltip_series(self) -> pd.Series | None:
-        """Values to show by the synced tooltip, indexed by x-tick.
+        """x-tick to y-value mapping for use by synced tooltip.
 
-        Returns None to disable the synced tooltip for the pane.
+        The returned values can included within the tooltip content or
+        used to anchor the y-coordinate of synced tooltip mark.
+
+        Returns
+        -------
+        pd.Series | None
+            pd.Series indexed by x-tick with values as corresponding
+            y-values.
+            None to disable the synced tooltip for the pane.
 
         A concrete host should override.
         """
         return None
 
-    def _format_synced_value(self, value: float) -> str:
+    def _format_synced_tooltip_value(self, value: float) -> str:
         """Format a value for display by the synced tooltip."""
         return formatter_float(value)
 
@@ -1745,14 +1770,13 @@ class SyncedTooltip:
     def _synced_tooltip_fields(self, x: pd.Timestamp) -> list[tuple[str, str]] | None:
         """(label, value) pairs the synced tooltip shows for the bar at `x`.
 
-        These are the same fields as the pane's native tooltip save for
-        the bar (the x-tick) itself, which the synced tooltip's position
-        already conveys. Returns None to disable the synced tooltip for
-        the bar.
+        Should return the same fields as the pane's native tooltip except
+        for the bar (the x-tick) itself which is excluded. Can return None
+        to disable the synced tooltip for the `x` bar.
 
-        By default a single field, taken from `_synced_tooltip_series`. A
-        host with a multi-field native tooltip (for example OHLC) should
-        override to return one pair per field.
+        By default returns a single field, taken from
+        `_synced_tooltip_series`. A host with a multi-field native tooltip
+        (for example OHLC) should override to return one pair per field.
         """
         series = self._synced_tooltip_series()
         if series is None or x not in series.index:
@@ -1760,14 +1784,14 @@ class SyncedTooltip:
         value = series.loc[x]
         if pd.isna(value):
             return None
-        return [(self._synced_tooltip_prefix, self._format_synced_value(value))]
+        return [(self._synced_tooltip_prefix, self._format_synced_tooltip_value(value))]
 
     def _synced_tooltip_anchor(self, x: pd.Timestamp) -> float | None:
         """y value at which to anchor the synced tooltip for the bar at `x`.
 
-        By default the single value from `_synced_tooltip_series`. A host
-        should override if that series is not defined or another anchor is
-        preferred (for example the high of an OHLC bar).
+        By default returns the value of `_synced_tooltip_series` for `x`.
+        Host should override if a different anchor is required (for example
+        the high of an OHLC bar).
         """
         series = self._synced_tooltip_series()
         if series is None or x not in series.index:
@@ -1778,8 +1802,8 @@ class SyncedTooltip:
     def _event_x(self, mark: bq.Mark, event: dict) -> pd.Timestamp | None:  # noqa: ARG002
         """x-tick of the bar of a hovered element of the principal mark.
 
-        A host whose principal mark does not hold the full data, one
-        element per bar, should override.
+        NOTE: A host whose principal mark does not hold the full data, one
+        element per bar, should override this method.
         """
         index = event["data"]["index"]
         ticks = self.x_ticks
@@ -1788,9 +1812,8 @@ class SyncedTooltip:
     def show_synced_tooltip(self, x: pd.Timestamp) -> None:
         """Show the synced tooltip for the bar with x-tick `x`.
 
-        The tooltip shows, on a single line, every field the pane's native
-        tooltip would show save for the bar itself. Hides the tooltip if
-        the pane has no (or no valid) data at `x`.
+        Hides the tooltip if the pane has no data (or no valid data) at
+        `x`.
         """
         fields = self._synced_tooltip_fields(x)
         anchor = self._synced_tooltip_anchor(x)
@@ -1807,8 +1830,7 @@ class SyncedTooltip:
 
     def hide_synced_tooltip(self) -> None:
         """Hide the synced tooltip."""
-        if getattr(self, "_synced_tooltip_mark", None) is not None:
-            self._synced_tooltip_mark.visible = False
+        self._synced_tooltip_mark.visible = False
 
 
 class BasePrice(SyncedTooltip, BaseSubsetDD):
@@ -2548,11 +2570,7 @@ class OHLC(BasePrice):
 
     def _row_at(self, x: pd.Timestamp) -> pd.Series:
         """Row of price data for the bar at x-tick `x`."""
-        data = self.data
-        assert isinstance(data, pd.DataFrame)
-        row = data.iloc[self.x_ticks.get_loc(x)]
-        assert isinstance(row, pd.Series)
-        return row
+        return self.data.iloc[self.x_ticks.get_loc(x)]
 
     def _synced_tooltip_fields(self, x: pd.Timestamp) -> list[tuple[str, str]] | None:
         """Open, high, low and close for the bar at `x` (see super)."""
@@ -3687,9 +3705,12 @@ class SubplotBars(BaseSubplot):
         """Format a value with thousands separators."""
         return f"{int(y):,}" if y.is_integer() else f"{y:,.2f}"
 
-    def _format_synced_value(self, value: float) -> str:
+    def _format_synced_tooltip_value(self, value: float) -> str:
         return self._format_value(float(value))
 
+    # AIDEV-TODO: as discussed in the recent context, implement `_synced_tooltip_series`
+    # at this level to by default include a synced tooltip for multiple symbols with
+    # tooltip data being limited to the total of all the stacked parts.
     def _tooltip_value(self, mark: bq.Bars, event: dict) -> str:
         """Show data for hovered bar.
 
