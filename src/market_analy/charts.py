@@ -3815,6 +3815,8 @@ class SubplotLineColored(SubplotLines):
         if x is None or series is None or x not in series.index:
             return ""
         value = series.loc[x]
+        if pd.isna(value):
+            return ""
         style = tooltip_html_style(color=self.TOOLTIP_TEXT_COLOR, line_height=1.3)
         prefix = self._synced_tooltip_prefix
         s = f"<p {style}>Bar: " + formatter_datetime(x)

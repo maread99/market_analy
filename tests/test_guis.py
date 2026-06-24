@@ -5,6 +5,8 @@ import pandas as pd
 import pytest
 
 from market_analy import analysis, charts
+from market_analy.guis import GuiOHLCCaseBase
+from market_analy.utils.bq_utils import dates_to_posix
 
 # NOTE: tests are extremely incomplete! Currently limited to only testing
 # Subplots
@@ -241,6 +243,22 @@ class TestSyncedTooltips:
         gui.chart.mark._hover_handlers(gui.chart.mark, {"data": {"index": i}})
         assert pane._synced_tooltip_mark.visible is True
         assert list(pane._synced_tooltip_mark.x) == [gui.chart.x_ticks[i]]
+
+
+class TestScatterSyncedTooltip:
+    """Tests for triggering synced tooltips from case scatter marks."""
+
+    def test_scatter_event_x_maps_to_bar(self):
+        """A case scatter's hover x maps to the corresponding x-tick.
+
+        A scatter point's `event['data']['x']` is the posix value of the
+        bar's x-tick (as set on the shared ordinal scale), which
+        `_scatter_event_x` must invert back to the bar's timestamp.
+        """
+        tick = pd.Timestamp("2023-01-06")
+        posix = dates_to_posix(pd.DatetimeIndex([tick]).as_unit("ns"))[0]
+        event = {"data": {"x": posix}}
+        assert GuiOHLCCaseBase._scatter_event_x(None, event) == tick
 
 
 class TestGuiMultLineSubplots:
