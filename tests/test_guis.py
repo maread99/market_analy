@@ -265,6 +265,19 @@ class TestSyncedTooltips:
         gui.chart.mark._bg_click_handlers(gui.chart.mark, {})
         assert pane._synced_tooltip_mark.visible is False
 
+    def test_ohlc_label_shows_all_fields(self, analy, pp, SubplotVol):
+        """The OHLC chart's synced label shows open/high/low/close on a line."""
+        gui = analy.plot(**pp, subplots=[SubplotVol], display=False)
+        x = gui.chart.x_ticks[2]
+        gui.chart.show_synced_tooltip(x)
+        text = gui.chart._synced_tooltip_mark.text[0]
+        for field in ("Open:", "High:", "Low:", "Close:"):
+            assert field in text
+        assert "\n" not in text  # single line
+        # anchored at the bar's high
+        row = gui.chart.data.iloc[gui.chart.x_ticks.get_loc(x)]
+        assert gui.chart._synced_tooltip_mark.y[0] == pytest.approx(row["high"])
+
 
 class TestScatterSyncedTooltip:
     """Tests for triggering synced tooltips from case scatter marks."""

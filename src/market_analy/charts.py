@@ -1742,6 +1742,39 @@ class SyncedTooltip:
         """Label prefixing the synced-tooltip value."""
         return self.title or "Value"
 
+    def _synced_tooltip_fields(self, x: pd.Timestamp) -> list[tuple[str, str]] | None:
+        """(label, value) pairs the synced tooltip shows for the bar at `x`.
+
+        These are the same fields as the pane's native tooltip save for
+        the bar (the x-tick) itself, which the synced tooltip's position
+        already conveys. Returns None to disable the synced tooltip for
+        the bar.
+
+        By default a single field, taken from `_synced_tooltip_series`. A
+        host with a multi-field native tooltip (for example OHLC) should
+        override to return one pair per field.
+        """
+        series = self._synced_tooltip_series()
+        if series is None or x not in series.index:
+            return None
+        value = series.loc[x]
+        if pd.isna(value):
+            return None
+        return [(self._synced_tooltip_prefix, self._format_synced_value(value))]
+
+    def _synced_tooltip_anchor(self, x: pd.Timestamp) -> float | None:
+        """y value at which to anchor the synced tooltip for the bar at `x`.
+
+        By default the single value from `_synced_tooltip_series`. A host
+        should override if that series is not defined or another anchor is
+        preferred (for example the high of an OHLC bar).
+        """
+        series = self._synced_tooltip_series()
+        if series is None or x not in series.index:
+            return None
+        value = series.loc[x]
+        return None if pd.isna(value) else float(value)
+
     def _event_x(self, mark: bq.Mark, event: dict) -> pd.Timestamp | None:  # noqa: ARG002
         """x-tick of the bar of a hovered element of the principal mark.
 
@@ -1755,21 +1788,20 @@ class SyncedTooltip:
     def show_synced_tooltip(self, x: pd.Timestamp) -> None:
         """Show the synced tooltip for the bar with x-tick `x`.
 
-        Hides the tooltip if the pane has no (or no valid) value at `x`.
+        The tooltip shows, on a single line, every field the pane's native
+        tooltip would show save for the bar itself. Hides the tooltip if
+        the pane has no (or no valid) data at `x`.
         """
-        series = self._synced_tooltip_series()
-        if series is None or x not in series.index:
+        fields = self._synced_tooltip_fields(x)
+        anchor = self._synced_tooltip_anchor(x)
+        if not fields or anchor is None:
             self.hide_synced_tooltip()
             return
-        value = series.loc[x]
-        if pd.isna(value):
-            self.hide_synced_tooltip()
-            return
-        text = f"{self._synced_tooltip_prefix}: {self._format_synced_value(value)}"
+        text = " | ".join(f"{label}: {value}" for label, value in fields)
         mark = self._synced_tooltip_mark
         with mark.hold_sync():
             mark.x = [x]
-            mark.y = [value]
+            mark.y = [anchor]
             mark.text = [text]
             mark.visible = True
 
@@ -2494,6 +2526,14 @@ class OHLC(BasePrice):
     def MarkCls(self) -> type[bq.Mark]:
         return bq.OHLC
 
+    @staticmethod
+    def _ohlc_fields(row: pd.Series) -> list[tuple[str, str]]:
+        """(label, value) pairs for a bar's open, high, low and close."""
+        return [
+            (line.capitalize(), FORMATTERS[line](getattr(row, line)))
+            for line in ["open", "high", "low", "close"]
+        ]
+
     def _tooltip_value(self, mark: bq.OHLC, event: dict) -> str:
         i = event["data"]["index"]
         row = self.data.iloc[i]
@@ -2501,19 +2541,30 @@ class OHLC(BasePrice):
         style = tooltip_html_style(color=color, line_height=1.3)
         s = f"<p {style}>From: " + formatter_datetime(row.name.left)
         s += f"<br>To: {formatter_datetime(row.name.right)}"
-        for line in ["open", "high", "low", "close"]:
-            v = getattr(row, line)
-            s += "<br>" + line.capitalize() + ": " + FORMATTERS[line](v)
+        for label, value in self._ohlc_fields(row):
+            s += f"<br>{label}: {value}"
         s += "</p>"
         return s
 
-    def _synced_tooltip_series(self) -> pd.Series:
-        """Close prices, indexed by x-tick, for the synced tooltip."""
-        return pd.Series(self.data["close"].to_numpy(), index=self.x_ticks)
+    def _row_at(self, x: pd.Timestamp) -> pd.Series:
+        """Row of price data for the bar at x-tick `x`."""
+        data = self.data
+        assert isinstance(data, pd.DataFrame)
+        row = data.iloc[self.x_ticks.get_loc(x)]
+        assert isinstance(row, pd.Series)
+        return row
 
-    @property
-    def _synced_tooltip_prefix(self) -> str:
-        return "Close"
+    def _synced_tooltip_fields(self, x: pd.Timestamp) -> list[tuple[str, str]] | None:
+        """Open, high, low and close for the bar at `x` (see super)."""
+        if x not in self.x_ticks:
+            return None
+        return self._ohlc_fields(self._row_at(x))
+
+    def _synced_tooltip_anchor(self, x: pd.Timestamp) -> float | None:
+        """Anchor the synced tooltip at the bar's high (see super)."""
+        if x not in self.x_ticks:
+            return None
+        return float(self._row_at(x)["high"])
 
     def _axes_kwargs(
         self, axes_kwargs: AxesKwargs | None = None, **general_kwargs
@@ -3811,17 +3862,14 @@ class SubplotLineColored(SubplotLines):
         See `Base._tooltip_value` for the hook's contract.
         """
         x = self._event_x(mark, event)
-        series = self._synced_tooltip_series()
-        if x is None or series is None or x not in series.index:
-            return ""
-        value = series.loc[x]
-        if pd.isna(value):
+        fields = None if x is None else self._synced_tooltip_fields(x)
+        if x is None or not fields:
             return ""
         style = tooltip_html_style(color=self.TOOLTIP_TEXT_COLOR, line_height=1.3)
-        prefix = self._synced_tooltip_prefix
         s = f"<p {style}>Bar: " + formatter_datetime(x)
-        s += f"<br>{prefix}: {self._format_synced_value(value)}</p>"
-        return s
+        for label, value in fields:
+            s += f"<br>{label}: {value}"
+        return s + "</p>"
 
 
 class SubplotVolume(SubplotBars):
