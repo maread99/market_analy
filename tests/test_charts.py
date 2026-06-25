@@ -423,6 +423,22 @@ class TestSubplotLineColored:
         assert np.asarray(pane.mark.y).shape == (n - 1, 2)
         assert len(np.asarray(pane.mark.color)) == n - 1
 
+    def test_create_mark_returns_segmented(self, SubplotColored):
+        """`_create_mark` returns an already-segmented mark.
+
+        The mark is segmented on creation, so its first paint is coloured
+        without relying on a subsequent x-domain change. A freshly created
+        mark (not the pane's, so untouched by any domain handler) is
+        already segmented.
+        """
+        prices = _make_prices(["AZN.L"], n=8)
+        pane = SubplotColored(_mock_chart(prices), prices)
+        mark = pane._create_mark()
+        n = len(prices)
+        assert np.asarray(mark.x).shape == (n - 1, 2)
+        assert np.asarray(mark.y).shape == (n - 1, 2)
+        assert len(np.asarray(mark.color)) == n - 1
+
     def test_segment_colour_is_mean_of_end_bars(self, SubplotColored):
         prices = _make_prices(["AZN.L"], n=8)
         pane = SubplotColored(_mock_chart(prices), prices)

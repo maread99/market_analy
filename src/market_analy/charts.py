@@ -3883,18 +3883,41 @@ class SubplotLineColored(SubplotLines):
         color = (y[:-1] + y[1:]) / 2.0
         return x_seg, y_seg, color
 
-    def _set_mark_to_plotted(self) -> None:
-        """Set the mark to the plotted data, coloured by value.
+    def _create_mark(self, **kwargs) -> bq.Lines:
+        """Create the mark, rendered from the outset as coloured segments.
 
-        Plots the line as one bqplot line per pair of adjacent bars, each
-        coloured by value (see the class NOTES).
+        Segmenting the mark here (rather than relying on a subsequent
+        x-domain change) ensures the line is coloured by value from its
+        first paint.
         """
+        mark = super()._create_mark(**kwargs)
+        # `self.mark` is not assigned until `_create_mark` returns, so
+        # segment the mark being created directly.
+        self._segment_mark(mark)
+        return mark
+
+    def _segment_mark(self, mark: bq.Lines | None = None) -> None:
+        """Render a mark as one coloured 2-point line per adjacent bar pair.
+
+        Renders from the currently plotted data (see the class NOTES).
+        Operates on `mark` if passed - as required during construction,
+        before `self.mark` is assigned - otherwise on `self.mark`.
+        """
+        mark = self.mark if mark is None else mark
         x = self.plotted_x_ticks.to_numpy()
         y = np.asarray(self._get_mark_y_plotted_data(), dtype="float64")
         x_segs, y_segs, colors = self._segments(x, y)
-        self.mark.x = x_segs
-        self.mark.y = y_segs
-        self.mark.color = colors
+        mark.x = x_segs
+        mark.y = y_segs
+        mark.color = colors
+
+    def _set_mark_to_plotted(self) -> None:
+        """Re-render the segments to reflect the plotted window.
+
+        Delegates to `_segment_mark`. Called by the base's x-domain-change
+        handler so the coloured line tracks the plotted window.
+        """
+        self._segment_mark()
 
     def _event_x(self, mark: bq.Mark, event: dict) -> pd.Timestamp | None:  # noqa: ARG002
         """Return x-tick of hovered element."""
