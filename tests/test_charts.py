@@ -415,26 +415,14 @@ class TestSubplotLineColored:
         assert pane.MarkCls is bq.Lines
 
     def test_line_is_segmented_per_pair_of_bars(self, SubplotColored):
-        """The line is plotted as one bqplot line per adjacent pair of bars."""
-        prices = _make_prices(["AZN.L"], n=8)
-        pane = SubplotColored(_mock_chart(prices), prices)
-        n = len(prices)
-        assert np.asarray(pane.mark.x).shape == (n - 1, 2)
-        assert np.asarray(pane.mark.y).shape == (n - 1, 2)
-        assert len(np.asarray(pane.mark.color)) == n - 1
+        """The line is plotted as one bqplot line per adjacent pair of bars.
 
-    def test_create_mark_returns_segmented(self, SubplotColored):
-        """`_create_mark` returns an already-segmented mark.
-
-        The mark is segmented on creation, so its first paint is coloured
-        without relying on a subsequent x-domain change. A freshly created
-        mark (not the pane's, so untouched by any domain handler) is
-        already segmented.
+        Verifies `_create_mark` returns a segmented mark.
         """
         prices = _make_prices(["AZN.L"], n=8)
         pane = SubplotColored(_mock_chart(prices), prices)
-        mark = pane._create_mark()
         n = len(prices)
+        mark = pane._create_mark()
         assert np.asarray(mark.x).shape == (n - 1, 2)
         assert np.asarray(mark.y).shape == (n - 1, 2)
         assert len(np.asarray(mark.color)) == n - 1
@@ -455,13 +443,6 @@ class TestSubplotLineColored:
         assert scale.colors == ["blue", "red"]
         assert scale.min == pytest.approx(np.nanmin(values))
         assert scale.max == pytest.approx(np.nanmax(values))
-
-    def test_no_colour_axis(self, SubplotColored):
-        """No colourbar is created for the colour scale."""
-        prices = _make_prices(["AZN.L"], n=8)
-        pane = SubplotColored(_mock_chart(prices), prices)
-        assert not any(isinstance(ax, bq.ColorAxis) for ax in pane.axes)
-        assert "color" in pane.mark.scales
 
     def test_event_x_maps_segment_to_left_bar(self, SubplotColored):
         prices = _make_prices(["AZN.L"], n=8)

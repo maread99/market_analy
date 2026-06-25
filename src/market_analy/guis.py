@@ -1089,92 +1089,6 @@ class BasePrice(BaseVariableDates):
         self._html_output: w.HTML = self._create_html_output()
         self.tabs_control: gui_parts.TabsControl = self._create_tabs_control()
 
-    # SYNCED TOOLTIPS
-    def _init_synced_tooltips(self):
-        """Set up tooltips synchronised across the chart and subplots.
-
-        When the chart or any subplot is hovered, every other pane shows
-        its own value for the hovered bar (the hovered pane shows its own
-        native tooltip).
-
-        bqplot emits no un-hover event, so the synced tooltips are not
-        hidden the instant the cursor leaves; rather they persist until
-        the next interaction clears them - hovering another bar (which
-        re-shows for that bar), panning/zooming (a change to the shared
-        x-domain) or clicking a chart's background.
-
-        Has no effect if there are no subplots, there then being no other
-        pane to synchronise with.
-        """
-        if not self._subplots:
-            self._synced_panes: list[charts.SyncedTooltip] = []
-            return
-        self._synced_panes = [self.chart, *self._subplots]
-        for pane in self._synced_panes:
-            pane._init_synced_tooltip()  # noqa: SLF001
-            self._watch_mark_for_synced_tooltip(pane.mark, pane, pane._event_x)  # noqa: SLF001
-            pane.mark.on_background_click(
-                lambda _mark, _event: self._clear_synced_tooltips()
-            )
-        self._wire_extra_synced_marks()
-        # clear when the shared x-domain changes (panning, zooming, slider)
-        self.chart.scales["x"].observe(
-            lambda _change: self._clear_synced_tooltips(), ["domain"]
-        )
-
-    def _watch_mark_for_synced_tooltip(
-        self,
-        mark: bq.Mark,
-        source: charts.SyncedTooltip,
-        x_of_event: Callable[[bq.Mark, dict], pd.Timestamp | None],
-    ):
-        """Trigger the synced tooltips when `mark` is hovered.
-
-        Parameters
-        ----------
-        mark
-            Mark to watch for hover.
-
-        source
-            Pane on which `mark` is plotted (and which will show its own
-            native tooltip rather than a synced tooltip).
-
-        x_of_event
-            Callable returning the x-tick of the hovered element (or None).
-        """
-
-        def handler(hovered_mark: bq.Mark, event: dict):
-            x = x_of_event(hovered_mark, event)
-            if x is not None:
-                self._show_synced_tooltips(x, source)
-
-        mark.on_hover(handler)
-
-    def _wire_extra_synced_marks(self):
-        """Watch marks, beyond each pane's principal mark, for hover.
-
-        No-op by default. A subclass can override to additionally trigger
-        the synced tooltips from other marks (see `GuiOHLCCaseBase`).
-        """
-        return
-
-    def _show_synced_tooltips(self, x: pd.Timestamp, source: charts.SyncedTooltip):
-        """Show every pane's synced tooltip for the bar at x-tick `x`.
-
-        The `source` pane (the hovered pane) shows its own native tooltip,
-        so its synced tooltip is instead hidden.
-        """
-        for pane in self._synced_panes:
-            if pane is source:
-                pane.hide_synced_tooltip()
-            else:
-                pane.show_synced_tooltip(x)
-
-    def _clear_synced_tooltips(self):
-        """Hide the synced tooltip on every pane."""
-        for pane in getattr(self, "_synced_panes", []):
-            pane.hide_synced_tooltip()
-
     # SUB-PLOTS
     def _build_subplot(
         self, subplot_cls: type[charts.BaseSubplot]
@@ -1247,6 +1161,88 @@ class BasePrice(BaseVariableDates):
         for subplot in self._subplots:
             subplot.delete()
         super().delete()
+
+    # SYNCED TOOLTIPS
+    def _init_synced_tooltips(self):
+        """Set up tooltips synchronised across the chart and subplots.
+
+        When the chart or any subplot is hovered, every other pane shows
+        its own value for the hovered bar (the hovered pane shows its own
+        native tooltip).
+
+        Synced tooltipspersist until the next interaction clears them -
+        hovering over another bar, panning/zooming (a change to the shared
+        x-domain) or clicking a chart's background.
+        """
+        if not self._subplots:
+            self._synced_panes: list[charts.SyncedTooltip] = []
+            return
+        self._synced_panes = [self.chart, *self._subplots]
+        for pane in self._synced_panes:
+            pane._init_synced_tooltip()  # noqa: SLF001
+            self._watch_mark_to_trigger_synced_tooltips(pane.mark, pane, pane._event_x)  # noqa: SLF001
+            pane.mark.on_background_click(
+                lambda _mark, _event: self._clear_synced_tooltips()
+            )
+        self._set_extra_marks_to_trigger_synced_tooltips()
+        # clear when the shared x-domain changes (panning, zooming, slider)
+        self.chart.scales["x"].observe(
+            lambda _change: self._clear_synced_tooltips(), ["domain"]
+        )
+
+    def _show_synced_tooltips(self, x: pd.Timestamp, source: charts.SyncedTooltip):
+        """Show every pane's synced tooltip for the bar at x-tick `x`.
+
+        The `source` pane (the hovered pane) shows its own native tooltip,
+        so its synced tooltip is instead hidden.
+        """
+        for pane in self._synced_panes:
+            if pane is source:
+                pane.hide_synced_tooltip()
+            else:
+                pane.show_synced_tooltip(x)
+
+    def _watch_mark_to_trigger_synced_tooltips(
+        self,
+        mark: bq.Mark,
+        source: charts.SyncedTooltip,
+        x_of_event: Callable[[bq.Mark, dict], pd.Timestamp | None],
+    ):
+        """Trigger the synced tooltips when `mark` is hovered.
+
+        Parameters
+        ----------
+        mark
+            Mark to watch for hover.
+
+        source
+            Pane on which `mark` is plotted (and which will show its own
+            native tooltip rather than a synced tooltip).
+
+        x_of_event
+            Callable returning the x-tick of the hovered element (or None).
+        """
+
+        def handler(hovered_mark: bq.Mark, event: dict):
+            x = x_of_event(hovered_mark, event)
+            if x is not None:
+                self._show_synced_tooltips(x, source)
+
+        mark.on_hover(handler)
+
+    def _set_extra_marks_to_trigger_synced_tooltips(self):
+        """Watch marks, beyond each pane's principal mark, for hover.
+
+        No operation by default. A subclass can override to additionally
+        trigger the synced tooltips from other marks (for example
+        `GuiOHLCCaseBase`).
+        """
+        return
+
+    def _clear_synced_tooltips(self):
+        """Hide the synced tooltip on every pane."""
+        for pane in getattr(self, "_synced_panes", []):
+            pane.hide_synced_tooltip()
 
     # CROSSHAIRS
     @property
@@ -2226,19 +2222,17 @@ class GuiOHLCCaseBase(GuiOHLC):
         """x-tick of a hovered case scatter point."""
         return discontinuous_date_to_timestamp(event["data"]["x"])
 
-    def _wire_extra_synced_marks(self):
-        """Also trigger the synced tooltips from the case scatter marks.
+    def _set_extra_marks_to_trigger_synced_tooltips(self):
+        """Trigger synced tooltips when case scatter mark hovered over.
 
         Hovering a point on a case scatter (for example a position's entry
-        or exit) shows the subplots' tooltips for that bar, the chart
-        itself showing the scatter point's own native tooltip.
-
-        See `BasePrice._wire_extra_synced_marks` for the method's super.
+        or exit) shows the subplots' tooltips for that bar (the chart
+        itself will show the scatter point's own native tooltip).
         """
-        super()._wire_extra_synced_marks()
+        super()._set_extra_marks_to_trigger_synced_tooltips()
         scatters = self.chart.added_marks.get(charts.Groups.CASES_SCATTERS, [])
         for scatter in scatters:
-            self._watch_mark_for_synced_tooltip(
+            self._watch_mark_to_trigger_synced_tooltips(
                 scatter, self.chart, self._scatter_event_x
             )
 

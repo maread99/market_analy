@@ -3866,42 +3866,30 @@ class SubplotLineColored(SubplotLines):
     def _segments(
         x: np.ndarray, y: np.ndarray
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-        """Split a line into one 2-point segment per pair of adjacent bars.
+        """Split a line into series of segments between adjacent points.
 
-        Returns a 3-tuple (x_seg, y_seg, color) where `x_seg` and `y_seg`
-        are 2D arrays with one row per segment (each row holding the two
-        end values of a segment) and `color` is the per-segment value,
-        taken as the mean of the value at the segment's two end bars.
+        Returns a 3-tuple (x_segs, y_segs, colors) where:
+            `x_segs` 2D array with one row per segment and values as x
+                value at segement start and x value at segment end.
+            `y_segs` 2D array with one row per segment and values as y
+                value at segement start and y value at segment end.
+            `colors` 1D array representing segment value as mean of the
+                data values at either end of the segment
 
         If fewer than two values are received the values are returned
         unchanged (as `x`, `y` and `y`), there being no segment to form.
         """
         if len(x) < 2:
             return x, y, y
-        x_seg = np.column_stack([x[:-1], x[1:]])
-        y_seg = np.column_stack([y[:-1], y[1:]])
-        color = (y[:-1] + y[1:]) / 2.0
-        return x_seg, y_seg, color
-
-    def _create_mark(self, **kwargs) -> bq.Lines:
-        """Create the mark, rendered from the outset as coloured segments.
-
-        Segmenting the mark here (rather than relying on a subsequent
-        x-domain change) ensures the line is coloured by value from its
-        first paint.
-        """
-        mark = super()._create_mark(**kwargs)
-        # `self.mark` is not assigned until `_create_mark` returns, so
-        # segment the mark being created directly.
-        self._segment_mark(mark)
-        return mark
+        x_segs = np.column_stack([x[:-1], x[1:]])
+        y_segs = np.column_stack([y[:-1], y[1:]])
+        colors = (y[:-1] + y[1:]) / 2.0
+        return x_segs, y_segs, colors
 
     def _segment_mark(self, mark: bq.Lines | None = None) -> None:
-        """Render a mark as one coloured 2-point line per adjacent bar pair.
+        """Set mark as series of coloured segments joining adjacent bars.
 
-        Renders from the currently plotted data (see the class NOTES).
-        Operates on `mark` if passed - as required during construction,
-        before `self.mark` is assigned - otherwise on `self.mark`.
+        Operates on `mark` if passed, otherwise on `self.mark`.
         """
         mark = self.mark if mark is None else mark
         x = self.plotted_x_ticks.to_numpy()
@@ -3910,6 +3898,12 @@ class SubplotLineColored(SubplotLines):
         mark.x = x_segs
         mark.y = y_segs
         mark.color = colors
+
+    def _create_mark(self, **kwargs) -> bq.Lines:
+        """Create mark as coloured segments."""
+        mark = super()._create_mark(**kwargs)
+        self._segment_mark(mark)
+        return mark
 
     def _set_mark_to_plotted(self) -> None:
         """Re-render the segments to reflect the plotted window.
