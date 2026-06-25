@@ -328,7 +328,7 @@ class TestSubplotBars:
         html = pane._tooltip_value(pane.mark, {"data": {"index": 0, "colorIndex": ci}})
         total = int(pane.data.iloc[0].sum())
         value = int(pane.data.iloc[0, ci])
-        dflt_color = charts.SubplotBars.TOOLTIP_TEXT_COLOR
+        dflt_color = "white"
         ts_line, total_line, symbol_line = html.split("<br>")
         # the bar (timestamp) and total lines take the default color
         assert f"Bar: {prices.index[0].left.strftime('%Y-%m-%d')}" in html

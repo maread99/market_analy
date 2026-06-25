@@ -670,22 +670,23 @@ class Base(metaclass=ABCMeta):
         raise NotImplementedError("_tooltip_value is not implemented.")
 
     def _tooltip_color(self, x: pd.Timestamp) -> str:  # noqa: ARG002
-        """Default text color for the native and synced tooltips of a bar.
+        """Default text color for the tooltip text of a given bar.
 
-        Returns a single color, taken as that used by the pane's native
-        tooltip, which the synced tooltip also adopts. Where the native
-        tooltip is multi-colored (for example a stacked-bar tooltip that
-        colors each symbol's part) this serves as the fallback color and
-        the native tooltip sets its own colors directly.
+        Returns a single color. A synced tooltip should aways use this
+        color (the text of a synced tooltip can only ever take a signle
+        color). A native tooltip can optionally directly implement a
+        tooltip with text of various colors (for example a stacked-bar
+        tooltip where each symbol is represented by a unique color).
 
-        The `x` parameter (the bar's x-tick) provides for the color to vary
-        by bar (as for an OHLC up/down bar); it is unused where the color
-        is the same for every bar.
+        Parameters
+        ----------
+        x
+            The x-tick of the bar for which require the tooltip color.
+            (Unused if the return is the same for every bar)
 
         Notes
         -----
-        Subclass should override to return the color used by its native
-        tooltip (white where that tooltip is multi-colored).
+        Subclass can override as required.
         """
         return "white"
 
@@ -1704,26 +1705,22 @@ class SyncedTooltip:
         Hide the tooltip.
 
     -----
-    A host class must be a `BaseSubsetDD` subclass (for `x_ticks`,
+    A host class must be a subclass of `BaseSubsetDD` (for `x_ticks`,
     `scales`, the principal `mark`, `figure` and `add_marks`).
     `_init_synced_tooltip` must be called by the using class (the host)
     after its chart has been created.
 
-    A concrete host should implement `_synced_tooltip_y_values` (the values
-    to show, by bar) and can override `_format_synced_tooltip_value`,
-    `_synced_tooltip_prefix` and `_event_x` as required.
+    A concrete host:
+        must implement:
+            _synced_tooltip_y_values
+        can optionally override:
+            _format_synced_tooltip_value
+            _synced_tooltip_prefix
+            _event_x
     """
 
-    # NOTE: these host-provided attributes are declared for the type checker
-    # only. Replacing this block with a runtime existence check in
-    # `_init_synced_tooltip` was considered but would not silence the checker:
-    # the other mixin methods (e.g. `show_synced_tooltip`) access these
-    # attributes too, and a runtime check - or an `isinstance` assert - only
-    # narrows types within the function it sits in, not across the class. The
-    # mixin is private and only ever mixed into a `BaseSubsetDD` host (which
-    # provides these), so a runtime guard would add little.
     if TYPE_CHECKING:
-        # attributes provided by the `BaseSubsetDD` / `Base` host
+        # attributes provided by the host (for example via `BaseSubsetDD`)
         scales: dict[str, bq.Scale]
         mark: bq.Mark
         title: str | None
@@ -1809,7 +1806,7 @@ class SyncedTooltip:
         return None if pd.isna(value) else float(value)
 
     def _event_x(self, mark: bq.Mark, event: dict) -> pd.Timestamp | None:  # noqa: ARG002
-        """x-tick of the bar of a hovered element of the principal mark.
+        """x-tick of a hovered element of the principal mark.
 
         NOTE: A host whose principal mark does not hold the full data, one
         element per bar, should override this method.
@@ -2165,7 +2162,7 @@ class Line(BasePrice):
         return self._y_data
 
     def _synced_tooltip_y_values(self) -> pd.Series:
-        """Close prices, indexed by x-tick, for the synced tooltip."""
+        """Mapping: index as x-ticks values as close price."""
         return pd.Series(self._y_data.to_numpy(), index=self.x_ticks)
 
     @property
@@ -2558,49 +2555,6 @@ class OHLC(BasePrice):
     def MarkCls(self) -> type[bq.Mark]:
         return bq.OHLC
 
-    @staticmethod
-    def _ohlc_fields(row: pd.Series) -> list[tuple[str, str]]:
-        """(label, value) pairs for a bar's open, high, low and close."""
-        return [
-            (line.capitalize(), FORMATTERS[line](getattr(row, line)))
-            for line in ["open", "high", "low", "close"]
-        ]
-
-    def _tooltip_value(self, mark: bq.OHLC, event: dict) -> str:
-        x = self._event_x(mark, event)
-        if x is None:
-            return ""
-        row = self._row_at(x)
-        style = tooltip_html_style(color=self._tooltip_color(x), line_height=1.3)
-        s = f"<p {style}>From: " + formatter_datetime(row.name.left)
-        s += f"<br>To: {formatter_datetime(row.name.right)}"
-        for label, value in self._ohlc_fields(row):
-            s += f"<br>{label}: {value}"
-        s += "</p>"
-        return s
-
-    def _tooltip_color(self, x: pd.Timestamp) -> str:
-        """Up/down color of the bar at `x` (see super)."""
-        row = self._row_at(x)
-        up, down = self.mark.colors[0], self.mark.colors[1]
-        return up if row.close >= row.open else down
-
-    def _row_at(self, x: pd.Timestamp) -> pd.Series:
-        """Row of price data for the bar at x-tick `x`."""
-        return self.data.iloc[self.x_ticks.get_loc(x)]
-
-    def _synced_tooltip_fields(self, x: pd.Timestamp) -> list[tuple[str, str]] | None:
-        """Open, high, low and close for the bar at `x` (see super)."""
-        if x not in self.x_ticks:
-            return None
-        return self._ohlc_fields(self._row_at(x))
-
-    def _synced_tooltip_anchor(self, x: pd.Timestamp) -> float | None:
-        """Anchor the synced tooltip at the bar's high (see super)."""
-        if x not in self.x_ticks:
-            return None
-        return float(self._row_at(x)["high"])
-
     def _axes_kwargs(
         self, axes_kwargs: AxesKwargs | None = None, **general_kwargs
     ) -> AxesKwargs:
@@ -2628,6 +2582,49 @@ class OHLC(BasePrice):
     def _create_figure(self, **kwargs) -> bq.Figure:
         kwargs.setdefault("padding_x", 0.005)
         return super()._create_figure(**kwargs)
+
+    def _row_at(self, x: pd.Timestamp) -> pd.Series:
+        """Row of price data for the bar at x-tick `x`."""
+        return self.data.iloc[self.x_ticks.get_loc(x)]
+
+    def _tooltip_color(self, x: pd.Timestamp) -> str:
+        """Up/down color of the bar at `x` (see super)."""
+        row = self._row_at(x)
+        up, down = self.mark.colors[0], self.mark.colors[1]
+        return up if row.close >= row.open else down
+
+    @staticmethod
+    def _ohlc_fields(row: pd.Series) -> list[tuple[str, str]]:
+        """(label, value) pairs for a bar's open, high, low and close."""
+        return [
+            (line.capitalize(), FORMATTERS[line](getattr(row, line)))
+            for line in ["open", "high", "low", "close"]
+        ]
+
+    def _tooltip_value(self, mark: bq.OHLC, event: dict) -> str:
+        x = self._event_x(mark, event)
+        if x is None:
+            return ""
+        row = self._row_at(x)
+        style = tooltip_html_style(color=self._tooltip_color(x), line_height=1.3)
+        s = f"<p {style}>From: " + formatter_datetime(row.name.left)
+        s += f"<br>To: {formatter_datetime(row.name.right)}"
+        for label, value in self._ohlc_fields(row):
+            s += f"<br>{label}: {value}"
+        s += "</p>"
+        return s
+
+    def _synced_tooltip_fields(self, x: pd.Timestamp) -> list[tuple[str, str]] | None:
+        """Open, high, low and close for the bar at `x` (see super)."""
+        if x not in self.x_ticks:
+            return None
+        return self._ohlc_fields(self._row_at(x))
+
+    def _synced_tooltip_anchor(self, x: pd.Timestamp) -> float | None:
+        """Anchor the synced tooltip at the bar's high (see super)."""
+        if x not in self.x_ticks:
+            return None
+        return float(self._row_at(x)["high"])
 
     def _update_stroke_width(self):
         mask = self.STYLE.index.contains(len(self.plotted_x_ticks))
@@ -3453,9 +3450,6 @@ class BaseSubplot(SyncedTooltip, BaseSubsetDD):
           the subplot's presentation.
     """
 
-    # dflt color that subclasses should use for tootip text
-    TOOLTIP_TEXT_COLOR = "white"
-
     # %age to extend y-scale by beyond the visible data range (NB that if there
     # are no negative y values then y-scale will not be extended below zero).
     Y_AXIS_EXCESS = 0.05
@@ -3526,16 +3520,6 @@ class BaseSubplot(SyncedTooltip, BaseSubsetDD):
             main_colors = self._chart.mark.colors
             if main_colors:
                 return list(main_colors)
-        return None
-
-    def _synced_tooltip_y_values(self) -> pd.Series | None:
-        """Subplot values, indexed by x-tick, for the synced tooltip.
-
-        Returns None (disabling the synced tooltip) where the subplot
-        covers multiple symbols, there being no single value per bar.
-        """
-        if isinstance(self.data, pd.Series):
-            return pd.Series(self.data.to_numpy(), index=self.x_ticks)
         return None
 
     @property
@@ -3665,6 +3649,20 @@ class BaseSubplot(SyncedTooltip, BaseSubsetDD):
         """
         return max(0.0, lo - margin) if lo >= 0 else lo - margin
 
+    def _synced_tooltip_y_values(self) -> pd.Series | None:
+        """Subplot values, indexed by x-tick, for the synced tooltip.
+
+        Returns None (disabling the synced tooltip) if the subplot covers
+        multiple symbols (in which case the value to plot is ambiguous).
+
+        Subclasses the cover multiple symbols can override to provide
+        an appropriate single value (for example the sum, or average, of
+        the per-symbol values)
+        """
+        if isinstance(self.data, pd.Series):
+            return pd.Series(self.data.to_numpy(), index=self.x_ticks)
+        return None
+
     def update_y_axis_presentation(self):
         plotted = self._plotted_y_extent()
         valid = plotted[~np.isnan(plotted)]
@@ -3726,12 +3724,13 @@ class SubplotBars(BaseSubplot):
         return self._format_value(float(value))
 
     def _synced_tooltip_y_values(self) -> pd.Series:
-        """Bar values, indexed by x-tick, for the synced tooltip.
+        """Mapping of x-ticks to y values.
 
-        For data covering multiple symbols (a stacked bar) returns the
-        total over all symbols, the synced tooltip thereby showing that
-        total (a bar with no value for any symbol evaluates as nan, which
-        is excluded). For a single symbol returns that symbol's values.
+        For a single symbol returns data as is.
+
+        For multiple symbols (a stacked bar) returns the total over all
+        symbols, the synced tooltip thereby showing that total (a bar with
+        no value for any symbol evaluates as nan, which is excluded).
         """
         if isinstance(self.data, pd.DataFrame):
             values = self.data.sum(axis=1, min_count=1)
@@ -3750,8 +3749,9 @@ class SubplotBars(BaseSubplot):
         See `Base._tooltip_value` for the hook's contract.
         """
         i = event["data"]["index"]
-        style = tooltip_html_style(color=self.TOOLTIP_TEXT_COLOR, line_height=1.3)
-        s = f"<p {style}>Bar: " + formatter_datetime(self.x_ticks[i])
+        x_tick = self.x_ticks[i]
+        style = tooltip_html_style(color=self._tooltip_color(x_tick), line_height=1.3)
+        s = f"<p {style}>Bar: " + formatter_datetime(x_tick)
         if self.plots_multiple_symbols:
             row = self.data.iloc[i]
             total = float(row.sum())
@@ -3774,7 +3774,8 @@ class SubplotLines(BaseSubplot):
     """Base for a subplot plotting data as lines.
 
     See `BaseSubplot` for documentation of methods and attributes and for
-    how to implement a concrete subplot.
+    how to implement a concrete subplot, inluding need to define
+    `get_subplot_data`.
     """
 
     @property
@@ -3795,8 +3796,9 @@ class SubplotLines(BaseSubplot):
         return True
 
     def _get_mark_y_plotted_data(self):
-        multiple_symbols = self.plots_multiple_symbols
-        return super()._get_mark_y_plotted_data(multiple_symbols=multiple_symbols)
+        return super()._get_mark_y_plotted_data(
+            multiple_symbols=self.plots_multiple_symbols
+        )
 
 
 class SubplotLineColored(SubplotLines):
@@ -3809,8 +3811,7 @@ class SubplotLineColored(SubplotLines):
     to red, for the highest).
 
     See `BaseSubplot` and `SubplotLines` for documentation of inherited
-    methods and attributes and for how to implement a concrete subplot
-    (a subclass must implement `get_subplot_data`).
+    methods and attributes and for how to implement a concrete subplot.
 
     Attributes
     ----------
@@ -3825,29 +3826,10 @@ class SubplotLineColored(SubplotLines):
     splitting it into one bqplot line per pair of adjacent bars. Each
     such segment is assigned the mean of the value at its two end bars,
     mapped to a colour via a `bq.ColorScale` fixed to the full value
-    range. Fixing the scale to the full range (rather than to the range
-    currently in view) ensures a given value always maps to the same
-    colour, such that the colour reflects the value relative to all other
-    values.
+    range.
     """
 
     COLOR_SCALE = ["blue", "red"]
-
-    def _create_scales(self) -> dict[ubq.ScaleKeys, bq.Scale]:
-        scales = super()._create_scales()
-        lo, hi = self._color_scale_limits()
-        scales["color"] = bq.ColorScale(colors=list(self.COLOR_SCALE), min=lo, max=hi)
-        return scales
-
-    def _axes_kwargs(
-        self, axes_kwargs: AxesKwargs | None = None, **general_kwargs
-    ) -> AxesKwargs:
-        # Suppress the colour axis. The base creates an axis for every scale,
-        # which for the colour scale is a colourbar. The hue along the line
-        # already conveys the value, so the colourbar is redundant.
-        kwargs = super()._axes_kwargs(axes_kwargs, **general_kwargs)
-        kwargs.pop("color", None)
-        return kwargs
 
     def _color_scale_limits(self) -> tuple[float, float]:
         """Lowest and highest value over all the data.
@@ -3863,19 +3845,22 @@ class SubplotLineColored(SubplotLines):
             hi = lo + 1.0
         return lo, hi
 
-    def _set_mark_to_plotted(self) -> None:
-        """Set the mark to the plotted data, coloured by value.
+    def _create_scales(self) -> dict[ubq.ScaleKeys, bq.Scale]:
+        scales = super()._create_scales()
+        lo, hi = self._color_scale_limits()
+        scales["color"] = bq.ColorScale(colors=list(self.COLOR_SCALE), min=lo, max=hi)
+        return scales
 
-        Plots the line as one bqplot line per pair of adjacent bars, each
-        coloured by value (see the class NOTES). Replaces, rather than
-        extends, `SubplotLines._set_mark_to_plotted`.
-        """
-        x = self.plotted_x_ticks.to_numpy()
-        y = np.asarray(self._get_mark_y_plotted_data(), dtype="float64")
-        x_seg, y_seg, color = self._segments(x, y)
-        self.mark.x = x_seg
-        self.mark.y = y_seg
-        self.mark.color = color
+    def _axes_kwargs(
+        self, axes_kwargs: AxesKwargs | None = None, **general_kwargs
+    ) -> AxesKwargs:
+        # Suppress the colour axis. The base creates an axis for every scale,
+        # which for the colour scale is a colourbar. The hue along the line
+        # already conveys the value, the colourbar offers no value and is
+        # obstrusive.
+        kwargs = super()._axes_kwargs(axes_kwargs, **general_kwargs)
+        kwargs.pop("color", None)
+        return kwargs
 
     @staticmethod
     def _segments(
@@ -3898,9 +3883,23 @@ class SubplotLineColored(SubplotLines):
         color = (y[:-1] + y[1:]) / 2.0
         return x_seg, y_seg, color
 
+    def _set_mark_to_plotted(self) -> None:
+        """Set the mark to the plotted data, coloured by value.
+
+        Plots the line as one bqplot line per pair of adjacent bars, each
+        coloured by value (see the class NOTES).
+        """
+        x = self.plotted_x_ticks.to_numpy()
+        y = np.asarray(self._get_mark_y_plotted_data(), dtype="float64")
+        x_segs, y_segs, colors = self._segments(x, y)
+        self.mark.x = x_segs
+        self.mark.y = y_segs
+        self.mark.color = colors
+
     def _event_x(self, mark: bq.Mark, event: dict) -> pd.Timestamp | None:  # noqa: ARG002
+        """Return x-tick of hovered element."""
         # the mark is segmented (one line per adjacent pair of bars), so a
-        # hovered line index identifies the segment's left bar.
+        # hovered line index identifies the segment's left x value.
         index = event["data"]["index"]
         ticks = self.plotted_x_ticks
         return ticks[index] if 0 <= index < len(ticks) else None
