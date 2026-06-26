@@ -2017,11 +2017,12 @@ class BasePrice(SyncedTooltip, BaseSubsetDD):
         #    label_offset': '2.5em'
         #    label: 'Date'
         # For y
-        #    "~f" formats ticks in fixed-point notation with insignificant
-        #        trailing zeros trimmed.
+        #    ".3~f" formats ticks in fixed-point notation with a maximum of
+        #        three decimal places and insignificant trailing zeros
+        #        trimmed.
         #    label_offset': '3em'
         #    label: 'Price'
-        dflt_axes_kwargs = {"x": {"num_ticks": 6}, "y": {"tick_format": "~f"}}
+        dflt_axes_kwargs = {"x": {"num_ticks": 6}, "y": {"tick_format": ".3~f"}}
         axes_kwargs = self._add_axes_kwargs(dflt_axes_kwargs, axes_kwargs)
         return super()._axes_kwargs(axes_kwargs, **general_kwargs)
 
