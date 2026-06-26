@@ -2019,9 +2019,7 @@ class BasePrice(SyncedTooltip, BaseSubsetDD):
         # For y
         #    ".3~f" formats ticks in fixed-point notation with a maximum of
         #        three decimal places and insignificant trailing zeros
-        #        trimmed. NOTE the d3 trim flag "~" must follow the precision
-        #        and precede the type, i.e. ".3~f" (the spec "~.3f" is
-        #        malformed and not accepted by the underlying d3 format).
+        #        trimmed.
         #    label_offset': '3em'
         #    label: 'Price'
         dflt_axes_kwargs = {"x": {"num_ticks": 6}, "y": {"tick_format": ".3~f"}}
