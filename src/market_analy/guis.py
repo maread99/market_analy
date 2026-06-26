@@ -1167,10 +1167,9 @@ class BasePrice(BaseVariableDates):
         """Set up tooltips synchronised across the chart and subplots.
 
         When the chart or any subplot is hovered, every other pane shows
-        its own value for the hovered bar (the hovered pane shows its own
-        native tooltip).
+        its syned tooltip(the hovered pane shows its own native tooltip).
 
-        Synced tooltipspersist until the next interaction clears them -
+        Synced tooltips persist until the next interaction clears them -
         hovering over another bar, panning/zooming (a change to the shared
         x-domain) or clicking a chart's background.
         """
