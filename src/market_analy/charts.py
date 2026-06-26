@@ -1755,8 +1755,8 @@ class SyncedTooltip:
             y=[],
             scales=scales,
             marker="crosshair",
-            stroke_width=2.5,
-            default_size=120,
+            stroke_width=2,
+            default_size=60,
             visible=False,
         )
         self._synced_tooltip_mark = bq.Label(
