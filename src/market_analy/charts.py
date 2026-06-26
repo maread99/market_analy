@@ -1796,7 +1796,10 @@ class SyncedTooltip:
 
     @property
     def _synced_tooltip_prefix(self) -> str:
-        """Label prefixing the synced-tooltip value."""
+        """Label prefixing the synced-tooltip value.
+
+        To omit a prefix host should override to return an empty string.
+        """
         return self.title or "Value"
 
     def _synced_tooltip_fields(self, x: pd.Timestamp) -> list[tuple[str, str]] | None:
@@ -1889,7 +1892,9 @@ class SyncedTooltip:
         if not fields or anchor is None:
             self.hide_synced_tooltip()
             return
-        text = " | ".join(f"{label}: {value}" for label, value in fields)
+        text = " | ".join(
+            (f"{label}: {value}" if label else value) for label, value in fields
+        )
         color = self._tooltip_color(x)
         cross_color = self._synced_tooltip_cross_color(x)
 
