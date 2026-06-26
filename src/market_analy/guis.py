@@ -1166,10 +1166,8 @@ class BasePrice(BaseVariableDates):
     def _init_synced_tooltips(self):
         """Set up tooltips synchronised across the chart and subplots.
 
-        When the chart or any subplot is hovered, every other pane marks
-        the hovered bar's (x, y) coordinate with an 'x' and shows its own
-        value for that bar in an adjacent label (the hovered pane shows
-        its own native tooltip).
+        When the chart or any subplot is hovered, every other pane shows
+        its syned tooltip(the hovered pane shows its own native tooltip).
 
         Synced tooltips persist until the next interaction clears them -
         hovering over another bar, panning/zooming (a change to the shared

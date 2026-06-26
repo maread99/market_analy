@@ -1694,10 +1694,11 @@ class SyncedTooltip:
     can use this to simultaneously show a tooltip for the same bar on
     multiple panes.
 
-    The tooltip comprises two marks, both hidden until shown at a bar:
-        a `bq.Scatter` that marks the (x, y) coordinate the tooltip
-        describes with an 'x';
-        a `bq.Label`, offset from that mark, that holds the tooltip text.
+    The tooltip comprises two marks, both hidden until shown for a bar:
+        a `bq.Scatter` which marks the (x, y) coordinate the tooltip
+            describes with an 'x';
+        a `bq.Label`, offset from that mark, that displays the tooltip
+            text.
 
     The label is offset towards the centre of the chart - to the left of
     the mark when the bar is in the upper (right) half of the plotted
@@ -1747,7 +1748,7 @@ class SyncedTooltip:
     _SYNCED_TOOLTIP_LABEL_OFFSET = 12
 
     def _init_synced_tooltip(self) -> None:
-        """Create the synced-tooltip marks (the 'x' marker and the label)."""
+        """Create the synced-tooltip marks."""
         scales = {"x": self.scales["x"], "y": self.scales["y"]}
         self._synced_tooltip_marker = bq.Scatter(
             x=[],
@@ -1849,7 +1850,7 @@ class SyncedTooltip:
         return ticks[index] if 0 <= index < len(ticks) else None
 
     def _x_in_upper_half(self, x: pd.Timestamp) -> bool:
-        """Whether `x` lies in the upper (right) half of the plotted x-ticks.
+        """Query if `x` is in upper (right) half of plotted x-ticks.
 
         The x-ticks are evenly spaced (an ordinal x-scale), so the tick
         position serves as the horizontal screen position.
@@ -1863,7 +1864,7 @@ class SyncedTooltip:
         return position > (len(ticks) - 1) / 2
 
     def _y_in_upper_half(self, y: float) -> bool:
-        """Whether `y` lies in the upper half of the visible y-range.
+        """Query if `y` is in the upper half of visible y-range.
 
         Accounts for a log y-scale so that 'half' reflects the vertical
         screen position rather than the data value. Returns False if the
@@ -1879,11 +1880,6 @@ class SyncedTooltip:
 
     def show_synced_tooltip(self, x: pd.Timestamp) -> None:
         """Show the synced tooltip for the bar with x-tick `x`.
-
-        Marks the (x, y) coordinate the tooltip describes with an 'x' and
-        positions the label adjacent to that mark, offset towards the
-        centre of the chart so the label's text is more likely to render
-        fully within the visible plot.
 
         Hides the tooltip if the pane has no data (or no valid data) at
         `x`.
@@ -1925,7 +1921,7 @@ class SyncedTooltip:
             mark.visible = True
 
     def hide_synced_tooltip(self) -> None:
-        """Hide the synced tooltip (both the 'x' marker and the label)."""
+        """Hide the synced tooltip."""
         self._synced_tooltip_marker.visible = False
         self._synced_tooltip_mark.visible = False
 
