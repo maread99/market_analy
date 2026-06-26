@@ -476,6 +476,22 @@ class TestSyncedTooltip:
         pane.hide_synced_tooltip()
         assert label.visible is False
 
+    def test_cross_placed_at_coordinate(self, SubplotColored):
+        """The 'x' marker is placed at the bar's (x, y) coordinate."""
+        prices = _make_prices(["AZN.L"], n=8)
+        pane = SubplotColored(_mock_chart(prices), prices)
+        pane._init_synced_tooltip()
+        marker = pane._synced_tooltip_marker
+        assert marker.visible is False
+        i = 4
+        x = pane.x_ticks[i]
+        pane.show_synced_tooltip(x)
+        assert marker.visible is True
+        assert list(marker.x) == [x]
+        assert marker.y[0] == pytest.approx(pane.data.to_numpy()[i])
+        pane.hide_synced_tooltip()
+        assert marker.visible is False
+
     def test_multi_symbol_bars_show_total(self, SubplotVol):
         """A multi-symbol bars subplot shows the stacked total, in white."""
         prices = _make_prices(["AZN.L", "MSFT"])

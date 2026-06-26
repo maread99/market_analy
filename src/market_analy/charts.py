@@ -1725,6 +1725,7 @@ class SyncedTooltip:
         can optionally override:
             _format_synced_tooltip_value
             _synced_tooltip_prefix
+            _synced_tooltip_cross_color
             _event_x
     """
 
@@ -1829,6 +1830,14 @@ class SyncedTooltip:
         value = series.loc[x]
         return None if pd.isna(value) else float(value)
 
+    def _synced_tooltip_cross_color(self, x: pd.Timestamp) -> str:
+        """Colour of the synced tooltip's 'x' marker for the bar at `x`.
+
+        Defaults to the colour of the tooltip label. A host can override
+        to mark the coordinate in a different colour to the label.
+        """
+        return self._tooltip_color(x)
+
     def _event_x(self, mark: bq.Mark, event: dict) -> pd.Timestamp | None:  # noqa: ARG002
         """x-tick of a hovered element of the principal mark.
 
@@ -1886,13 +1895,14 @@ class SyncedTooltip:
             return
         text = " | ".join(f"{label}: {value}" for label, value in fields)
         color = self._tooltip_color(x)
+        cross_color = self._synced_tooltip_cross_color(x)
 
         marker = self._synced_tooltip_marker
         with marker.hold_sync():
             marker.x = [x]
             marker.y = [anchor]
-            marker.colors = [color]
-            marker.stroke = color
+            marker.colors = [cross_color]
+            marker.stroke = cross_color
             marker.visible = True
 
         # offset the label away from the nearer edges to keep it in view
