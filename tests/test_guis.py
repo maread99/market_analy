@@ -189,6 +189,85 @@ class TestGuiSubplots:
         gui.close()
 
 
+# TODO: when extend the guis tests these `TestSyncedTooltips` tests need to be
+# incorporated into tests that test functionality at a BasePrice level (via a thinly
+# wrapped subclass that exposes the bare BasePrice functionality).
+class TestSyncedTooltips:
+    """Tests for tooltips synchronised across the chart and subplots."""
+
+    @pytest.fixture
+    def analy(self, prices_analysis) -> analysis.Analysis:
+        return analysis.Analysis(prices_analysis)
+
+    @pytest.fixture
+    def pp(self) -> dict:
+        return {"start": pd.Timestamp("2023-01-06"), "end": pd.Timestamp("2023-01-10")}
+
+    def test_synced_panes(self, analy, pp, SubplotVol, SubplotClose):
+        gui = analy.plot(**pp, subplots=[SubplotVol, SubplotClose], display=False)
+        assert gui._synced_panes == [gui.chart, *gui.subplots]
+        # each pane has a synced-tooltip mark, hidden initially
+        for pane in gui._synced_panes:
+            assert pane._synced_tooltip_mark.visible is False
+
+    def test_no_synced_panes(self, analy, pp):
+        """Verify there are no synced panes when there are no subplots."""
+        gui = analy.plot(**pp, subplots=False, display=False)
+        assert gui._synced_panes == []
+
+    def test_show_synced_tooltips_shows_others_hides_source(
+        self, analy, pp, SubplotVol
+    ):
+        """Hovering one pane shows the others' tooltips, hides the source's."""
+        gui = analy.plot(**pp, subplots=[SubplotVol], display=False)
+        chart, pane = gui.chart, gui.subplots[0]
+        x = chart.x_ticks[2]
+        gui._show_synced_tooltips(x, source=chart)
+        # subplot (not the source) shows its tooltip for the bar
+        assert pane._synced_tooltip_mark.visible is True
+        assert list(pane._synced_tooltip_mark.x) == [x]
+        # the source chart shows its own native tooltip, not a synced one
+        assert chart._synced_tooltip_mark.visible is False
+
+    def test_clear_hides_all(self, analy, pp, SubplotVol):
+        gui = analy.plot(**pp, subplots=[SubplotVol], display=False)
+        gui._show_synced_tooltips(gui.chart.x_ticks[2], source=gui.chart)
+        gui._clear_synced_tooltips()
+        for pane in gui._synced_panes:
+            assert pane._synced_tooltip_mark.visible is False
+
+    def test_hover_dispatch_triggers_sync(self, analy, pp, SubplotVol):
+        """Firing the chart mark's hover shows the subplot's synced tooltip."""
+        gui = analy.plot(**pp, subplots=[SubplotVol], display=False)
+        pane = gui.subplots[0]
+        i = 2
+        # invoke the mark's hover callbacks as bqplot's frontend would
+        gui.chart.mark._hover_handlers(gui.chart.mark, {"data": {"index": i}})
+        assert pane._synced_tooltip_mark.visible is True
+        assert list(pane._synced_tooltip_mark.x) == [gui.chart.x_ticks[i]]
+
+    def test_domain_change_clears(self, analy, pp, SubplotVol):
+        """Panning/zooming (a shared x-domain change) clears the tooltips."""
+        gui = analy.plot(**pp, subplots=[SubplotVol], display=False)
+        pane = gui.subplots[0]
+        gui._show_synced_tooltips(gui.chart.x_ticks[2], source=gui.chart)
+        assert pane._synced_tooltip_mark.visible is True
+        # narrowing the shared x-domain (as pan/zoom/slider does) clears
+        scale = gui.chart.scales["x"]
+        scale.domain = list(scale.domain[1:])
+        assert pane._synced_tooltip_mark.visible is False
+
+    def test_background_click_clears(self, analy, pp, SubplotVol):
+        """Clicking a chart's background clears the tooltips."""
+        gui = analy.plot(**pp, subplots=[SubplotVol], display=False)
+        pane = gui.subplots[0]
+        gui._show_synced_tooltips(gui.chart.x_ticks[2], source=gui.chart)
+        assert pane._synced_tooltip_mark.visible is True
+        # fire the chart mark's background-click callbacks
+        gui.chart.mark._bg_click_handlers(gui.chart.mark, {})
+        assert pane._synced_tooltip_mark.visible is False
+
+
 class TestGuiMultLineSubplots:
     """Tests for subplots associated with a multi-symbol (Compare) price chart.
 
