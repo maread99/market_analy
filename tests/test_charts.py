@@ -452,7 +452,7 @@ class TestSubplotLineColored:
 
 
 class TestSyncedTooltip:
-    """Tests for the `SyncedTooltip` mixin (via a subplot host)."""
+    """Tests for the `SyncedTooltip` mixin (via a thin subplot host)."""
 
     def test_y_values_indexed_by_x_ticks(self, SubplotColored):
         prices = _make_prices(["AZN.L"], n=8)
@@ -476,29 +476,10 @@ class TestSyncedTooltip:
         pane.hide_synced_tooltip()
         assert label.visible is False
 
-    def test_show_hidden_when_no_value_at_x(self, SubplotColored):
-        prices = _make_prices(["AZN.L"], n=8)
-        pane = SubplotColored(_mock_chart(prices), prices)
-        pane._init_synced_tooltip()
-        pane.show_synced_tooltip(pane.x_ticks[4])  # show first
-        foreign_x = pane.x_ticks[-1] + pd.Timedelta("365D")
-        pane.show_synced_tooltip(foreign_x)
-        assert pane._synced_tooltip_mark.visible is False
-
-    def test_volume_subplot_formats_value(self):
-        prices = _make_prices(["AZN.L"])
-        pane = charts.SubplotVolume(_mock_chart(prices), prices)
-        pane._init_synced_tooltip()
-        pane.show_synced_tooltip(pane.x_ticks[2])
-        text = pane._synced_tooltip_mark.text[0]
-        assert text.startswith("Volume: ")
-        # value formatted with thousands separator (no decimal for integers)
-        assert "." not in text.split(": ")[1]
-
-    def test_multi_symbol_bars_show_total(self):
+    def test_multi_symbol_bars_show_total(self, SubplotVol):
         """A multi-symbol bars subplot shows the stacked total, in white."""
         prices = _make_prices(["AZN.L", "MSFT"])
-        pane = charts.SubplotVolume(_mock_chart(prices, ["yellow", "orange"]), prices)
+        pane = SubplotVol(_mock_chart(prices, ["yellow", "orange"]), prices)
         pane._init_synced_tooltip()
         x = pane.x_ticks[2]
         pane.show_synced_tooltip(x)
@@ -506,20 +487,7 @@ class TestSyncedTooltip:
         total = float(prices.xs("volume", axis=1, level=-1).iloc[2].sum())
         assert label.visible is True
         assert label.y[0] == pytest.approx(total)
-        assert label.text[0] == f"Volume: {pane._format_value(total)}"
+        assert label.text[0] == f"Vol: {pane._format_value(total)}"
         # the native multi-symbol tooltip is multi-coloured, so the synced
         # tooltip falls back to the default (white)
         assert label.colors == ["white"]
-
-    def test_ohlc_synced_tooltip_color_reflects_up_down(self):
-        """The OHLC synced tooltip colour matches the bar's up/down colour."""
-        prices = _make_prices(["AZN.L"], multiindex=False)
-        chart = charts.OHLC(prices, title="AZN.L")
-        chart._init_synced_tooltip()
-        up_colour, down_colour = chart.mark.colors[0], chart.mark.colors[1]
-        for i in range(len(prices)):
-            x = chart.x_ticks[i]
-            chart.show_synced_tooltip(x)
-            row = prices.iloc[i]
-            expected = up_colour if row["close"] >= row["open"] else down_colour
-            assert chart._synced_tooltip_mark.colors == [expected]

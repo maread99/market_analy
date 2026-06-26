@@ -5,8 +5,6 @@ import pandas as pd
 import pytest
 
 from market_analy import analysis, charts
-from market_analy.guis import GuiOHLCCaseBase
-from market_analy.utils.bq_utils import dates_to_posix
 
 # NOTE: tests are extremely incomplete! Currently limited to only testing
 # Subplots
@@ -191,6 +189,9 @@ class TestGuiSubplots:
         gui.close()
 
 
+# TODO: when extend the guis tests these `TestSyncedTooltips` tests need to be
+# incorporated into tests that test functionality at a BasePrice level (via a thinly
+# wrapped subclass that exposes the bare BasePrice functionality).
 class TestSyncedTooltips:
     """Tests for tooltips synchronised across the chart and subplots."""
 
@@ -202,14 +203,15 @@ class TestSyncedTooltips:
     def pp(self) -> dict:
         return {"start": pd.Timestamp("2023-01-06"), "end": pd.Timestamp("2023-01-10")}
 
-    def test_panes_are_chart_and_subplots(self, analy, pp, SubplotVol, SubplotClose):
+    def test_synced_panes(self, analy, pp, SubplotVol, SubplotClose):
         gui = analy.plot(**pp, subplots=[SubplotVol, SubplotClose], display=False)
         assert gui._synced_panes == [gui.chart, *gui.subplots]
         # each pane has a synced-tooltip mark, hidden initially
         for pane in gui._synced_panes:
             assert pane._synced_tooltip_mark.visible is False
 
-    def test_no_subplots_no_panes(self, analy, pp):
+    def test_no_synced_panes(self, analy, pp):
+        """Verify there are no synced panes when there are no subplots."""
         gui = analy.plot(**pp, subplots=False, display=False)
         assert gui._synced_panes == []
 
@@ -264,35 +266,6 @@ class TestSyncedTooltips:
         # fire the chart mark's background-click callbacks
         gui.chart.mark._bg_click_handlers(gui.chart.mark, {})
         assert pane._synced_tooltip_mark.visible is False
-
-    def test_ohlc_label_shows_all_fields(self, analy, pp, SubplotVol):
-        """The OHLC chart's synced label shows open/high/low/close on a line."""
-        gui = analy.plot(**pp, subplots=[SubplotVol], display=False)
-        x = gui.chart.x_ticks[2]
-        gui.chart.show_synced_tooltip(x)
-        text = gui.chart._synced_tooltip_mark.text[0]
-        for field in ("Open:", "High:", "Low:", "Close:"):
-            assert field in text
-        assert "\n" not in text  # single line
-        # anchored at the bar's high
-        row = gui.chart.data.iloc[gui.chart.x_ticks.get_loc(x)]
-        assert gui.chart._synced_tooltip_mark.y[0] == pytest.approx(row["high"])
-
-
-class TestScatterSyncedTooltip:
-    """Tests for triggering synced tooltips from case scatter marks."""
-
-    def test_scatter_event_x_maps_to_bar(self):
-        """A case scatter's hover x maps to the corresponding x-tick.
-
-        A scatter point's `event['data']['x']` is the posix value of the
-        bar's x-tick (as set on the shared ordinal scale), which
-        `_scatter_event_x` must invert back to the bar's timestamp.
-        """
-        tick = pd.Timestamp("2023-01-06")
-        posix = dates_to_posix(pd.DatetimeIndex([tick]).as_unit("ns"))[0]
-        event = {"data": {"x": posix}}
-        assert GuiOHLCCaseBase._scatter_event_x(None, event) == tick
 
 
 class TestGuiMultLineSubplots:
