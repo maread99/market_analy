@@ -2017,18 +2017,14 @@ class BasePrice(SyncedTooltip, BaseSubsetDD):
         #    label_offset': '2.5em'
         #    label: 'Date'
         # For y
-        #    "~f" formats ticks in fixed-point notation with insignificant
-        #        trailing zeros trimmed.
+        #    ".3~f" formats ticks in fixed-point notation with a maximum of
+        #        three decimal places and insignificant trailing zeros
+        #        trimmed. NOTE the d3 trim flag "~" must follow the precision
+        #        and precede the type, i.e. ".3~f" (the spec "~.3f" is
+        #        malformed and not accepted by the underlying d3 format).
         #    label_offset': '3em'
         #    label: 'Price'
-        # AIDEV-TODO: set the y axis tick_format (immediately below) as if
-        # it were the "~.3f" d3 format spec (NOTE that `bqplot` will not
-        # accept the "~.3f"!). "~.3f" would have a maximum of three decimal
-        # places and always remove trailing 0s. I believe `tick_format` can
-        # take a Callable, which would probably be the simplest way to
-        # implement this. Also, revise the comment immediately above which
-        # starts 'For y'.
-        dflt_axes_kwargs = {"x": {"num_ticks": 6}, "y": {"tick_format": "~f"}}
+        dflt_axes_kwargs = {"x": {"num_ticks": 6}, "y": {"tick_format": ".3~f"}}
         axes_kwargs = self._add_axes_kwargs(dflt_axes_kwargs, axes_kwargs)
         return super()._axes_kwargs(axes_kwargs, **general_kwargs)
 
