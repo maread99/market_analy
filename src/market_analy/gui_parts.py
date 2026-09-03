@@ -56,9 +56,13 @@ from market_analy.utils.dict_utils import set_kwargs_from_dflt
 
 ICON_DIM = "35px"
 
-TT_KWARGS_DFLT = {"bottom": True, "open_delay": 750, "content_class": "black--text"}
+TT_KWARGS_DFLT = {
+    "location": "bottom",
+    "open_delay": 750,
+    "content_class": "text-black",
+}
 
-BG = "grey darken-4"
+BG = "bg-grey-darken-4"
 
 
 def close_but(handler: Callable | None = None) -> wu.ButtonIcon:
@@ -177,7 +181,13 @@ class DrawdownSelector(wu.ToggleButtonsHandled):
 def loading_overlay() -> v.Overlay:
     """Overlay application with opaque sheet with loading symbol."""
     prog = v.ProgressCircular(indeterminate=True, color="white", size=30)
-    return v.Overlay(color="grey", value=False, absolute=True, children=[prog])
+    return v.Overlay(
+        scrim="grey",
+        v_model=False,
+        contained=True,
+        class_="d-flex align-center justify-center",
+        children=[prog],
+    )
 
 
 class Dialog(vu.Dialog):
@@ -228,7 +238,7 @@ class IconRowTop(wu.IconRow):
             child.tooltip = tooltips[i]
 
 
-class TabsControl(v.Tabs):
+class TabsControl(v.Sheet):
     """Tabs widget.
 
     Includes:
@@ -268,11 +278,11 @@ class TabsControl(v.Tabs):
         self.but_arrow_down: vu.IconBut
         self._create_slctr_tab_content()
 
-        tab_class_ = "text-lowercase font-weight-regular " + BG
+        tab_class_ = "text-lowercase font-weight-regular"
 
         texts = ["Cursor", "Selector"]
         tooltips = ["Crosshair Operations", "Operate on a selected period"]
-        tts_kwargs = [{"left": True}, {"right": True}]
+        tts_kwargs = [{"location": "left"}, {"location": "right"}]
         for kwargs in tts_kwargs:
             kwargs["open_delay"] = TT_KWARGS_DFLT["open_delay"]
         tab_tt_list = []
@@ -283,29 +293,37 @@ class TabsControl(v.Tabs):
             tab_tt_list.append(tab_tt)
 
         tab_items = [
-            v.TabItem(children=[layout], class_=BG)
+            v.TabsWindowItem(children=[layout], class_=BG)
             for layout in [self.cursor_objs, self.slctr_objs]
         ]
 
+        # `color` is applied to the selected tab (and its slider) whilst
+        # unselected tabs take the color inherited from this container,
+        # i.e. 'text-grey'.
+        self._tabs = v.Tabs(
+            v_model=0,
+            children=tab_tt_list,
+            align_tabs="center",
+            fixed_tabs=True,
+            height="30px",
+            color="white",
+            class_="text-grey",
+        )
+        self._window = v.TabsWindow(v_model=0, children=tab_items)
+        w.jslink((self._tabs, "v_model"), (self._window, "v_model"))
+
         tabs_class_ = "d-flex flex-column align-center flex-grow-0 " + BG
         super().__init__(
-            v_model=0,
-            children=tab_tt_list + tab_items,
-            centered=True,
-            fixed_tabs=True,
-            dark=True,
-            slider_size=1,
-            height="30px",
-            class_=tabs_class_,
+            children=[self._tabs, self._window], class_=tabs_class_, theme="dark"
         )
 
     def _create_cursor_tab_content(self):
         colors = ["green", "red"]
         d = {
-            "icon_names": ["fa-plus", "fa-minus"],
+            "icon_names": ["mdi-plus", "mdi-minus"],
             "names": ["plus", "minus"],
             "tooltips": ["Add crosshair", "Remove crosshair"],
-            "deselected_colors": ["green darken-4", "red darken-4"],
+            "deselected_colors": ["green-darken-4", "red-darken-4"],
             "selected_colors": colors,
         }
 
@@ -322,20 +340,20 @@ class TabsControl(v.Tabs):
         tt_kwargs = {"color": color}
         set_kwargs_from_dflt(tt_kwargs, TT_KWARGS_DFLT)
         self.but_lightbulb = vu.ToggleIcon(
-            "fa-lightbulb-o",
+            "mdi-lightbulb-outline",
             selected=True,
-            deselected_color=color + " darken-4",
+            deselected_color=color + "-darken-4",
             selected_color=color,
             tooltip=tt,
             tt_kwargs=tt_kwargs,
         )
 
         tt = "Remove all crosshairs"
-        color = "red accent-3"
+        color = "red-accent-3"
         tt_kwargs = {"color": color}
         set_kwargs_from_dflt(tt_kwargs, TT_KWARGS_DFLT)
         self.but_trash = vu.IconBut(
-            "fa-trash", color=color, tooltip=tt, tt_kwargs=tt_kwargs
+            "mdi-trash-can", color=color, tooltip=tt, tt_kwargs=tt_kwargs
         )
 
         cursor_buts = [self.but_lightbulb.tt, self.but_trash.tt]
@@ -358,20 +376,32 @@ class TabsControl(v.Tabs):
             )
 
         self.but_zoom = get_but(
-            "fa-search-plus", "orange lighten-2", "Zoom to selection"
+            "mdi-magnify-plus", "orange-lighten-2", "Zoom to selection"
         )
 
         tt = "Evalute maximum advance over selected period"
-        self.but_arrow_up = get_but("fa-arrow-circle-up", "light-green lighten-1", tt)
+        self.but_arrow_up = get_but("mdi-arrow-up-circle", "light-green-lighten-1", tt)
 
         tt = "Evalute maximum decline over selected period"
-        self.but_arrow_down = get_but("fa-arrow-circle-down", "red lighten-1", tt)
+        self.but_arrow_down = get_but("mdi-arrow-down-circle", "red-lighten-1", tt)
 
         buts = [self.but_zoom.tt, self.but_arrow_up.tt, self.but_arrow_down.tt]
         self.slctr_objs = v.Layout(children=buts, class_=self._tab_container_class_)
 
+    def on_tab_change(self, handler: Callable[[int], None]):
+        """Set handler to call whenever the selected tab changes.
+
+        Parameters
+        ----------
+        handler
+            Called with the index of the newly selected tab. Also called
+            on the selected tab being changed programmatically, for example
+            by `reset`.
+        """
+        self._tabs.observe(lambda change: handler(change["new"]), names="v_model")
+
     def reset(self):
-        self.v_model = 0
+        self._tabs.v_model = 0
         self.cursor_toggle.deselect()
 
 
@@ -460,15 +490,15 @@ class _BiToggle(vu.ToggleIcons):
         d = {
             "icon_names": icon_names,
             "names": names,
-            "deselected_colors": ["grey lighten-1"] * 2,
+            "deselected_colors": ["grey-lighten-1"] * 2,
             "selected_colors": [color] * 2,
             "tooltips": tooltips,
             "tts_kwargs": [
                 {
-                    "bottom": True,
+                    "location": "bottom",
                     "color": color,
                     "open_delay": 750,
-                    "content_class": "white--text",
+                    "content_class": "text-white",
                 }
             ]
             * 2,
@@ -488,7 +518,7 @@ class BarDirectionToggle(_BiToggle):
 
     def __init__(self):
         d = {
-            "icon_names": ["fa-grip-lines-vertical", "fa-grip-lines"],
+            "icon_names": ["mdi-drag-vertical-variant", "mdi-drag-horizontal-variant"],
             "names": ["vertical", "horizontal"],
             "color": "orange",
             "tooltips": ["vertical bars", "horizontal bars"],
@@ -573,7 +603,7 @@ def legend_but(handler: Callable | None = None, **kwargs) -> vu.IconBut:
         method to maintain legend button style.
     """
     return create_icon_but(
-        icon_name="fa-list-alt",
+        icon_name="mdi-format-list-bulleted-square",
         tooltip="Cycle legend location",
         color="white",
         handler=handler,
@@ -596,7 +626,7 @@ def rebase_but(handler: Callable | None = None, **kwargs) -> vu.IconBut:
         method to maintain legend button style.
     """
     return create_icon_but(
-        icon_name="fa-dot-circle-o",
+        icon_name="mdi-record-circle-outline",
         tooltip="Rebase prices",
         color="orange",
         handler=handler,
@@ -616,7 +646,9 @@ class PctChgIconRowMult(v.Layout):
             self.legend_cycle_but.tt,
         ]
 
-        super().__init__(children=children, class_=BG, justify_space_around=True)
+        super().__init__(
+            children=children, class_=BG + " justify-space-around flex-grow-0"
+        )
 
 
 class CaseControls(v.Layout):
@@ -635,7 +667,7 @@ class CaseControls(v.Layout):
     method.
     """
 
-    _TURN_OFF_COLOR = "#CD853F"
+    _TURN_OFF_COLOR = "orange-accent-2"
 
     def __init__(self):
         self.but_show_all: vu.IconBut
@@ -769,7 +801,7 @@ class TrendControls(CaseControls):
                         but_narrow  //  but_wide
     """
 
-    _TURN_OFF_COLOR = "#CD853F"
+    _TURN_OFF_COLOR = "orange-accent-2"
 
     def __init__(self):
         self.but_ruler: vu.IconBut

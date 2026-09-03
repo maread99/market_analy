@@ -433,26 +433,26 @@ class SelectableListMult(_SelectableList):
             self.select(initial_selection)
 
     @property
-    def selected_elements(self) -> None | list[Any]:
+    def selected_elements(self) -> list[Any] | None:
         """Selected elements. None if no selection."""
         return None if not self.has_selection else self._selected
 
     @property
-    def selected_indices(self) -> None | list[int]:
+    def selected_indices(self) -> list[int] | None:
         """Indices of selected elements. None if no selection."""
         if not self.has_selection:
             return None
         return [self.index(e) for e in self.selected_elements]
 
     @property
-    def selected_names(self) -> None | list[str | int]:
+    def selected_names(self) -> list[str | int] | None:
         """Names of selected elements. None if no selection."""
         if not self.has_selection:
             return None
         return [self._names[i] for i in self.selected_indices]
 
     @property
-    def selected(self) -> None | list[Any]:
+    def selected(self) -> list[Any] | None:
         """Selected elements, as default reference."""
         # NB implmentation differs from other fucntionatlity by
         # way of getting default method now rather than at time of

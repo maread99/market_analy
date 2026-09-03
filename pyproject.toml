@@ -60,7 +60,7 @@ dependencies = [
     "pandas",
     "traitlets",
     "tzdata",
-    "ipyvuetify",
+    "ipyvuetify>=3",
     "ipywidgets",
 ]
 

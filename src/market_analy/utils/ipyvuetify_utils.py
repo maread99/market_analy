@@ -9,8 +9,29 @@ from .list_utils import SelectableList
 
 # ruff: noqa: ARG002  # unused-method-argument. Allow to provide for event handling calls.
 
-DARK = "grey darken-4"
-LIGHT = "grey lighten-4"
+DARK = "grey-darken-4"
+LIGHT = "grey-lighten-4"
+
+
+def _set_tooltip_bg_class(color: str, content_class: str = "") -> str:
+    """Return `content_class` to set a `vue.Tooltip` background to `color`.
+
+    Note: a tooltip's background color is set on the tooltip's content via
+    a background utility class.
+
+    Parameters
+    ----------
+    color
+        A vuetify color to set the tooltip background to, for example
+        'red-accent-3'.
+
+    content_class
+        Classes currently assigned to the tooltip's content (all will be
+        retained save for any existing background class).
+    """
+    classes = [c for c in content_class.split() if not c.startswith("bg-")]
+    classes.append("bg-" + color.replace(" ", "-"))
+    return " ".join(classes)
 
 
 def border_comp(
@@ -52,8 +73,8 @@ def tooltip_decorator(func: Callable) -> Callable:
         tt_kwargs
             kwargs to be passed to any vue.Tooltip. Only applicable if
             `tooltip` passed. Exmample:
-                tt_kwargs = {'bottom': True, 'color': 'red'}
-                kwargs to set position are 'top', 'right', 'bottom', 'left'.
+                tt_kwargs = {'location': 'bottom', 'color': 'red'}
+                'location' can take values 'top', 'bottom', 'left', 'right'.
                 To see all possible kwargs select v-tooltip at:
                     https://vuetifyjs.com/en/components/api-explorer/
 
@@ -95,8 +116,13 @@ def tooltip_decorator(func: Callable) -> Callable:
         func(self, *args, **kwargs)
 
         if tooltip is not None:
-            tt_kwargs = tt_kwargs if tt_kwargs is not None else {}
+            tt_kwargs = dict(tt_kwargs) if tt_kwargs is not None else {}  # use copy
             tt_kwargs["children"] = [tooltip]
+            color = tt_kwargs.pop("color", None)
+            if color is not None:
+                tt_kwargs["content_class"] = _set_tooltip_bg_class(
+                    color, tt_kwargs.get("content_class", "")
+                )
             self.tt = vue.Tooltip(
                 v_slots=[{"name": "activator", "variable": "ttip", "children": [self]}],
                 **tt_kwargs,
@@ -127,11 +153,11 @@ class IconBut(vue.Btn):
 
     color
         Icon color. As vuetify color definition, for example 'red' or
-        'grey lighten-4'. Default 'grey lighten-4'.
+        'grey-lighten-4'. Default 'grey-lighten-4'.
 
     dark_color
         Icon color when darkened. As vuetify color definition, for
-        example 'grey' or 'grey darken-4'.
+        example 'grey' or 'grey-darken-4'.
 
     dark : bool, default: False
         True to initially set icon color to dark.
@@ -143,8 +169,8 @@ class IconBut(vue.Btn):
     tt_kwargs
         kwargs to be passed to any vue.Tooltip. Only applicable if
         `tooltip` passed. Exmample:
-            tt_kwargs = {'bottom': True, 'color': 'red'}
-        kwargs to set position are 'top', 'right', 'bottom', 'left'.
+            tt_kwargs = {'location': 'bottom', 'color': 'red'}
+        'location' can take values 'top', 'bottom', 'left', 'right'.
         To see all possible kwargs select v-tooltip at:
             https://vuetifyjs.com/en/components/api-explorer/
 
@@ -195,14 +221,14 @@ class IconBut(vue.Btn):
 
     @classmethod
     def divider(
-        cls, color: str = "grey darken-1", vertical: bool = True, **kwargs
+        cls, color: str = "grey-darken-1", vertical: bool = True, **kwargs
     ) -> vue.Divider:
         """Return Divider object that aligns with default icon buttons."""
         style_ = (" ").join(
             ["max-height:", IconBut.icon_dim + ";", "height:", IconBut.icon_dim]
         )
         kwargs.setdefault("class_", cls.def_class_)
-        kwargs["class_"] += " " + color
+        kwargs["class_"] += " bg-" + color
         return vue.Divider(style_=style_, vertical=vertical, **kwargs)
 
     @tooltip_decorator
@@ -231,7 +257,8 @@ class IconBut(vue.Btn):
         color = self.color_dark if dark else self.color_light
 
         super().__init__(
-            children=[vue.Icon(children=[icon_name], small=True, color=color)], **kwargs
+            children=[vue.Icon(children=[icon_name], size="small", color=color)],
+            **kwargs,
         )
 
     @property
@@ -241,7 +268,10 @@ class IconBut(vue.Btn):
     @icon_color.setter
     def icon_color(self, color: str):
         self.children[0].color = color
-        self.tt.color = color
+        if self.tt is not None:
+            self.tt.content_class = _set_tooltip_bg_class(
+                color, self.tt.content_class or ""
+            )
 
     def darken(self):
         """Darken icon color."""
@@ -279,11 +309,11 @@ class ToggleIcon(IconBut):
 
     deselected_color
         Icon color when not selected. As vuetify color definition, for
-        example 'grey' or grey darken-4'.
+        example 'grey' or 'grey-darken-4'.
 
     selected_color
         Icon color when selected. As vuetify color definition, for
-        example 'grey' or grey lighten-4'.
+        example 'grey' or 'grey-lighten-4'.
 
     handler_on_selecting
         Callable to be executed on icon button becoming selected. If not
@@ -463,11 +493,11 @@ class ToggleIcons(SelectableList):
             to represent any icon button tooltip which is to use default
             properties. Example for three buttons, the middle one of which
             uses default properties:
-                ttw_kwargs = [{'bottom': True, 'color': 'lime'},
+                ttw_kwargs = [{'location': 'bottom', 'color': 'lime'},
                                 None,
-                                {'right': True,
+                                {'location': 'right',
                                 'color': 'white',
-                                'content_class': 'black--text'}]
+                                'content_class': 'text-black'}]
 
         select_by
             How default selection methods will reference icon buttons.
@@ -485,15 +515,15 @@ class ToggleIcons(SelectableList):
             List of strings representing icon colors when not selected.
             List should have same length as icon_names. Define colors as
             vuetify color definition, for example:
-                ['grey darken-4', 'brown darken-4']
-            Default all 'grey darken-4'.
+                ['grey-darken-4', 'brown-darken-4']
+            Default all 'grey-darken-4'.
 
         selected_colors
             List of strings representing icon colors when selected. List
             should have same length as icon_names. Define colors as vuetify
             color definition, for example:
-                ['grey lighten-4', 'brown lighten-4']
-            Default all 'grey lighten-4'.
+                ['grey-lighten-4', 'brown-lighten-4']
+            Default all 'grey-lighten-4'.
 
         handlers_on_selecting
             List of Callables to be executed on icon buttons becoming
@@ -532,9 +562,9 @@ class ToggleIcons(SelectableList):
         tooltips = tooltips if tooltips is not None else [None] * num_icons
         tts_kwargs = tts_kwargs if tts_kwargs is not None else [None] * num_icons
         if deselected_colors is None:
-            deselected_colors = ["grey darken-4"] * num_icons
+            deselected_colors = ["grey-darken-4"] * num_icons
         if selected_colors is None:
-            selected_colors = ["grey lighten-4"] * num_icons
+            selected_colors = ["grey-lighten-4"] * num_icons
 
         icon_buts = []
         for name, color, d_color, tt, tt_kwargs in zip(
@@ -637,8 +667,8 @@ class TabTt(vue.Tab):
         tt_kwargs
             kwargs to be passed to any `vue.Tooltip`. Only applicable if
             `tooltip` passed. Exmample:
-                tt_kwargs = {'bottom': True, 'color': 'red'}
-            kwargs to set position are 'top', 'right', 'bottom', 'left'.
+                tt_kwargs = {'location': 'bottom', 'color': 'red'}
+            'location' can take values 'top', 'bottom', 'left', 'right'.
             To see all possible kwargs select v-tooltip at:
                 https://vuetifyjs.com/en/components/api-explorer/
         """
@@ -704,7 +734,7 @@ class Dialog(vue.Overlay):
 
             Defaults:
                 'style_': 'color: black'
-                'class_', 'headline grey lighten-2'
+                'class_', 'text-h5 bg-grey-lighten-2'
 
         text_kwargs
             Passed on to vue.CardText constructor. Defaults will only be
@@ -730,7 +760,7 @@ class Dialog(vue.Overlay):
             Passed on to `vue.Overlay` constructor.
 
             Defaults:
-                'absolute': True
+                'contained': True
                 'color': 'grey'
                 'class_': 'd-flex flex-row justify-center'
         """
@@ -743,9 +773,9 @@ class Dialog(vue.Overlay):
         kwds = card_kwargs if card_kwargs is not None else {}
         kwds["width"] = width
         self._card = self._create_dialog_card(title, text, **kwds)
-        kwargs["value"] = False
-        kwargs.setdefault("absolute", True)
-        kwargs.setdefault("color", "grey")
+        kwargs["v_model"] = False
+        kwargs.setdefault("contained", True)
+        kwargs.setdefault("scrim", "grey")
         kwargs.setdefault("class_", "d-flex flex-row justify-center")
         super().__init__(children=[self._card], **kwargs)
 
@@ -792,7 +822,7 @@ class Dialog(vue.Overlay):
             self.title = title
         if text is not None:
             self.text = text
-        self.value = True
+        self.v_model = True
 
     def close_dialog(self):
         """Close dialog box.
@@ -800,7 +830,7 @@ class Dialog(vue.Overlay):
         NB this will not close the connection with the underlying widget,
         for which use `close` method.
         """
-        self.value = False
+        self.v_model = False
 
     def _close_handler(self, widget=None, event=None, data=None):
         self.close_dialog()
@@ -815,7 +845,7 @@ class Dialog(vue.Overlay):
 
     def _create_card_title(self, title: str, **kwargs):
         kwargs.setdefault("style_", "color: black")
-        kwargs.setdefault("class_", "headline grey lighten-2")
+        kwargs.setdefault("class_", "text-h5 bg-grey-lighten-2")
         return vue.CardTitle(children=[title], **kwargs)
 
     def _create_card_text(self, text: str, **kwargs):

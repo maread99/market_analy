@@ -24,7 +24,7 @@ The following videos cover what's on offer:
 * [Trends](https://vimeo.com/835495038) demonstrates functionality (added June 2023) to define and visualise trends.
 
 Features subsequently added that do not feature in the tutorial videos:
-* **Subplots** (added Jun 2026) - customised subplots can be added underneath the main price chart (see 'subplots' part of [`charts`](https://github.com/maread99/market_analy/blob/main/src/market_analy/charts.py#L3169) module). By default the `.plot` method now includes a volume subplot. 
+* **Subplots** (added Jun 2026) - customised subplots can be added underneath the main price chart (see 'subplots' part of [`charts`](https://github.com/maread99/market_analy/blob/main/src/market_analy/charts.py#L3169) module). By default the `.plot` method now includes a volume subplot.
 * **Drawdown** (added Sep 2024) - price charts include a drawdown indicator that be set to reflect different periods or removed from the plot (see [Quickstart](#quickstart)).
 
 ## Quickstart
