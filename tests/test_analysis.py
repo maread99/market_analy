@@ -964,12 +964,12 @@ class TestAnalysis:
             prices_prior = gui.prices.copy()
             value_prior = gui._drawdown_selector.value
             gui._drawdown_selector.value = "365D"
-            assert gui._dialog.value
+            assert gui._dialog.v_model
             assert gui._dialog.text == (
                 "52wk drawdown period only available with '1D' tick interval"
             )
             gui._dialog.close_dialog()
-            assert not gui._dialog.value
+            assert not gui._dialog.v_model
             assert gui.prices.equals(prices_prior)
             assert gui._drawdown_selector.value == value_prior
 
@@ -1121,15 +1121,15 @@ class TestAnalysis:
             pd.Timestamp("2023-01-09 08:00"), pd.Timestamp("2023-01-09 16:25"), "left"
         )
         assert gui.chart.plotted_interval == expected
-        assert not gui._dialog.value
+        assert not gui._dialog.v_model
         gui._interval_selector.value = mp.intervals.TDInterval.D1
-        assert gui._dialog.value
+        assert gui._dialog.v_model
         assert (
             gui._dialog.text
             == "Interval '1D' unavailable: the currently plotted range is shorther than the requested interval."
         )
         gui._dialog.close_dialog()
-        assert not gui._dialog.value
+        assert not gui._dialog.v_model
         # verify values unchanged
         assert gui.prices.equals(prices_prev)
         assert gui.chart.plotted_interval == expected
@@ -1284,28 +1284,28 @@ class TestAnalysis:
         slider_tup = (pd.Timestamp("2021-12-30"), pd.Timestamp("2023-01-05"))
         assert gui.date_slider.slider.value == slider_tup
 
-        assert not gui._dialog.value
+        assert not gui._dialog.v_model
         gui._interval_selector.value = mp.intervals.TDInterval.T30
-        assert gui._dialog.value
+        assert gui._dialog.v_model
         assert (
             gui._dialog.text
             == "Prices for interval '30min' are only available from '2022-12-05' although the earliest date that can be plotted on the chart implies that require data from '2021-12-30'."
         )
         gui._dialog.close_dialog()
-        assert not gui._dialog.value
+        assert not gui._dialog.v_model
         # verify values unchanged
         assert gui.chart.plotted_interval == expected
         assert gui.chart.plottable_interval == expected
         assert gui.date_slider.slider.value == slider_tup
 
         gui._interval_selector.value = mp.intervals.TDInterval.T1
-        assert gui._dialog.value
+        assert gui._dialog.v_model
         assert (
             gui._dialog.text
             == "Prices for interval '1min' are only available from '2023-01-03' although the earliest date that can be plotted on the chart implies that require data from '2021-12-30'."
         )
         gui._dialog.close_dialog()
-        assert not gui._dialog.value
+        assert not gui._dialog.v_model
         # verify values unchanged
         assert gui.chart.plotted_interval == expected
         assert gui.chart.plottable_interval == expected
@@ -2834,15 +2834,15 @@ class TestCompare:
         )
         assert gui.chart.plotted_interval == expected
         assert gui.chart.plottable_interval == expected
-        assert not gui._dialog.value
+        assert not gui._dialog.v_model
         gui._interval_selector.value = mp.intervals.TDInterval.T15
-        assert gui._dialog.value
+        assert gui._dialog.v_model
         assert (
             gui._dialog.text
             == "Prices for interval '15min' are not available over the current plottable dates as no price is available over this peroid for the following symbols: ['9988.HK']."
         )
         gui._dialog.close_dialog()
-        assert not gui._dialog.value
+        assert not gui._dialog.v_model
 
         # verify max_adv, max_dec and crosshairs
         gui._icon_row_top.children[1].click()  # reset chart
@@ -2909,14 +2909,14 @@ class TestCompare:
         gui = analy.plot(start="2022-01-04", display=False)
         plotted_interval = gui.chart.plotted_interval
         slider = gui.date_slider.slider.value
-        assert not gui._dialog.value
+        assert not gui._dialog.v_model
         gui._interval_selector.value = mp.intervals.TDInterval.H4
-        assert gui._dialog.value
+        assert gui._dialog.v_model
         assert gui._dialog.text.startswith(
             "Data is unavailable at a sufficiently low base interval to evaluate prices at interval"
         )
         gui._dialog.close_dialog()
-        assert not gui._dialog.value
+        assert not gui._dialog.v_model
         # verify date range unchanged by error messages having been raised
         assert gui.chart.plotted_interval == plotted_interval
         assert gui.chart.plottable_interval == plotted_interval

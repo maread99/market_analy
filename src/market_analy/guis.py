@@ -295,11 +295,11 @@ class Base(metaclass=ABCMeta):
 
     def _show_loading_overlay(self):
         """Show loading overlay over gui box."""
-        self._loading_overlay.value = True
+        self._loading_overlay.v_model = True
 
     def _hide_loading_overlay(self):
         """Hide loading overlay over gui box."""
-        self._loading_overlay.value = False
+        self._loading_overlay.v_model = False
 
     def _resize_chart(self):
         """Stretch chart to fill all available horizontal space."""
@@ -349,12 +349,14 @@ class Base(metaclass=ABCMeta):
         """
         base_contents = [self._dialog, self._loading_overlay]
         contents = self._gui_box_contents + base_contents
+        # NOTE vuetify 3 removed the flex layout arguments (d_flex, column,
+        # justify_center, align_stretch et al) in favour of the corresponding
+        # utility classes. NB such arguments are silently dropped if passed,
+        # i.e. no error is raised and the layout is simply not applied.
         dflt_kwargs = {
-            "d_flex": True,
-            "column": True,
-            "justify_center": True,
-            "align_stretch": True,
-            "class_": "pa-3 " + gui_parts.BG,
+            "class_": (
+                "d-flex flex-column justify-center align-stretch pa-3 " + gui_parts.BG
+            ),
         }
         kwargs = set_kwargs_from_dflt(kwargs, dflt_kwargs)
         return v.App(children=contents, **kwargs)
@@ -1047,10 +1049,10 @@ class BasePrice(BaseVariableDates):
     def _selector_tab_reset(self):
         self.slctr.enable()
 
-    def _tabs_handler(self, widget, event, data):
-        if not data:
+    def _tabs_handler(self, index: int):
+        if not index:
             self._cursor_tab_reset()
-        elif data == 1:
+        elif index == 1:
             self._selector_tab_reset()
 
     def _trash_handler(self, widget, event, data):
@@ -1065,7 +1067,7 @@ class BasePrice(BaseVariableDates):
         tc.but_zoom.on_event("click", self._zoom_handler)
         tc.but_arrow_up.on_event("click", self._max_adv_handler)
         tc.but_arrow_down.on_event("click", self._max_dec_handler)
-        tc.on_event("change", self._tabs_handler)
+        tc.on_tab_change(self._tabs_handler)
         return tc
 
     # HTML OUTPUT
@@ -1748,10 +1750,8 @@ class GuiMultLine(BasePrice):
                 self._but_rebase.tt,
                 self._but_legend.tt,
             ],
-            d_flex=True,
-            flex_row=True,
-            align_center=True,
-            justify_center=True,
+            # NOTE 'flex-grow-0' as for `_create_controls_container`.
+            class_="d-flex flex-row align-center justify-center flex-grow-0",
         )
 
     def _create_gui_parts(self):
@@ -2303,8 +2303,11 @@ class GuiOHLCCaseBase(GuiOHLC):
         )
         self.cases_controls_container = self._create_cases_controls_container()
         return v.Layout(
+            # NOTE 'flex-grow-0' as otherwise the container, as a flex item of
+            # the gui box, would grow to absorb all the box's spare vertical
+            # space (`v.Layout` is itself styled 'flex: 1 1 auto').
             children=[self._tabs_control_container, self.cases_controls_container],
-            class_="d-flex align-center justify-center",
+            class_="d-flex align-center justify-center flex-grow-0",
         )
 
     def _create_gui_parts(self):
