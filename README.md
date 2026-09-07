@@ -32,7 +32,7 @@ All analyses can be accessed via the classes `Analysis` (single instrument analy
 
 ```python
 from market_prices import PricesYahoo
-from market_analy import Analysis,  Compare
+from market_analy import Analysis, Compare
 
 prices = PricesYahoo("MSFT")
 # OR if Yahoo API endpoints are not all currently available in your region...
@@ -44,10 +44,10 @@ https://github.com/user-attachments/assets/9d03b38d-9da2-4668-8126-e6a33a66c269
 
 ```python
 trend_kwargs = {
-    "prd":60,
-    "ext_break":0.05,
-    "ext_limit":0.03,
-    "min_bars":5,
+    "prd": 60,
+    "ext_break": 0.05,
+    "ext_limit": 0.03,
+    "min_bars": 5,
 }
 gui = analy.trends_chart(
     "1D",
