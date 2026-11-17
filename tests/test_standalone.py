@@ -1,6 +1,6 @@
 """Tests for the `market_analy.standalone` module."""
 
-import datetime
+import datetime as dt
 
 import numpy as np
 import pandas as pd
@@ -205,7 +205,7 @@ def test_get_highs():
         105.0,
         104.0,
     ]
-    for v in (datetime.timedelta(days=4), "4D"):
+    for v in (dt.timedelta(days=4), "4D"):
         rtrn = m.get_period_high(df, v, include_current)
         df_expected = pd.DataFrame(expected_td4, index=index, columns=columns)
         pd.testing.assert_frame_equal(rtrn, df_expected)
@@ -264,7 +264,7 @@ def test_get_highs():
         105.0,
         105.0,
     ]
-    for v in (datetime.timedelta(days=4), "4D"):
+    for v in (dt.timedelta(days=4), "4D"):
         rtrn = m.get_period_high(df, v, include_current)
         df_expected = pd.DataFrame(expected_td4f, index=index, columns=columns)
         pd.testing.assert_frame_equal(rtrn, df_expected)

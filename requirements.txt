@@ -8,13 +8,13 @@ bqplot==0.13.1
     # via market-analy
 bqscales==0.3.7
     # via bqplot
-certifi==2026.7.22
+certifi==2026.10.23
     # via
     #   curl-cffi
     #   requests
 cffi==2.1.1
     # via curl-cffi
-charset-normalizer==3.5.1
+charset-normalizer==3.5.2
     # via requests
 colorama==0.4.6 ; sys_platform == 'win32'
     # via
@@ -28,7 +28,7 @@ contourpy==1.3.3 ; python_full_version == '3.11.*'
     # via matplotlib
 contourpy==1.4.0 ; python_full_version >= '3.12'
     # via matplotlib
-curl-cffi==0.16.3
+curl-cffi==0.17.0
     # via yahooquery
 cycler==0.12.1
     # via matplotlib
@@ -36,25 +36,27 @@ decorator==5.3.1 ; python_full_version < '3.11'
     # via ipython
 exceptiongroup==1.3.1 ; python_full_version < '3.11'
     # via ipython
-exchange-calendars==4.13.2
+exchange-calendars==4.13.3
     # via
     #   market-analy
     #   market-prices
-executing==2.2.1
+executing==2.3.0
     # via stack-data
-fonttools==4.65.0
+fonttools==4.65.0 ; python_full_version < '3.11'
+    # via matplotlib
+fonttools==4.68.0 ; python_full_version >= '3.11'
     # via matplotlib
 idna==3.20
     # via requests
 ipython==8.39.0 ; python_full_version < '3.11'
     # via ipywidgets
-ipython==9.17.1 ; python_full_version >= '3.11'
+ipython==9.18.1 ; python_full_version >= '3.11'
     # via ipywidgets
 ipython-pygments-lexers==1.1.1 ; python_full_version >= '3.11'
     # via ipython
-ipyvue==3.0.0
+ipyvue==3.1.1
     # via ipyvuetify
-ipyvuetify==3.0.0
+ipyvuetify==3.1.1
     # via market-analy
 ipywidgets==8.1.9
     # via
@@ -62,7 +64,7 @@ ipywidgets==8.1.9
     #   bqscales
     #   ipyvue
     #   market-analy
-jedi==0.20.0
+jedi==0.20.1
     # via ipython
 jinja2==3.1.6
     # via market-analy
@@ -74,9 +76,9 @@ korean-lunar-calendar==0.4.0
     # via exchange-calendars
 lxml==6.1.3
     # via yahooquery
-market-prices==0.12.14
+market-prices==0.12.15
     # via market-analy
-markupsafe==3.0.3
+markupsafe==3.0.4
     # via jinja2
 matplotlib==3.10.9 ; python_full_version < '3.11'
     # via market-analy
@@ -104,7 +106,7 @@ numpy==2.4.6 ; python_full_version == '3.11.*'
     #   market-prices
     #   matplotlib
     #   pandas
-numpy==2.5.3 ; python_full_version >= '3.12'
+numpy==2.5.4 ; python_full_version >= '3.12'
     # via
     #   bqplot
     #   bqscales
@@ -123,7 +125,7 @@ pandas==2.3.3 ; python_full_version < '3.11'
     #   market-analy
     #   market-prices
     #   yahooquery
-pandas==3.0.6 ; python_full_version >= '3.11'
+pandas==3.1.1 ; python_full_version >= '3.11'
     # via
     #   bqplot
     #   exchange-calendars
@@ -134,17 +136,21 @@ parso==0.8.7
     # via jedi
 pexpect==4.9.0 ; sys_platform != 'emscripten' and sys_platform != 'win32'
     # via ipython
-pillow==12.3.0
+pillow==12.3.0 ; python_full_version < '3.11'
+    # via matplotlib
+pillow==13.0.0 ; python_full_version >= '3.11'
     # via matplotlib
 prompt-toolkit==3.0.53
     # via ipython
-psutil==7.2.2 ; python_full_version >= '3.11' and sys_platform != 'cygwin' and sys_platform != 'emscripten'
+psutil==7.2.2 ; python_full_version >= '3.11' and sys_platform != 'android' and sys_platform != 'cygwin' and sys_platform != 'emscripten'
     # via ipython
 ptyprocess==0.7.0 ; sys_platform != 'emscripten' and sys_platform != 'win32'
     # via pexpect
 pure-eval==0.2.4
     # via stack-data
-pycparser==3.0 ; implementation_name != 'PyPy'
+pycparser==3.11 ; python_full_version < '3.11' and implementation_name != 'PyPy'
+    # via cffi
+pycparser==3.12 ; python_full_version >= '3.11' and implementation_name != 'PyPy'
     # via cffi
 pygments==2.21.0
     # via
@@ -152,25 +158,31 @@ pygments==2.21.0
     #   ipython-pygments-lexers
 pyluach==2.3.0
     # via exchange-calendars
-pyparsing==3.3.2
+pyparsing==3.3.3
     # via matplotlib
-python-dateutil==2.9.0.post0
+python-dateutil==3.0.0 ; python_full_version < '3.11'
     # via
     #   matplotlib
     #   pandas
-pytz==2026.3.post1 ; python_full_version < '3.11'
+python-dateutil==4.0.0 ; python_full_version >= '3.11'
+    # via
+    #   matplotlib
+    #   pandas
+pytz==2026.6 ; python_full_version < '3.11'
     # via pandas
 requests==2.34.2
     # via requests-futures
 requests-futures==1.1.0
     # via yahooquery
-six==1.17.0
+six==1.17.0 ; python_full_version < '3.11'
     # via python-dateutil
-soupsieve==2.9.2
+soupsieve==2.10 ; python_full_version < '3.11.5'
+    # via beautifulsoup4
+soupsieve==4.1.1 ; python_full_version >= '3.11.5'
     # via beautifulsoup4
 stack-data==0.6.3
     # via ipython
-toolz==1.1.0
+toolz==1.2.0
     # via exchange-calendars
 tqdm==4.70.1
     # via yahooquery
@@ -192,17 +204,18 @@ typing-extensions==4.16.0
     #   beautifulsoup4
     #   exceptiongroup
     #   ipython
-tzdata==2026.4
+tzdata==2026.6
     # via
     #   exchange-calendars
     #   market-analy
     #   market-prices
     #   pandas
+    #   python-dateutil
 urllib3==2.8.0
     # via requests
 valimp==0.6
     # via market-prices
-wcwidth==0.8.4
+wcwidth==0.9.4
     # via prompt-toolkit
 widgetsnbextension==4.0.16
     # via ipywidgets
