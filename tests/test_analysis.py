@@ -65,7 +65,7 @@ def test_add_summary():
     df = pd.DataFrame(dict(a=a, b=b))
 
     # check axis "row"
-    expected = df.copy()
+    expected = df.astype("float64")
     expected.loc["SUMMARY"] = [1.5, 15]
     assert_frame_equal(f(df, aggmethod="mean", axis="row"), expected)
     assert_frame_equal(f(df, axis="row"), expected)  # check dflt

@@ -1,6 +1,6 @@
 """Standalone analysis functions."""
 
-import datetime
+import datetime as dt
 
 import pandas as pd
 import valimp
@@ -127,7 +127,7 @@ def get_ath(data: pd.Series | pd.DataFrame) -> pd.Series | pd.DataFrame:
 @valimp.parse
 def get_period_high(
     data: pd.Series | pd.DataFrame,
-    window: int | str | datetime.timedelta,
+    window: int | str | dt.timedelta,
     include_current: bool = True,
 ) -> pd.Series | pd.DataFrame:
     """Return high over a given period up to each timestamp.
@@ -183,7 +183,7 @@ def get_period_high(
 @valimp.parse
 def get_pct_off_high(
     data: pd.DataFrame,
-    window: int | str | datetime.timedelta | None,
+    window: int | str | dt.timedelta | None,
     include_current: bool = True,
 ) -> pd.DataFrame:
     """Return percent off high as at each timestamp.
