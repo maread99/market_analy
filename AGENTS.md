@@ -136,9 +136,9 @@ pre-commit install
 
 - test with `pytest`
 - see @pytest.ini for configuration; options are applied automatically via `addopts`.
-- shared fixtures are in @tests/conftest.py
 - tests are in @tests/
 - doctests are included to some methods/functions
+- see the 'writing-tests' skill for instructions and guidance on writing tests
 
 Commands to run tests:
 ```bash
