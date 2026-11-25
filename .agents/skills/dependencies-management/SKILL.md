@@ -79,7 +79,8 @@ uv run pytest -v
 
 **Interpret local test results:**
 - All tests pass and no raised warning is fixable (see *Fixable warnings* section below) → go to step 7 to raise PR.
-- Any test failure or a fixable warning raised → proceed to step 6 to fix.
+- Every test failure or error is a network test failure (see *Network tests* section below) and no raised warning is fixable → go to step 7 to raise PR. The CI checks will verify the network tests (see step 9).
+- Any other test failure or error, or a fixable warning raised → proceed to step 6 to fix.
 
 ### 6. Fix
 Any failing tests and fixable warnings will likely have their origin in changes to the dependencies. To provide support for the latest dependencies MAKE REVISIONS to the code base to fix:
@@ -91,7 +92,7 @@ As a general RULE, **change the package code to get the tests passing, not the t
 To facilitate identifying the cause of test failures consider researching the changelogs of updated dependencies for versions released since the previously locked version.
 
 Iterate on this process until:
-- all tests are passing with the exception of any requiring unreachable services.
+- all tests are passing with the exception of any network test failures (see *Network tests* section below).
 - all fixable warnings have been fixed.
 
 IMPORTANT: in this step you should not run the full test suite, rather validate fixes by re-running only the previously failing tests. Example to run a specific test:
@@ -121,9 +122,14 @@ Proceed to step 9 when you receive events indicating that all triggered workflow
 
 The CI workflow will have run the full test suite against a matrix of OS and Python versions. Use `mcp__github__pull_request_read` with the `get_check_runs` method to read check statuses for all matrix jobs.
 
+If any check is red, read the logs of the failed jobs to identify each failing test and the cause of its failure. To read the logs, call `mcp__github__get_job_logs` with the `run_id` of the failed workflow run, `failed_only: true` and `return_content: true`. If a returned log does not reach back to the test failures, call again with a larger `tail_lines`.
+
+The CI checks are the arbiter of the network test failures of the local test run (see *Network tests* section below). A network test that passes in CI needs no fix.
+
 **Interpret CI test results:**
 - All checks green → proceed to step 12.
-- Any check red → proceed to step 10.
+- Every test failure or error is a network test failure → add a comment to the PR that identifies the failures as possible network issues and asks the owner to re-run the failed jobs. Suspend the session pending further prompting.
+- Any other check red → proceed to step 10.
 
 ### 10. Fix tests for specific OS/Python configuration
 
@@ -131,7 +137,7 @@ Use the information read from `get_check_runs` to identify any OS/python version
 
 If the tests failed on specific matrix combinations (e.g. Windows / Python 3.10) then simulate a local matching environment.
 - If necessary use a Docker container with the target OS. (To specify different Python versions you will be able to run commands with `uv run` and pass the --python option.)
-- create a new branch against the repository's master branch.
+- create a new branch against the repository's main branch.
 - update the `uv` package with `uv self update`.
 - overwrite `uv.lock` with the version previously created by step 2.
 - synchronise the environment by running `uv sync`.
@@ -139,8 +145,10 @@ If the tests failed on specific matrix combinations (e.g. Windows / Python 3.10)
 Run the test suite to identify failing tests. For example:
 
 ```bash
-uv run --isolated --python 3.11 python pytest --ignore=tests/test_yahoo.py -v
+uv run --isolated --python 3.11 pytest -v
 ```
+
+If the local test environment cannot reach the Yahoo Finance API, the network tests cannot be verified locally (see *Network tests* section below). In that case, find the cause of a network test's failure from the CI logs read in step 9.
 
 Then find fixes for the failing tests by following step 6.
 
@@ -158,6 +166,16 @@ ONLY if any test failures cannot be resolved, raise an issue that references the
 Perform the following 'tidy up' actions:
 - Call `mcp__github__unsubscribe_pr_activity` to unsubscribe from the PR activity.
 - Review and if necessary update the PR body to reflect the final circumstances.
+
+---
+
+**Network tests** — in `tests/test_analysis.py` and `tests/test_guis.py`
+
+Many tests in `tests/test_analysis.py` and `tests/test_guis.py` require live network access to the Yahoo Finance API. Each such test constructs a `PricesYahoo` instance, either directly or via a fixture of `tests/conftest.py` that reconstructs the instance from pickled prices (see `_unpickle_prices`). Constructing the instance requests data from the Yahoo Finance API. If the API refuses the request (for example with HTTP 429 Too Many Requests), the test fails or errors, typically with a `TypeError` raised from `market_prices/prices/yahoo.py`.
+
+A test failure or error is a *network test failure* if its traceback passes through the construction of a `PricesYahoo` instance.
+
+The Yahoo Finance API can refuse requests from the local test environment, in which case the network tests cannot be verified locally. The CI checks verify the network tests (see step 9).
 
 ---
 
