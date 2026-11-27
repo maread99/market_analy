@@ -358,6 +358,7 @@ class TestAnalysis:
     def tz() -> abc.Iterator[ZoneInfo]:
         yield ZoneInfo("Europe/London")
 
+    @pytest.mark.usefixtures("mock_ticker")
     def test_constructor_raises(self):
         prices = mp.PricesYahoo(
             "AZN.L, MSFT", calendars=["XLON", "XNYS"], delays=[15, 0]
@@ -1654,6 +1655,7 @@ class TestCompare:
     def tz() -> abc.Iterator[ZoneInfo]:
         yield ZoneInfo("America/New_York")
 
+    @pytest.mark.usefixtures("mock_ticker")
     def test_constructor_raises(self):
         prices = mp.PricesYahoo("MSFT", calendars="XNYS", delays=0)
         msg = re.escape(

@@ -82,10 +82,59 @@ CAL_MAPPING = {
     "9988.HK": xcals.get_calendar("XHKG", start=CAL_START),
 }
 DELAY_MAPPING = {"AZN.L": 15, "BARC.L": 15, "MSFT": 0, "9988.HK": 15}
+# Date and time (UTC) of each symbol's first trade, in the form that
+# `mp.PricesYahoo` reads from `yahooquery.Ticker.quote_type`.
+FIRST_TRADE_MAPPING = {
+    "AZN.L": "1993-05-21 07:00:00",
+    "BARC.L": "1988-07-01 07:00:00",
+    "MSFT": "1986-03-13 14:30:00",
+    "9988.HK": "2019-11-26 01:30:00",
+}
+
+
+class _TickerStub:
+    """Stand-in for `yahooquery.Ticker` that makes no request to the Yahoo API.
+
+    The constructor of `mp.PricesYahoo` creates a `yahooquery.Ticker`
+    instance. Creating a `yahooquery.Ticker` instance makes requests to set up a
+    session, to get a crumb and to validate the symbols. If `calendars` and
+    `delays` are passed for every symbol, the constructor of `mp.PricesYahoo` then
+    makes one further request, via the `quote_type` property, for the date of each
+    symbol's first trade.
+
+    This stub provides only the attributes that the constructor of `mp.PricesYahoo`
+    reads if `calendars` and `delays` are passed for every symbol. Every symbol is
+    taken as valid. The `quote_type` property returns the date of each symbol's
+    first trade from `FIRST_TRADE_MAPPING`.
+    """
+
+    def __init__(self, symbols: list[str], **_kwargs):
+        self.symbols = symbols
+        self.invalid_symbols: list[str] = []
+
+    @property
+    def quote_type(self) -> dict[str, dict[str, str]]:
+        return {
+            s: {"firstTradeDateEpochUtc": FIRST_TRADE_MAPPING[s]} for s in self.symbols
+        }
+
+
+@pytest.fixture
+def mock_ticker(mocker) -> abc.Iterator[None]:
+    """Patch `yahooquery.Ticker` with a stub that makes no request.
+
+    See `_TickerStub`.
+    """
+    mocker.patch("yahooquery.Ticker", _TickerStub)
+    yield
 
 
 def _unpickle_prices(path: pathlib.Path, class_mocker) -> mp.PricesYahoo:
-    """Reconstruct an instance of `PricesYahoo` to use in testing."""
+    """Reconstruct an instance of `PricesYahoo` to use in testing.
+
+    The instance is reconstructed without network access (see `_TickerStub`).
+    """
+    class_mocker.patch("yahooquery.Ticker", _TickerStub)
     with path.open("rb") as file:
         now_required = pickle.load(file)
 
